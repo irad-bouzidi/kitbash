@@ -42,3 +42,33 @@ jobs:
           name: test-results
           path: server/*/build/test-results/test/TEST-*.xml
           if-no-files-found: ignore
+
+  reference-build:
+    name: reference project builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The reference project is the source of truth recipe content is extracted
+      # from (§4). If it stops building, every recipe derived from it is wrong.
+      # Includes the Testcontainers suite, which uses the runner's Docker daemon.
+      - name: ./gradlew build
+        working-directory: reference/spring-boot-java-gradle-layered
+        run: ./gradlew build
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-test-results
+          path: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml
+          if-no-files-found: ignore
