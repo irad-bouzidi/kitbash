@@ -86,6 +86,35 @@ class GenerateControllerTest {
     }
 
     @Test
+    @DisplayName("a form submission downloads the same zip, so the browser can navigate to it")
+    void acceptsFormSubmission() throws Exception {
+        MockHttpServletResponse response = mvc.perform(post("/api/v1/generate")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("selection", VALID))
+                .andReturn()
+                .getResponse();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/zip");
+        assertThat(response.getHeader("Content-Disposition"))
+                .isEqualTo("attachment; filename=\"customer-management.zip\"");
+        assertThat(response.getContentAsByteArray()).isEqualTo(generate(VALID).getContentAsByteArray());
+    }
+
+    @Test
+    @DisplayName("a form field that is not an envelope is a 400 naming the field")
+    void rejectsMalformedFormField() throws Exception {
+        MockHttpServletResponse response = mvc.perform(post("/api/v1/generate")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("selection", "not json"))
+                .andReturn()
+                .getResponse();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("\"field\":\"selection\"");
+    }
+
+    @Test
     @DisplayName("a malformed body is a 400, not a 500")
     void rejectsMalformedBody() throws Exception {
         assertThat(generate("not json").getStatus()).isEqualTo(400);
