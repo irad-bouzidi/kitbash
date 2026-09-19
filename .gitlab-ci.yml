@@ -51,3 +51,42 @@ reference-build:
     when: always
     reports:
       junit: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml
+
+web:
+  stage: build
+  image: node:24-alpine
+  before_script:
+    - corepack enable
+    - cd web && pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm test
+    - pnpm build
+  cache:
+    key:
+      files:
+        - web/pnpm-lock.yaml
+    paths:
+      - web/node_modules
+
+web-e2e:
+  stage: build
+  image: mcr.microsoft.com/playwright:v1.55.0-noble
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+    GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  before_script:
+    - corepack enable
+    - apt-get update && apt-get install -y --no-install-recommends openjdk-21-jdk-headless curl
+  script:
+    # A real jar rather than `bootRun`, so the smoke test runs against the
+    # artefact and the step exits once the server is listening.
+    - cd server && ./gradlew :api:bootJar && cd ..
+    - java -jar server/api/build/libs/api-*.jar &
+    - for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8080/actuator/health && break; sleep 2; done
+    - cd web && pnpm install --frozen-lockfile && pnpm test:e2e
+  artifacts:
+    when: on_failure
+    paths:
+      - web/playwright-report
+    expire_in: 1 week
