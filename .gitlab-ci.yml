@@ -25,3 +25,29 @@ build:
     when: always
     reports:
       junit: server/*/build/test-results/test/TEST-*.xml
+
+# The reference project is the source of truth recipe content is extracted from
+# (§4). If it stops building, every recipe derived from it is wrong and the
+# equality test in kitbash-19 is asserting against a broken baseline.
+reference-build:
+  stage: build
+  image: eclipse-temurin:21-jdk
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+  cache:
+    key:
+      files:
+        - reference/spring-boot-java-gradle-layered/gradle/libs.versions.toml
+    paths:
+      - .gradle/wrapper
+      - .gradle/caches
+  script:
+    - cd reference/spring-boot-java-gradle-layered && ./gradlew build
+  artifacts:
+    when: always
+    reports:
+      junit: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml

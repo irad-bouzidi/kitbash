@@ -1,0 +1,10 @@
+# Volatile per-developer IDE state. The rest of .idea/ (code style, run
+# configurations, inspection profiles) is shared deliberately.
+/workspace.xml
+/usage.statistics.xml
+/shelf/
+/tasks.xml
+/dictionaries/
+/httpRequests/
+/dataSources/
+/dataSources.local.xml

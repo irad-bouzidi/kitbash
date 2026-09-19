@@ -1,0 +1,18 @@
+[versions]
+spring-boot = "3.5.5"
+spring-dependency-management = "1.1.7"
+springdoc = "2.8.9"
+flyway = "11.10.5"
+spotless = "7.0.4"
+palantir-java-format = "2.57.0"
+
+[libraries]
+springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql = { module = "org.postgresql:postgresql" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
