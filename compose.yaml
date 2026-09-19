@@ -1,0 +1,42 @@
+# Local development dependencies. `server` and `web` services arrive with
+# kitbash-3 and kitbash-4; this file starts with the two backing services so
+# there is something to point application configuration at.
+name: kitbash
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kitbash
+      POSTGRES_USER: kitbash
+      POSTGRES_PASSWORD: kitbash
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kitbash -d kitbash"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: kitbash
+      MINIO_ROOT_PASSWORD: kitbash-dev-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  minio-data:

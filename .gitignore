@@ -1,15 +1,17 @@
 # --- Gradle ---
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 !src/**/build/
 gradle-app.setting
 .gradletasknamecache
+buildSrc/.gradle/
+buildSrc/build/
 
 # --- Java / JVM ---
 *.class
 *.jar
-!gradle/wrapper/*.jar
+!**/gradle/wrapper/*.jar
 *.war
 *.ear
 *.nar

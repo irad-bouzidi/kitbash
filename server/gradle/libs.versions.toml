@@ -1,0 +1,30 @@
+# Single source of truth for every dependency coordinate in the server build.
+# Modules reference aliases from here; no version literals in build scripts.
+[versions]
+java = "21"
+spring-boot = "3.5.5"
+spring-dependency-management = "1.1.7"
+pebble = "3.2.4"
+jackson = "2.19.2"
+junit = "5.13.4"
+assertj = "3.27.3"
+testcontainers = "1.21.3"
+spotless = "7.0.4"
+palantir-java-format = "2.57.0"
+
+[libraries]
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-dataformat-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+pebble = { module = "io.pebbletemplates:pebble", version.ref = "pebble" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

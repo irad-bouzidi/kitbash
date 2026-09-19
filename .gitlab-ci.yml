@@ -1,0 +1,27 @@
+# Kitbash's own pipeline. Kept deliberately thin: every job is one command, so the
+# GitHub Actions workflow beside it stays a transcription rather than a second
+# implementation (see docs/adr/0002-ci-on-both-gitlab-and-github.md).
+stages:
+  - build
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+build:
+  stage: build
+  image: eclipse-temurin:21-jdk
+  cache:
+    key:
+      files:
+        - server/gradle/libs.versions.toml
+        - server/gradle/wrapper/gradle-wrapper.properties
+    paths:
+      - .gradle/wrapper
+      - .gradle/caches
+  script:
+    - cd server && ./gradlew check
+  artifacts:
+    when: always
+    reports:
+      junit: server/*/build/test-results/test/TEST-*.xml
