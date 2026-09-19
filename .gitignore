@@ -1,0 +1,59 @@
+# --- Gradle ---
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!src/**/build/
+gradle-app.setting
+.gradletasknamecache
+
+# --- Java / JVM ---
+*.class
+*.jar
+!gradle/wrapper/*.jar
+*.war
+*.ear
+*.nar
+out/
+bin/
+hs_err_pid*
+replay_pid*
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Test & coverage output ---
+coverage/
+.nyc_output/
+*.lcov
+
+# --- Logs & runtime ---
+*.log
+logs/
+*.pid
+
+# --- Editors ---
+# .idea/ is tracked; its volatile files are ignored by .idea/.gitignore
+*.iws
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
