@@ -11,7 +11,7 @@ import java.util.Objects;
 
 /**
  * The example entity. One aggregate is enough to show the shape of a slice: an empty skeleton
- * teaches nothing, and a second entity would only duplicate what this one already demonstrates.
+ * teaches nothing, and a second entity would only repeat what this one already shows.
  */
 @Entity
 @Table(name = "widgets")

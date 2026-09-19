@@ -8,8 +8,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
+    // Deliberately not named after the project: the project name becomes a generator
+    // variable, and a kebab-case one does not fit inside a Java identifier. Names that
+    // vary between generated projects belong in strings, never in identifiers.
     @Bean
-    public OpenAPI demoOpenApi(DemoProperties properties) {
+    public OpenAPI openApi(DemoProperties properties) {
         return new OpenAPI()
                 .info(new Info()
                         .title("demo API")
