@@ -57,6 +57,13 @@ project="$(find "$work/unpacked" -mindepth 1 -maxdepth 1 -type d | head -1)"
 # actually serves rather than docker-java's 1.32 default, which Docker 29 refuses.
 docker_api_version="$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || true)"
 
+# The build runs as a non-root user, so it can only use the mounted socket if it is
+# in the socket's group. That group's id differs between a developer's machine and
+# a CI runner, so it is read from the socket rather than baked into the image.
+docker_socket_gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo '')"
+group_add=()
+[ -n "$docker_socket_gid" ] && group_add=(--group-add "$docker_socket_gid")
+
 echo "[cell:$cell] building in $IMAGE (cpus=$CPUS memory=$MEMORY timeout=${TIMEOUT_SECONDS}s docker-api=${docker_api_version:-default})"
 started=$(date +%s)
 
@@ -79,6 +86,7 @@ timeout --signal=KILL "$TIMEOUT_SECONDS" \
     --memory-swap="$MEMORY" \
     --pids-limit=2048 \
     --security-opt=no-new-privileges \
+    "${group_add[@]}" \
     --add-host=host.docker.internal:host-gateway \
     -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
     -e KITBASH_DOCKER_API_VERSION="$docker_api_version" \
