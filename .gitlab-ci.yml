@@ -90,3 +90,22 @@ web-e2e:
     paths:
       - web/playwright-report
     expire_in: 1 week
+
+generated-build:
+  stage: build
+  image: docker:28-cli
+  timeout: 30 minutes
+  services:
+    - docker:28-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "/certs/client"
+  before_script:
+    - apk add --no-cache bash curl unzip openjdk21-jdk
+  script:
+    - docker build -t kitbash/verify-jvm:latest -f verification/images/jvm/Dockerfile .
+    # The phase exit test: the downloaded zip unzips and ./gradlew build passes,
+    # in a container, never on the API host (§12).
+    - ./verification/run-cell.sh verification/selections/phase0-spring-java-gradle.json

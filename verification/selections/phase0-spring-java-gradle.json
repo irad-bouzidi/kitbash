@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "projectName": "verification-cell",
+  "options": {
+    "backend": "backend-spring-boot-java",
+    "buildTool": "gradle-kts",
+    "architecture": "layered",
+    "database": "db-postgres-flyway"
+  },
+  "variables": {
+    "groupId": "com.example",
+    "packageName": "com.example.verification",
+    "javaVersion": "21"
+  }
+}
