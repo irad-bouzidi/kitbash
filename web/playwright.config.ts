@@ -15,9 +15,11 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    // The preview server serves the production build and proxies /api to a real
-    // server, so the smoke test exercises the same bytes a user downloads.
-    command: `pnpm vite preview --port ${PORT} --strictPort`,
+    // Builds first, so the command works from a clean checkout as well as after a
+    // local `pnpm build`. The preview server serves the production build and
+    // proxies /api to a real server, so the smoke test exercises the same bytes a
+    // user downloads rather than a dev-server approximation of them.
+    command: `pnpm build && pnpm vite preview --port ${PORT} --strictPort`,
     port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
