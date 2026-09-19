@@ -1,0 +1,16 @@
+# Determinism starts here. The generator's contract is byte-identical output for
+# identical input (plan §4), so no file in this repository is allowed to change
+# shape depending on who checked it out — `core.autocrlf` is overridden, not trusted.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+gradlew text eol=lf
+
+*.jar binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
