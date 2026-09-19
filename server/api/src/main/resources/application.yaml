@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: kitbash
+  threads:
+    virtual:
+      # Generation is CPU work that streams a response, not I/O fan-out (§5).
+      # MVC on virtual threads streams zips fine and keeps the code blocking and
+      # readable; WebFluxwould buy nothing here.
+      enabled: true
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
