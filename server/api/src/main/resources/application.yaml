@@ -44,6 +44,19 @@ kitbash:
     roles-claim: ${KITBASH_OIDC_ROLES_CLAIM:roles}
     preset-author: ${KITBASH_ROLE_PRESET_AUTHOR:kitbash-author}
     publisher: ${KITBASH_ROLE_PUBLISHER:kitbash-publisher}
+  objectstore:
+    # §10's zip cache. Off unless the `objectstore` profile is active, for the same reason
+    # persistence is: the generator half of this service needs neither, and a missing bucket must
+    # not be able to stop /generate from working.
+    endpoint: ${KITBASH_S3_ENDPOINT:}
+    bucket: ${KITBASH_S3_BUCKET:kitbash-artifacts}
+    access-key: ${KITBASH_S3_ACCESS_KEY:}
+    secret-key: ${KITBASH_S3_SECRET_KEY:}
+    region: ${KITBASH_S3_REGION:us-east-1}
+    # §10's uniform thirty days, applied as a bucket lifecycle rule rather than by the sweep —
+    # the store is better placed to expire its own objects than a job that would have to list
+    # them.
+    retention-days: ${KITBASH_S3_RETENTION_DAYS:30}
   limits:
     # Modest, per §13 and §18 — one internal team, not a public service. These exist to stop a
     # loop in somebody's script from saturating the box, not to meter usage, and a cache hit
@@ -61,7 +74,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # metrics because §27 wants the cache hit rate and the popular selections observable from
+        # day one: the hit rate is the number that says whether determinism is still holding.
+        include: health,info,metrics
   info:
     env:
       enabled: true

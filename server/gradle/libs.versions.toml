@@ -18,6 +18,9 @@ slf4j = "2.0.17"
 # generator's own, and they move independently on purpose.
 flyway = "11.13.2"
 postgresql = "42.7.8"
+# The S3 client only. The full SDK bundle is ~200 MB of services this never calls, and the
+# object store here speaks S3 because MinIO does (§5) rather than because it is AWS.
+aws-sdk = "2.35.9"
 spotless = "7.0.4"
 palantir-java-format = "2.57.0"
 
@@ -38,6 +41,8 @@ testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
+testcontainers-minio = { module = "org.testcontainers:minio" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

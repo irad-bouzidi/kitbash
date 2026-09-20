@@ -23,6 +23,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // §10's zip cache. S3-compatible because MinIO is what runs locally (§5) — the client is the
+    // S3 one, not a bundle of every AWS service this will never call.
+    implementation(libs.aws.s3)
+
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
     runtimeOnly(libs.postgresql)
@@ -34,6 +38,7 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.minio)
     testImplementation(libs.postgresql)
     testImplementation(libs.flyway.postgresql)
     testImplementation(platform(libs.junit.bom))

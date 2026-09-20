@@ -20,8 +20,29 @@ import org.springframework.stereotype.Component;
  */
 public interface GenerationRecorder {
 
-    /** A generation that produced a zip. */
-    void succeeded(Selection selection, Lock lock, UUID owner, String projectName, long bytes, Duration took);
+    /**
+     * A generation that produced a zip.
+     *
+     * @param artifactKey the object store key the bytes are under, or null when nothing kept them
+     */
+    void succeeded(
+            Selection selection,
+            Lock lock,
+            UUID owner,
+            String projectName,
+            String artifactKey,
+            long bytes,
+            Duration took);
+
+    /**
+     * A generation served from the cache.
+     *
+     * <p>Still a row: §24 records what somebody downloaded, and a download that happened to be
+     * cheap is still a download. The lock comes from the row the artifact was first written for,
+     * because that is what produced these exact bytes — re-resolving now could record versions
+     * that had nothing to do with them.
+     */
+    void servedFromCache(Selection selection, UUID owner, String artifactKey, long bytes, Duration took);
 
     /**
      * A generation that did not.
@@ -43,8 +64,19 @@ public interface GenerationRecorder {
 
         @Override
         public void succeeded(
-                Selection selection, Lock lock, UUID owner, String projectName, long bytes, Duration took) {
+                Selection selection,
+                Lock lock,
+                UUID owner,
+                String projectName,
+                String artifactKey,
+                long bytes,
+                Duration took) {
             // Nowhere to write it.
+        }
+
+        @Override
+        public void servedFromCache(Selection selection, UUID owner, String artifactKey, long bytes, Duration took) {
+            // As above.
         }
 
         @Override
