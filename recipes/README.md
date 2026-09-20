@@ -11,7 +11,7 @@ against at boot and which editors can be pointed at directly:
 # yaml-language-server: $schema=../_schema/recipe.schema.json
 ```
 
-Six recipes today, extracted from [`/reference/spring-boot-java-gradle-layered`](../reference/spring-boot-java-gradle-layered):
+Seven recipes today, extracted from the projects under [`/reference`](../reference):
 
 | Recipe | Kind | Provides |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ Six recipes today, extracted from [`/reference/spring-boot-java-gradle-layered`]
 | `build-gradle-kts` | base | `build-tool` |
 | `backend-spring-java` | backend | `http-server`, `rest-api`, `openapi-spec`, `jvm-project` |
 | `db-postgres-flyway` | feature | `database` |
+| `frontend-react-vite` | frontend | `spa` |
 | `infra-docker` | infra | `containers`, `docker` |
 | `ci-gitlab` | ci | `ci` |
 

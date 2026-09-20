@@ -42,7 +42,7 @@ class RecipeTest {
     @Test
     @DisplayName("an option that accepts a value of the wrong shape would be a broken wizard control")
     void optionSpecChecksShapeAndDomain() {
-        OptionSpec architecture = new OptionSpec(
+        OptionSpec architecture = OptionSpec.of(
                 "architecture",
                 OptionType.ENUM,
                 List.of("layered", "hexagonal"),
@@ -60,7 +60,7 @@ class RecipeTest {
     @DisplayName("an option with no help text is refused, so no option can arrive unexplained")
     void optionsMustCarryHelp() {
         assertThatThrownBy(() ->
-                        new OptionSpec("docker", OptionType.BOOLEAN, List.of(), OptionValue.flag(true), "Docker", "  "))
+                        OptionSpec.of("docker", OptionType.BOOLEAN, List.of(), OptionValue.flag(true), "Docker", "  "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("help");
     }
@@ -68,7 +68,7 @@ class RecipeTest {
     @Test
     @DisplayName("an enum option with no values would render as an empty dropdown")
     void enumOptionsMustDeclareValues() {
-        assertThatThrownBy(() -> new OptionSpec(
+        assertThatThrownBy(() -> OptionSpec.of(
                         "architecture", OptionType.ENUM, List.of(), OptionValue.text("layered"), "Arch", "help"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must declare values");

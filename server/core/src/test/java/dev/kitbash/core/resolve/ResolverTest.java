@@ -235,6 +235,29 @@ class ResolverTest {
         }
 
         @Test
+        @DisplayName("an option can name the capability it demands, so its recipe need not require it")
+        void optionDemandsACapability() {
+            // §18 settles that a standalone frontend is supported, so the frontend recipe cannot
+            // require `rest-api`. The typed-client option genuinely does need a backend that
+            // publishes an OpenAPI document, and `demands` is how it says so without the recipe
+            // making the supported configuration impossible to express.
+            Resolution standalone = Resolver.resolve(CATALOG, selection("frontend", "frontend-react-vite"));
+            assertThat(standalone.valid()).isTrue();
+            assertThat(ids(standalone)).containsExactly("base", "frontend-react-vite");
+
+            // Switching the option on makes `openapi-spec` a requirement. This catalog has two
+            // backends publishing one, so the answer is the same as for any ambiguous capability:
+            // a choice, named on the option the user can change — not a guess.
+            Resolution typed =
+                    Resolver.resolve(CATALOG, selection("frontend", "frontend-react-vite", "typedClient", true));
+            assertThat(typed.valid()).isFalse();
+            assertThat(typed.firstConflict().code()).isEqualTo(ErrorCode.CAPABILITY_UNSATISFIED);
+            assertThat(typed.firstConflict().hint())
+                    .contains("backend-spring-java")
+                    .contains("backend-spring-kotlin");
+        }
+
+        @Test
         @DisplayName("a false boolean pulls in nothing")
         void falseBooleanDemandsNothing() {
             Resolution resolution =

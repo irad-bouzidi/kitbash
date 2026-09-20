@@ -268,6 +268,12 @@ ninth is a design discussion, not a manifest change.
 | `addEnvVar` | `name`, `value`, optional `comment`, `composeTarget`, `composeService` | `.env.example` **and** `compose.yaml` |
 | `addComposeService` | `service`, `definition`, optional `dependsOn` | `compose.yaml` |
 
+`appendLines` dedupes **line by line across the whole file**, which is what a `.gitignore` wants —
+two recipes both ignoring `build/` should produce one entry. It is the wrong tool for a sectioned
+file: in an `.editorconfig`, `indent_size = 2` under one section is not the same statement as
+`indent_size = 2` under another, and the dedupe would silently drop it. Sectioned files get a
+marker instead.
+
 Every patch is idempotent, and every one is applied in resolved recipe order so the output stays
 byte-identical across runs. A patch against a file **no selected recipe produced** fails at validate
 time with `PATCH_TARGET_MISSING` and a hint naming the recipe that wanted it — never silently (§4,
@@ -290,7 +296,7 @@ existence:
 
 | Capability | Also guarantees |
 | --- | --- |
-| `project-root` | A `README.md` carrying the five `<!-- kitbash:… -->` section markers, a `.gitignore` and a `.env.example` |
+| `project-root` | A `README.md` carrying the five `<!-- kitbash:… -->` section markers, a `.gitignore`, a `.env.example`, and an `.editorconfig` carrying `# kitbash:sections` |
 | `build-tool` | A build file with a `dependencies` block, and a version catalog carrying `# kitbash:versions`, `# kitbash:libraries` and `# kitbash:plugins` |
 | `containers` | A `compose.yaml` whose application service is named `app` |
 

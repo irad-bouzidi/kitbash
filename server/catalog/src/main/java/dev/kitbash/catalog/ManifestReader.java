@@ -126,6 +126,7 @@ final class ManifestReader {
                                     + "type, never on option id (§9), so the set is closed."));
             List<String> values = stringList(node.path("values"));
             OptionValue defaultValue = readDefault(node, type, values, optionId, displayPath);
+            String demands = node.path("demands").asText(null);
             OptionSpec spec;
             try {
                 spec = new OptionSpec(
@@ -134,7 +135,8 @@ final class ManifestReader {
                         values,
                         defaultValue,
                         node.path("label").asText(null),
-                        node.path("help").asText(null));
+                        node.path("help").asText(null),
+                        demands == null || demands.isBlank() ? null : Capability.of(demands));
             } catch (IllegalArgumentException e) {
                 throw new RecipeLoadException(displayPath, "options[" + optionId + "]", e.getMessage(), "See §9.", e);
             }

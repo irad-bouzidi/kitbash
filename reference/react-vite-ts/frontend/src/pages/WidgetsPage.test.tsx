@@ -1,0 +1,94 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WidgetsPage } from '@/pages/WidgetsPage';
+
+/**
+ * The API is stubbed at `fetch` rather than at the module boundary on purpose: that keeps the
+ * test honest about the request the client actually sends, which is the thing `kitbash-33`'s
+ * generated client has to keep sending.
+ */
+function respondWith(handler: (init?: RequestInit) => Response) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((_url: string, init?: RequestInit) => Promise.resolve(handler(init))),
+  );
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+describe('WidgetsPage', () => {
+  beforeEach(() => {
+    respondWith(() =>
+      json([{ id: 1, name: 'flux capacitor', quantity: 3, createdAt: '2026-01-01T00:00:00Z' }]),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('lists what the API returns', async () => {
+    render(<WidgetsPage />);
+
+    expect(await screen.findByText('flux capacitor')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('posts a new widget and shows it', async () => {
+    const user = userEvent.setup();
+    const created = {
+      id: 2,
+      name: 'sonic screwdriver',
+      quantity: 1,
+      createdAt: '2026-01-02T00:00:00Z',
+    };
+    let postedBody: string | undefined;
+    respondWith((init) => {
+      if (init?.method === 'POST') {
+        postedBody = init.body as string;
+        return json(created, 201);
+      }
+      return json(postedBody ? [created] : []);
+    });
+
+    render(<WidgetsPage />);
+    await screen.findByText('No widgets yet.');
+
+    await user.type(screen.getByLabelText('Name'), 'sonic screwdriver');
+    await user.click(screen.getByRole('button', { name: 'Add widget' }));
+
+    expect(await screen.findByText('sonic screwdriver')).toBeInTheDocument();
+    expect(JSON.parse(postedBody ?? '{}')).toEqual({ name: 'sonic screwdriver', quantity: 1 });
+  });
+
+  it("shows the server's own message when a request fails", async () => {
+    // Not a generic "something went wrong": the backend returns an RFC 9457 problem document
+    // that already says what happened, and throwing it away is throwing away the answer.
+    respondWith(() =>
+      json({ title: 'Duplicate widget name', detail: 'flux capacitor exists' }, 409),
+    );
+
+    render(<WidgetsPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('flux capacitor exists'),
+    );
+  });
+
+  it('says the API is unreachable rather than showing an empty page', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('failed to fetch'))),
+    );
+
+    render(<WidgetsPage />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('not reachable'));
+  });
+});

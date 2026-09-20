@@ -70,14 +70,14 @@ final class TestCatalogFixture {
                 capabilities("project-root"),
                 Set.of(),
                 List.of(
-                        new OptionSpec(
+                        OptionSpec.of(
                                 "architecture",
                                 OptionType.ENUM,
                                 List.of("layered", "hexagonal"),
                                 OptionValue.text("layered"),
                                 "Architecture",
                                 "Determines the package layout and dependency direction."),
-                        new OptionSpec(
+                        OptionSpec.of(
                                 "docs",
                                 OptionType.BOOLEAN,
                                 List.of(),

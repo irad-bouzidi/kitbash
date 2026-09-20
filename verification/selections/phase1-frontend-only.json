@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "projectName": "storefront-cell",
+  "options": {
+    "frontend": "frontend-react-vite",
+    "docker": true
+  },
+  "variables": {
+    "entityName": "Widget",
+    "entityTable": "widgets"
+  }
+}

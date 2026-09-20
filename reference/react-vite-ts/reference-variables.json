@@ -1,0 +1,44 @@
+{
+  "$comment": [
+    "The names in this reference project that become generator variables.",
+    "The equality test generates with exactly the selection below and asserts the result",
+    "equals this directory. That test is only meaningful if this file stays accurate, so",
+    "renaming anything below is a change to this file in the same commit.",
+    "",
+    "This is the standalone-frontend cell (\u00a718): no backend is selected, so the recipe",
+    "resolves on its own and the API base URL points wherever the deployment says."
+  ],
+  "referenceProject": "react-vite-ts",
+  "recipeIds": [
+    "base",
+    "frontend-react-vite",
+    "infra-docker"
+  ],
+  "selection": {
+    "schemaVersion": 1,
+    "projectName": "storefront",
+    "options": {
+      "frontend": "frontend-react-vite",
+      "docker": true
+    },
+    "variables": {
+      "entityName": "Widget",
+      "entityTable": "widgets"
+    }
+  },
+  "literals": {
+    "Widget": "{{ entityName }}",
+    "widgets": "{{ entityTable }}",
+    "widget": "{{ entityName | camel }}",
+    "storefront": "{{ projectName }}"
+  },
+  "excludeFromExtraction": [
+    "reference-variables.json",
+    "REFERENCE.md",
+    "frontend/node_modules/",
+    "frontend/dist/",
+    "frontend/coverage/",
+    "frontend/.vite/",
+    "*.tsbuildinfo"
+  ]
+}

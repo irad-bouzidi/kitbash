@@ -163,8 +163,19 @@ class ReferenceProjectEqualityTest {
         return new TreeMap<>(files);
     }
 
+    /**
+     * Three forms, deliberately no more: a directory prefix, a {@code *.suffix}, or an exact
+     * path. §4's ignore list has to be short and readable — a glob language here would make it
+     * possible to exclude something without anybody noticing what.
+     */
     private static boolean matches(String path, String rule) {
-        return rule.endsWith("/") ? path.startsWith(rule) : path.equals(rule);
+        if (rule.endsWith("/")) {
+            return path.startsWith(rule) || path.contains("/" + rule);
+        }
+        if (rule.startsWith("*.")) {
+            return path.endsWith(rule.substring(1));
+        }
+        return path.equals(rule);
     }
 
     private static byte[] read(Path path) {

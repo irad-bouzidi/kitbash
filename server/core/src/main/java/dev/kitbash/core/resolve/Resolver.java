@@ -122,8 +122,16 @@ public final class Resolver {
                         recipeSlots.putIfAbsent(id, optionId);
                     }));
                 case OptionValue.Flag flag -> {
-                    Capability capability = asCapability(optionId);
-                    if (flag.value() && capability != null && known.contains(capability)) {
+                    if (!flag.value()) {
+                        return;
+                    }
+                    // Rule 2, in two forms. An option may name the capability it demands in its
+                    // manifest — which is how `typedClient: true` asks for `openapi-spec` without
+                    // sharing its name — and failing that, an option id that is itself a capability
+                    // name demands it, which is how `docker: true` reaches the container recipe.
+                    Capability declared = declaredDemand(optionId);
+                    Capability capability = declared != null ? declared : asCapability(optionId);
+                    if (capability != null && known.contains(capability)) {
                         capabilitySlots.putIfAbsent(capability, optionId);
                     }
                 }
@@ -461,6 +469,18 @@ public final class Resolver {
             // recipe id is configuration, not a selection.
             return Optional.empty();
         }
+    }
+
+    /** The capability an option's own manifest says it demands when switched on. */
+    private Capability declaredDemand(String optionId) {
+        return catalog.recipes().stream()
+                .map(recipe -> recipe.option(optionId))
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::get)
+                .map(OptionSpec::demands)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     private static Capability asCapability(String optionId) {

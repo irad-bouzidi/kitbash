@@ -1,0 +1,13 @@
+import { {{ entityName }}sPage } from '@/pages/{{ entityName }}sPage';
+
+export function App() {
+  return (
+    <main>
+      <header>
+        <h1>{{ projectName }}</h1>
+        <p>A React + TypeScript front end, talking to the {{ entityTable }} API.</p>
+      </header>
+      <{{ entityName }}sPage />
+    </main>
+  );
+}

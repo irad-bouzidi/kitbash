@@ -52,6 +52,25 @@ reference-build:
     reports:
       junit: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml
 
+# The second reference project, and the standalone-frontend case (§18). If it stops
+# building, `frontend-react-vite` is emitting a project nobody can run.
+frontend-reference-build:
+  stage: build
+  image: node:24-alpine
+  before_script:
+    - corepack enable
+    - cd reference/react-vite-ts/frontend && pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm test
+    - pnpm build
+  cache:
+    key:
+      files:
+        - reference/react-vite-ts/frontend/pnpm-lock.yaml
+    paths:
+      - reference/react-vite-ts/frontend/node_modules
+
 web:
   stage: build
   image: node:24-alpine
