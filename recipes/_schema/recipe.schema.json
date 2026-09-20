@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kitbash.dev/schema/recipe.schema.json",
+  "title": "Kitbash recipe manifest",
+  "description": "The recipe.yaml format from plan §4. The loader validates against this schema first and then applies the semantic checks a schema cannot express (a `when` naming an undeclared option, a `requires` nothing provides, a glob matching nothing).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "kind", "label"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "description": "Lowercase kebab-case. Also the recipe's directory name."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "description": "The recipe's own semver, independent of the framework version it emits."
+    },
+    "frameworkVersion": {
+      "type": "string",
+      "description": "What this recipe emits, surfaced in the UI. Display text, never compared."
+    },
+    "kind": {
+      "enum": ["base", "backend", "frontend", "mobile", "feature", "infra", "ci"],
+      "description": "The slot this recipe fills, which is also its position in the apply order."
+    },
+    "label": { "type": "string", "minLength": 1 },
+    "provides": { "$ref": "#/$defs/capabilityList" },
+    "requires": { "$ref": "#/$defs/capabilityList" },
+    "conflictsWith": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "hook": {
+      "type": "boolean",
+      "description": "Declares that a hook is registered for this recipe in core. A recipe directory can say it has a hook; it cannot supply code (§4)."
+    },
+    "options": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/option" }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "when": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "patches": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/patch" }
+    }
+  },
+  "$defs": {
+    "capabilityList": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "help"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
+        "type": { "enum": ["enum", "boolean", "string", "multi-select"] },
+        "values": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "default": { "type": ["string", "boolean", "array"] },
+        "label": { "type": "string" },
+        "help": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required. An option nobody documented is an option somebody explains in a wiki page that nobody reads."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
+          "then": { "required": ["values"], "properties": { "values": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "multi-select" } }, "required": ["type"] },
+          "then": { "required": ["values"], "properties": { "values": { "minItems": 1 } } }
+        }
+      ]
+    },
+    "patch": {
+      "type": "object",
+      "required": ["op", "target"],
+      "properties": {
+        "op": {
+          "enum": [
+            "addDependency",
+            "mergeYaml",
+            "mergeJson",
+            "addScript",
+            "insertAtMarker",
+            "appendLines",
+            "addEnvVar",
+            "addComposeService"
+          ],
+          "description": "The eight operations of §4. The set is closed: a ninth is a design discussion, not a manifest change."
+        },
+        "target": { "type": "string", "minLength": 1 },
+        "when": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "const": "addDependency" } }, "required": ["op"] },
+          "then": {
+            "required": ["configuration", "coordinate"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "configuration": { "type": "string", "minLength": 1 },
+              "coordinate": { "type": "string", "minLength": 1 },
+              "versionRef": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "mergeYaml" } }, "required": ["op"] },
+          "then": {
+            "required": ["content"],
+            "additionalProperties": false,
+            "properties": { "op": true, "target": true, "when": true, "content": { "type": "object" } }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "mergeJson" } }, "required": ["op"] },
+          "then": {
+            "required": ["content"],
+            "additionalProperties": false,
+            "properties": { "op": true, "target": true, "when": true, "content": { "type": "object" } }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "addScript" } }, "required": ["op"] },
+          "then": {
+            "required": ["name", "command"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "name": { "type": "string", "minLength": 1 },
+              "command": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "insertAtMarker" } }, "required": ["op"] },
+          "then": {
+            "required": ["marker", "lines"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "marker": { "type": "string", "minLength": 1 },
+              "lines": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "appendLines" } }, "required": ["op"] },
+          "then": {
+            "required": ["lines"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "lines": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "addEnvVar" } }, "required": ["op"] },
+          "then": {
+            "required": ["name", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "name": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+              "value": { "type": "string" },
+              "comment": { "type": "string" },
+              "composeTarget": { "type": "string" },
+              "composeService": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "addComposeService" } }, "required": ["op"] },
+          "then": {
+            "required": ["service", "definition"],
+            "additionalProperties": false,
+            "properties": {
+              "op": true, "target": true, "when": true,
+              "service": { "type": "string", "minLength": 1 },
+              "definition": { "type": "object" },
+              "dependsOn": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
