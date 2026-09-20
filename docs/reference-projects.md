@@ -1,0 +1,125 @@
+# Reference projects
+
+A **reference project** under `/reference` is a real project: it compiles, runs and passes its
+own tests without the generator involved. It is the thing being maintained. A recipe is a
+derivative of it, and `ReferenceProjectEqualityTest` is the bind between the two (§4).
+
+There are two today:
+
+| Directory | What it is | Recipes it covers |
+| --- | --- | --- |
+| `spring-boot-java-gradle-layered` | Spring Boot, Java 21, Gradle, Postgres + Flyway, Docker, GitLab CI | `base`, `build-gradle-kts`, `backend-spring-java`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
+| `react-vite-ts` | React 19, Vite, TypeScript, standalone (no backend selected) | `base`, `frontend-react-vite`, `infra-docker` |
+
+## Why this exists
+
+Without a test binding them, reference projects quietly become documentation that lies. Somebody
+fixes a bug in the reference, nobody ports it into the recipe, and every generated project keeps
+the bug — and nothing anywhere goes red.
+
+It is also the mechanism that makes recipe maintenance bearable. Editing a Pebble template by
+hand, blind, is unpleasant and error-prone. Editing a project that builds, and then being told
+exactly which lines moved, is ordinary work.
+
+## The workflow
+
+**The reference is the thing being maintained, and the recipe follows it.**
+
+1. Edit the reference project like any other project. Run it. Test it. Fix it.
+2. From `server/`, run `./gradlew :verify:test --tests '*ReferenceProjectEqualityTest*'`.
+3. The failure names the reference project, the file, and the first differing line with context
+   either side. Port that change into the recipe under `/recipes`.
+4. Re-run until green.
+
+Nothing is compiled by this test — it renders and compares bytes — so it runs in seconds and it
+runs on **every** merge request as part of `./gradlew check`, not only nightly. The question it
+answers is different from the verification matrix's: not *does the output build?* but *is the
+output still the project we maintain?*
+
+### The one exception: adoption
+
+`-Dkitbash.reference.adopt=true` writes the generated tree **over** the reference project. That
+is the opposite of the workflow above and it is correct exactly once per recipe: at extraction,
+when recipes are first derived from a project a human wrote by hand and composition legitimately
+reorders things — `.gitignore` sections land in apply order, a patched YAML comes back through
+its serialiser. `kitbash-13` used it, with that diff reviewed in the commit. Afterwards the
+direction reverses for good.
+
+## What is compared
+
+**Bytes and modes.** The content of every file, and whether it is executable — the one file that
+must be is `gradlew`, and a project whose wrapper arrives at `0644` is broken on its first
+command, which a bytes-only comparison would not notice.
+
+There is exactly one normalisation, and it is not this test's. `.gitattributes` pins the whole
+repository to LF (with `*.bat` at CRLF), which is the same rule the packager's post-process stage
+applies, so a checkout cannot change what "equal" means. Two different normalisations is how a
+test like this becomes flaky, and the way to keep there being one is to never add a second here.
+
+File modes are compared where the filesystem keeps them. A Windows checkout reports every file as
+executable, so the comparison skips modes there rather than guessing — CI runs on Linux, where the
+check is real.
+
+## What each reference project carries
+
+- `reference-variables.json` — the selection the equality test generates from, the literals that
+  became variables, and the ignore list below. Renaming the package, the group or the example
+  entity is a change to this file **in the same commit**, or the test starts comparing the wrong
+  things.
+- `REFERENCE.md` — the short version of this document, next to the project it describes.
+- `README.md` — deliberately *not* about any of this. It is the README a generated project gets,
+  so it describes only the stack that was selected.
+
+## The ignore list
+
+`excludeFromExtraction` in `reference-variables.json` is the only way a file escapes comparison,
+and every rule in it must be justified here. A test asserts that: an exclusion this document does
+not mention fails the build, so the list cannot grow quietly.
+
+Rules come in three forms and no more — a directory prefix (`build/`), a suffix (`*.tsbuildinfo`)
+or an exact path. A glob language here would make it possible to exclude something without
+anybody noticing what.
+
+### Reference metadata
+
+| Rule | Why |
+| --- | --- |
+| `reference-variables.json` | Describes the reference project to this repository. A generated project has no use for it. |
+| `REFERENCE.md` | Same: it explains the maintenance contract, which stops being true the moment the project is generated. |
+
+### Build output
+
+| Rule | Why |
+| --- | --- |
+| `.gradle/` | Gradle's own working directory. Machine-local, enormous, and never checked in. |
+| `build/` | Compiled output. The verification matrix compiles; this test does not. |
+| `frontend/node_modules/` | Installed dependencies. Reproducible from the committed lockfile. |
+| `frontend/dist/` | Vite's build output. |
+| `frontend/coverage/` | Test coverage output. |
+| `frontend/.vite/` | Vite's local cache. |
+| `*.tsbuildinfo` | TypeScript's incremental build state. Machine-local and timestamped. |
+
+That is the whole list. Everything else in a reference project is compared byte for byte.
+
+### Generated artifacts: committed, not excluded
+
+Two artifacts could plausibly have gone either way. Both are **generated into the recipe and
+compared**, rather than excluded:
+
+- **`frontend/pnpm-lock.yaml`** — the recipe ships it. A generated project whose first command is
+  `pnpm install --frozen-lockfile` needs a lockfile that matches its `package.json`, and the
+  `frontend-only` verification cell runs exactly that. Excluding it would mean the generator emits
+  a project whose dependency set nobody has ever resolved.
+- **A typed API client** — the `typedClient` option generates one from the backend's OpenAPI
+  document at generation time, not at build time, so it is ordinary generated content. The
+  reference project is standalone and selects no backend, so it has none to compare.
+
+The rule behind both: an artifact a generated project needs in order to build is content the
+recipe owns. An artifact a *build* produces is output, and output is excluded.
+
+## Adding a reference project
+
+Create the directory, write the project, and add `reference-variables.json` naming the recipes it
+covers and the selection that produces it. The equality test is parameterised over every
+directory under `/reference` that has one, so it picks the new project up with no code change —
+and a failure names which project failed rather than "trees are not equal".

@@ -53,13 +53,13 @@ class ReferenceProjectEqualityTest {
             return;
         }
 
-        Map<String, byte[]> expected = readTree(referenceProject, ReferenceProjects.excluded(referenceProject));
-        Map<String, byte[]> actual = new TreeMap<>();
+        Map<String, Entry> expected = readTree(referenceProject, ReferenceProjects.excluded(referenceProject));
+        Map<String, Entry> actual = new TreeMap<>();
         generated.workspace().files().forEach((path, file) -> {
             // The git skeleton is generated, never checked in: a reference project is a working
             // tree, and its own .git belongs to this repository.
             if (!path.startsWith(".git/")) {
-                actual.put(path, file.content());
+                actual.put(path, new Entry(file.content(), file.executable()));
             }
         });
 
@@ -86,7 +86,7 @@ class ReferenceProjectEqualityTest {
      * needs is which files are missing, which are extra, and for a differing file the first line
      * that differs with a little context either side.
      */
-    private static String diff(Map<String, byte[]> expected, Map<String, byte[]> actual) {
+    private static String diff(Map<String, Entry> expected, Map<String, Entry> actual) {
         List<String> report = new ArrayList<>();
 
         expected.keySet().stream()
@@ -96,12 +96,24 @@ class ReferenceProjectEqualityTest {
                 .filter(path -> !expected.containsKey(path))
                 .forEach(path -> report.add("  generated but not in the reference: " + path));
 
-        expected.forEach((path, expectedBytes) -> {
-            byte[] actualBytes = actual.get(path);
-            if (actualBytes == null || java.util.Arrays.equals(expectedBytes, actualBytes)) {
+        expected.forEach((path, reference) -> {
+            Entry generated = actual.get(path);
+            if (generated == null) {
                 return;
             }
-            report.add("  differs: " + path + System.lineSeparator() + firstDifference(expectedBytes, actualBytes));
+            if (!java.util.Arrays.equals(reference.content(), generated.content())) {
+                report.add("  differs: " + path + System.lineSeparator()
+                        + firstDifference(reference.content(), generated.content()));
+            }
+            // §4 asks for the packager's own normalisation, which is bytes *and* modes: the one
+            // file that must be executable is gradlew, and a project whose wrapper arrives at
+            // 0644 is broken on its first command. Null means the filesystem cannot say — a
+            // Windows checkout reports everything executable, and a test that guessed there
+            // would fail for the wrong reason.
+            if (reference.executable() != null && !reference.executable().equals(generated.executable())) {
+                report.add("  mode differs: %s — reference is %s, generated is %s"
+                        .formatted(path, mode(reference.executable()), mode(generated.executable())));
+            }
         });
 
         return report.isEmpty() ? "" : String.join(System.lineSeparator(), report);
@@ -147,14 +159,25 @@ class ReferenceProjectEqualityTest {
         return new String(content, StandardCharsets.UTF_8).lines().toList();
     }
 
-    private static Map<String, byte[]> readTree(Path root, List<String> excluded) {
-        Map<String, byte[]> files = new LinkedHashMap<>();
+    /**
+     * One file as the comparison sees it: content, and whether it is executable — {@code null}
+     * when the filesystem cannot answer.
+     */
+    private record Entry(byte[] content, Boolean executable) {}
+
+    private static String mode(Boolean executable) {
+        return Boolean.TRUE.equals(executable) ? "executable" : "not executable";
+    }
+
+    private static Map<String, Entry> readTree(Path root, List<String> excluded) {
+        Map<String, Entry> files = new LinkedHashMap<>();
         try (Stream<Path> tree = Files.walk(root)) {
             tree.filter(Files::isRegularFile)
                     .map(path -> Map.entry(root.relativize(path).toString().replace('\\', '/'), path))
                     .filter(entry -> excluded.stream().noneMatch(rule -> matches(entry.getKey(), rule)))
                     .sorted(Map.Entry.comparingByKey())
-                    .forEach(entry -> files.put(entry.getKey(), read(entry.getValue())));
+                    .forEach(entry ->
+                            files.put(entry.getKey(), new Entry(read(entry.getValue()), executable(entry.getValue()))));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -176,6 +199,25 @@ class ReferenceProjectEqualityTest {
         return path.equals(rule);
     }
 
+    /**
+     * The executable bit, or null where the filesystem does not keep one.
+     *
+     * <p>POSIX permissions rather than {@code Files.isExecutable}: the latter answers "could this
+     * process run it", which on Windows is true of every file, and comparing against that would
+     * turn a real check into a platform-dependent one.
+     */
+    private static Boolean executable(Path path) {
+        if (!path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+            return null;
+        }
+        try {
+            return Files.getPosixFilePermissions(path)
+                    .contains(java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read the mode of " + path, e);
+        }
+    }
+
     private static byte[] read(Path path) {
         try {
             return Files.readAllBytes(path);
@@ -186,7 +228,7 @@ class ReferenceProjectEqualityTest {
 
     private static String describe(Path referenceProject) {
         return referenceProject.getFileName()
-                + " — edit the reference project, run this test, and port the diff into the recipe"
-                + " (its REFERENCE.md explains the workflow)";
+                + " — edit the reference project, run this test, and port the diff into the recipe."
+                + " The workflow, and the justified ignore list, are in docs/reference-projects.md";
     }
 }

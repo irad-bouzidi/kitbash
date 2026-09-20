@@ -16,4 +16,5 @@ row.
 
 The maintenance workflow, and why the direction matters, is the same as the backend reference
 project's: edit this project, run `./gradlew :verify:test` from `server/`, and port the diff into
-the recipe.
+the recipe. The full version, including the justification for every path the equality test
+ignores, is in [`docs/reference-projects.md`](../../docs/reference-projects.md).
