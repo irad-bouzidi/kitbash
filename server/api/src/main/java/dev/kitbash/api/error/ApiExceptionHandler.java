@@ -77,11 +77,19 @@ public class ApiExceptionHandler {
         problem.setTitle("Slow down");
         problem.setProperty("error", "RATE_LIMITED");
         problem.setProperty("retryAfterSeconds", seconds);
+        // The hint is per bucket. "A cache hit costs nothing" is true of generation and meaningless
+        // on a share link, and a hint that explains the wrong endpoint is worse than no hint at all.
         problem.setProperty(
                 "hint",
-                "Wait %d second%s and try again. A repeat of a generation already served from cache "
-                                .formatted(seconds, seconds == 1 ? "" : "s")
-                        + "costs nothing, so identical downloads are not what ran this out.");
+                "Wait %d second%s and try again. ".formatted(seconds, seconds == 1 ? "" : "s")
+                        + switch (exception.bucket()) {
+                            case GENERATE ->
+                                "A repeat of a generation already served from cache costs "
+                                        + "nothing, so identical downloads are not what ran this out.";
+                            case SHARE ->
+                                "A configuration can also be shared as a URL, which needs no "
+                                        + "link minted and never expires.";
+                        });
 
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))

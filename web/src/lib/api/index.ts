@@ -24,6 +24,8 @@ export type RecipeSummary = components['schemas']['RecipeSummary'];
 export type GenerateRequest = components['schemas']['GenerateRequest'];
 export type Preset = components['schemas']['PresetResponse'];
 export type Generation = components['schemas']['GenerationResponse'];
+export type ShareToken = components['schemas']['ShareResponse'];
+export type SharedSelection = components['schemas']['SharedSelection'];
 export type Replay = components['schemas']['ReplayResponse'];
 export type PresetRequest = components['schemas']['PresetRequest'];
 export type ValidationResponse = components['schemas']['ValidationResponse'];
@@ -231,4 +233,21 @@ export async function downloadGeneration(generation: Generation): Promise<void> 
   }
 
   saveBlob(await response.blob(), `${generation.projectName ?? 'project'}.zip`);
+}
+
+/*
+ * Share links (§8, §9).
+ *
+ * The URL is the mechanism and the token is the fallback — that ordering is §8's, and it matters:
+ * a link that depends on a row stops working when the row expires, while a URL carries the
+ * selection itself. These two functions are for the case the ordering allows for, which is a URL
+ * too long to paste comfortably.
+ */
+
+export function createShareLink(selection: GenerateRequest): Promise<ShareToken> {
+  return request<ShareToken>('/api/v1/share', { method: 'POST', body: JSON.stringify(selection) });
+}
+
+export function fetchSharedSelection(token: string): Promise<SharedSelection> {
+  return request<SharedSelection>(`/api/v1/share/${token}`);
 }

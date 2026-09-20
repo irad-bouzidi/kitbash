@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/presets": {
         parameters: {
             query?: never;
@@ -45,7 +61,7 @@ export interface paths {
         };
         get: operations["list"];
         put?: never;
-        post: operations["create"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -132,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/share/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["read_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata": {
         parameters: {
             query?: never;
@@ -171,7 +203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read_1"];
+        get: operations["read_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -270,6 +302,11 @@ export interface components {
             conflicts?: components["schemas"]["Diagnostic"][];
             warnings?: components["schemas"]["Diagnostic"][];
         };
+        ShareResponse: {
+            token?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
         ReplayResponse: {
             mode?: string;
             originalCatalogDigest?: string;
@@ -302,6 +339,23 @@ export interface components {
             exactlyReproducible?: boolean;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        SelectionEnvelope: {
+            /** Format: int32 */
+            schemaVersion?: number;
+            projectName?: string;
+            options?: {
+                [key: string]: unknown;
+            };
+            variables?: {
+                [key: string]: string;
+            };
+        };
+        SharedSelection: {
+            token?: string;
+            selection?: components["schemas"]["SelectionEnvelope"];
             /** Format: date-time */
             expiresAt?: string;
         };
@@ -471,6 +525,30 @@ export interface operations {
             };
         };
     };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShareResponse"];
+                };
+            };
+        };
+    };
     list: {
         parameters: {
             query?: never;
@@ -491,7 +569,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -626,6 +704,28 @@ export interface operations {
             };
         };
     };
+    read_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SharedSelection"];
+                };
+            };
+        };
+    };
     metadata: {
         parameters: {
             query?: never;
@@ -668,7 +768,7 @@ export interface operations {
             };
         };
     };
-    read_1: {
+    read_2: {
         parameters: {
             query?: never;
             header?: never;

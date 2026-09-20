@@ -14,6 +14,9 @@ spring:
 
 kitbash:
   limits:
-    # High enough that an ordinary test never trips it. The burst test sets its own.
+    # High enough that an ordinary test never trips it. The tests that are about the limiter set
+    # their own — CacheHitsAreFreeTest turns the budget down to one.
     generate-per-minute: 10000
     generate-burst: 10000
+    share-per-minute: 10000
+    share-burst: 10000

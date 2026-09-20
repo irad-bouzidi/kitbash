@@ -118,6 +118,34 @@
         }
       }
     },
+    "/api/v1/share" : {
+      "post" : {
+        "tags" : [ "share-controller" ],
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/presets" : {
       "get" : {
         "tags" : [ "preset-controller" ],
@@ -140,7 +168,7 @@
       },
       "post" : {
         "tags" : [ "preset-controller" ],
-        "operationId" : "create",
+        "operationId" : "create_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -298,6 +326,32 @@
         }
       }
     },
+    "/api/v1/share/{token}" : {
+      "get" : {
+        "tags" : [ "share-controller" ],
+        "operationId" : "read_1",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SharedSelection"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/metadata" : {
       "get" : {
         "tags" : [ "metadata-controller" ],
@@ -348,7 +402,7 @@
     "/api/v1/generations/{id}" : {
       "get" : {
         "tags" : [ "generation-controller" ],
-        "operationId" : "read_1",
+        "operationId" : "read_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -600,6 +654,18 @@
           }
         }
       },
+      "ShareResponse" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ReplayResponse" : {
         "type" : "object",
         "properties" : {
@@ -685,6 +751,43 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SelectionEnvelope" : {
+        "type" : "object",
+        "properties" : {
+          "schemaVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "options" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "variables" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "SharedSelection" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/SelectionEnvelope"
           },
           "expiresAt" : {
             "type" : "string",
