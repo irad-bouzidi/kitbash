@@ -146,6 +146,70 @@
         }
       }
     },
+    "/api/v1/preview" : {
+      "post" : {
+        "tags" : [ "preview-controller" ],
+        "operationId" : "tree",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PreviewTree"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/preview/file" : {
+      "post" : {
+        "tags" : [ "preview-controller" ],
+        "operationId" : "file",
+        "parameters" : [ {
+          "name" : "path",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PreviewFile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/presets" : {
       "get" : {
         "tags" : [ "preset-controller" ],
@@ -663,6 +727,67 @@
           "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "Entry" : {
+        "type" : "object",
+        "properties" : {
+          "path" : {
+            "type" : "string"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "binary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PreviewTree" : {
+        "type" : "object",
+        "properties" : {
+          "projectName" : {
+            "type" : "string"
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "fileCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "files" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Entry"
+            }
+          }
+        }
+      },
+      "PreviewFile" : {
+        "type" : "object",
+        "properties" : {
+          "path" : {
+            "type" : "string"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "binary" : {
+            "type" : "boolean"
+          },
+          "content" : {
+            "type" : "string"
           }
         }
       },

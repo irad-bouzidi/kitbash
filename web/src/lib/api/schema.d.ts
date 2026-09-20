@@ -52,6 +52,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["tree"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/preview/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/presets": {
         parameters: {
             query?: never;
@@ -307,6 +339,29 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string;
         };
+        Entry: {
+            path?: string;
+            /** Format: int64 */
+            bytes?: number;
+            binary?: boolean;
+        };
+        PreviewTree: {
+            projectName?: string;
+            catalogDigest?: string;
+            selectionHash?: string;
+            /** Format: int32 */
+            fileCount?: number;
+            /** Format: int64 */
+            totalBytes?: number;
+            files?: components["schemas"]["Entry"][];
+        };
+        PreviewFile: {
+            path?: string;
+            /** Format: int64 */
+            bytes?: number;
+            binary?: boolean;
+            content?: string;
+        };
         ReplayResponse: {
             mode?: string;
             originalCatalogDigest?: string;
@@ -545,6 +600,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ShareResponse"];
+                };
+            };
+        };
+    };
+    tree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PreviewTree"];
+                };
+            };
+        };
+    };
+    file: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PreviewFile"];
                 };
             };
         };

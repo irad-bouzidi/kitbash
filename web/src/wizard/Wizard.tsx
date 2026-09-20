@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PreviewDialog } from '@/preview/PreviewDialog';
 import { SavePresetDialog } from '@/presets/SavePresetDialog';
 import { ShareDialog } from '@/wizard/ShareDialog';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ export function Wizard() {
   const [downloadError, setDownloadError] = useState<ApiError | null>(null);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading the catalog…</p>;
   if (isError || !metadata) {
@@ -120,7 +122,13 @@ export function Wizard() {
           </p>
         )}
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" disabled title="Preview arrives in phase 2.">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={blocked}
+            title={blocked ? blockedReason : undefined}
+            onClick={() => setPreviewing(true)}
+          >
             Preview
           </Button>
           <Button type="button" variant="outline" onClick={() => setSharing(true)}>
@@ -148,6 +156,7 @@ export function Wizard() {
 
       {saving && <SavePresetDialog envelope={envelope} onClose={() => setSaving(false)} />}
       {sharing && <ShareDialog envelope={envelope} onClose={() => setSharing(false)} />}
+      {previewing && <PreviewDialog envelope={envelope} onClose={() => setPreviewing(false)} />}
 
       {/* The digest is what makes a bug report actionable (§9). */}
       <footer className="pb-6 text-xs text-muted-foreground">
