@@ -89,6 +89,11 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/presets/**")
                         .hasAuthority(roles.presetAuthorAuthority())
 
+                        // History is personal but needs no role: a receipt for something you
+                        // generated is yours, and the service decides which rows are whose.
+                        .requestMatchers("/api/v1/generations", "/api/v1/generations/**")
+                        .authenticated()
+
                         // Everything else — including the OpenAPI document and anything added
                         // tomorrow — is closed until somebody opens it deliberately.
                         .anyRequest()

@@ -2,8 +2,10 @@ package dev.kitbash.api.generate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.history.GenerationRecorder;
 import dev.kitbash.api.security.Caller;
 import dev.kitbash.api.security.RateLimiter;
+import dev.kitbash.core.error.GenerationException;
 import dev.kitbash.core.hash.Sha256;
 import dev.kitbash.core.pipeline.GeneratedProject;
 import dev.kitbash.core.pipeline.GenerationPipeline;
@@ -35,12 +37,19 @@ public class GenerateController {
     private final ObjectMapper json;
     private final RateLimiter limiter;
     private final ZipCache cache;
+    private final GenerationRecorder history;
 
-    public GenerateController(GenerationPipeline pipeline, ObjectMapper json, RateLimiter limiter, ZipCache cache) {
+    public GenerateController(
+            GenerationPipeline pipeline,
+            ObjectMapper json,
+            RateLimiter limiter,
+            ZipCache cache,
+            GenerationRecorder history) {
         this.pipeline = pipeline;
         this.json = json;
         this.limiter = limiter;
         this.cache = cache;
+        this.history = history;
     }
 
     /**
@@ -89,7 +98,21 @@ public class GenerateController {
         // Stage 1 first, on its own. Parsing is pure and cheap, it rejects a hostile or malformed
         // selection before anything is spent on it (§13, kitbash-20), and it is what produces the
         // hash the cache is keyed on.
-        Selection selection = pipeline.parse(envelope);
+        //
+        // It is also the commonest place to fail — a mistyped recipe id never gets further — so
+        // the recording of failures has to start here rather than around the render (§24).
+        Selection selection;
+        try {
+            selection = pipeline.parse(envelope);
+        } catch (GenerationException failure) {
+            history.failed(
+                    envelope,
+                    null,
+                    Caller.ownerId().orElse(null),
+                    failure.error().code().name(),
+                    elapsed(start));
+            throw failure;
+        }
         String cacheKey = cacheKey(selection);
 
         Optional<byte[]> cached = cache.find(cacheKey);
@@ -112,10 +135,24 @@ public class GenerateController {
         // The whole pipeline runs before a single header is written: once the body starts
         // streaming there is no way to turn the response into a 400, and every failure worth
         // reporting — an unknown recipe, a conflict, a breached cap — happens before packaging.
-        GeneratedProject project = pipeline.generate(envelope);
+        GeneratedProject project;
+        try {
+            project = pipeline.generate(envelope);
+        } catch (GenerationException failure) {
+            // §24: a history that only contains successes cannot answer "why did this break",
+            // which is the question people actually bring to a history page.
+            history.failed(
+                    envelope,
+                    selection.hash(),
+                    Caller.ownerId().orElse(null),
+                    failure.error().code().name(),
+                    elapsed(start));
+            throw failure;
+        }
 
         writeZip(response, project.projectName(), project.lock().catalogDigest(), project.selectionHash());
 
+        long zipBytes;
         if (cache.stores()) {
             // Held whole only when something is going to keep it. The zip is a few hundred
             // kilobytes (§2 keeps the workspace in memory anyway), so this is one copy, not a
@@ -124,12 +161,16 @@ public class GenerateController {
             project.streamTo(buffer);
             byte[] zip = buffer.toByteArray();
             cache.put(cacheKey, zip);
+            zipBytes = zip.length;
             try (OutputStream out = response.getOutputStream()) {
                 out.write(zip);
             }
         } else {
-            try (OutputStream out = response.getOutputStream()) {
+            // Counted as it goes past, per §24: the size worth recording is the size of what the
+            // user received, and the only place that number exists is the stream.
+            try (CountingStream out = new CountingStream(response.getOutputStream())) {
                 project.streamTo(out);
+                zipBytes = out.count();
             }
         }
 
@@ -140,7 +181,56 @@ public class GenerateController {
                 project.lock().coordinates(),
                 project.fileCount(),
                 project.totalBytes(),
-                (System.nanoTime() - start) / 1_000_000);
+                elapsed(start).toMillis());
+
+        // Written after the response, not before it: §24 requires recording not to slow the
+        // stream, and the two numbers worth keeping — how long and how large — are only known
+        // once it is over.
+        history.succeeded(
+                selection,
+                project.lock(),
+                Caller.ownerId().orElse(null),
+                project.projectName(),
+                zipBytes,
+                elapsed(start));
+    }
+
+    private static java.time.Duration elapsed(long startNanos) {
+        return java.time.Duration.ofNanos(System.nanoTime() - startNanos);
+    }
+
+    /**
+     * Counts bytes on their way out.
+     *
+     * <p>§24 asks for the recorded size to come from the stream rather than from the workspace,
+     * and the two differ by however well the project compressed — a history row saying 151 KB for
+     * a 156 KB download would be a number nobody could reconcile with what they downloaded.
+     */
+    private static final class CountingStream extends java.io.FilterOutputStream {
+
+        private long count;
+
+        CountingStream(OutputStream delegate) {
+            super(delegate);
+        }
+
+        @Override
+        public void write(int singleByte) throws IOException {
+            out.write(singleByte);
+            count++;
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            // FilterOutputStream's own implementation writes a byte at a time; forwarding the
+            // whole array is the difference between a copy and a crawl.
+            out.write(bytes, offset, length);
+            count += length;
+        }
+
+        long count() {
+            return count;
+        }
     }
 
     /** §10's key: the catalog and the canonical selection together, since either changes the bytes. */

@@ -4,6 +4,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { AuthGate } from '@/auth/AuthGate';
 import { authEnabled, oidcConfig } from '@/auth/config';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { HistoryPage } from '@/history/HistoryPage';
 import { PresetDetail } from '@/presets/PresetDetail';
 import { PresetsPage } from '@/presets/PresetsPage';
 import { Wizard } from '@/wizard/Wizard';
@@ -36,13 +37,25 @@ export function App() {
                 Pick a stack. Get a project that already builds.
               </p>
             </div>
-            <ThemeToggle />
+            <nav className="flex items-center gap-4 text-sm">
+              <Link to="/" className="hover:underline">
+                Presets
+              </Link>
+              <Link to="/history" className="hover:underline">
+                History
+              </Link>
+              <Link to="/new" className="hover:underline">
+                New
+              </Link>
+              <ThemeToggle />
+            </nav>
           </header>
           <SignedIn>
             <Routes>
               <Route path="/" element={<PresetsPage />} />
               <Route path="/new" element={<Wizard />} />
               <Route path="/presets/:id" element={<PresetDetail />} />
+              <Route path="/history" element={<HistoryPage />} />
             </Routes>
           </SignedIn>
         </div>
