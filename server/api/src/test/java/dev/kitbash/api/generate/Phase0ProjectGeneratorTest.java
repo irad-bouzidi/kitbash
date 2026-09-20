@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.kitbash.core.selection.Selection;
+import dev.kitbash.core.selection.SelectionEnvelope;
 import dev.kitbash.core.selection.SelectionValidationException;
 import dev.kitbash.core.workspace.Workspace;
 import java.nio.charset.StandardCharsets;
@@ -68,7 +69,8 @@ class Phase0ProjectGeneratorTest {
     @DisplayName("the Java version is replaced where it is a version, and nowhere else")
     void javaVersionIsSubstitutedPrecisely() {
         Workspace workspace = generator.generate(
-                new Selection(1, "demo-service", Map.of(), Map.of("javaVersion", "25", "groupId", "com.acme")));
+                SelectionEnvelope.current("demo-service", Map.of(), Map.of("javaVersion", "25", "groupId", "com.acme"))
+                        .parse());
 
         assertThat(text(workspace, "build.gradle.kts")).contains("JavaLanguageVersion.of(25)");
         assertThat(text(workspace, "Dockerfile"))
@@ -111,8 +113,9 @@ class Phase0ProjectGeneratorTest {
     @Test
     @DisplayName("unknown option keys are carried and ignored, not rejected, in phase 0")
     void unknownOptionsAreIgnored() {
-        Selection selection =
-                new Selection(1, "my-service", Map.of("somethingFromTheFuture", "yes", "frontend", "react"), Map.of());
+        Selection selection = SelectionEnvelope.current(
+                        "my-service", Map.of("somethingFromTheFuture", "yes", "frontend", "react"), Map.of())
+                .parse();
 
         assertThat(generator.generate(selection).fileCount()).isPositive();
     }
@@ -134,11 +137,11 @@ class Phase0ProjectGeneratorTest {
     }
 
     private Workspace generate() {
-        return generator.generate(new Selection(
-                1,
-                "customer-management",
-                Map.of(),
-                Map.of("groupId", "com.acme", "packageName", "com.acme.customer", "javaVersion", "21")));
+        return generator.generate(SelectionEnvelope.current(
+                        "customer-management",
+                        Map.of(),
+                        Map.of("groupId", "com.acme", "packageName", "com.acme.customer", "javaVersion", "21"))
+                .parse());
     }
 
     private static String text(Workspace workspace, String path) {

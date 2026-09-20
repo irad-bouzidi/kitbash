@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.kitbash.core.pack.DeterministicZipWriter;
 import dev.kitbash.core.selection.Selection;
+import dev.kitbash.core.selection.SelectionEnvelope;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -78,8 +79,9 @@ class GenerationDeterminismTest {
     }
 
     private static byte[] generate(String projectName) throws IOException {
-        Selection selection = new Selection(
-                1, projectName, Map.of(), Map.of("groupId", "com.acme", "packageName", "com.acme.customer"));
+        Selection selection = SelectionEnvelope.current(
+                        projectName, Map.of(), Map.of("groupId", "com.acme", "packageName", "com.acme.customer"))
+                .parse();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         DeterministicZipWriter.write(new Phase0ProjectGenerator().generate(selection), projectName, out);
         return out.toByteArray();
