@@ -29,9 +29,15 @@ import org.springframework.test.web.servlet.MockMvc;
  * <p>Regenerate with {@code ./gradlew :api:test -Dkitbash.openapi.update=true}, then
  * {@code pnpm gen:api} in {@code web/}. Two steps, deliberately: the spec diff and the type diff
  * are both worth looking at.
+ *
+ * <p>It boots <b>with</b> persistence, which costs a container and buys the only thing that
+ * matters here: the document has to describe the API as deployed. The preset endpoints exist only
+ * when there is a database (§10, §12), so a document generated without one would quietly omit
+ * them — and the web client's types are generated from this document, so the omission would
+ * surface as a page that cannot be written rather than as a failing test.
  */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"persistence", "test"})
 // Signed in, because since kitbash-22 every endpoint but /actuator/health is (§13). These tests
 // are about what the endpoints say, not about who may call them — SecurityTest covers that.
 @WithMockUser
@@ -39,6 +45,17 @@ import org.springframework.test.web.servlet.MockMvc;
 class OpenApiSpecDriftTest {
 
     private static final boolean UPDATE = Boolean.getBoolean("kitbash.openapi.update");
+
+    private static final org.testcontainers.containers.PostgreSQLContainer<?> POSTGRES =
+            new org.testcontainers.containers.PostgreSQLContainer<>("postgres:16-alpine");
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void datasource(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        POSTGRES.start();
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
 
     @Autowired
     private MockMvc mvc;

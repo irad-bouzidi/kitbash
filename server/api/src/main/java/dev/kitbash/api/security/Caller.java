@@ -53,7 +53,7 @@ public final class Caller {
         return subject().map(Caller::asUuid);
     }
 
-    static UUID asUuid(String subject) {
+    public static UUID asUuid(String subject) {
         try {
             return UUID.fromString(subject);
         } catch (IllegalArgumentException notAUuid) {

@@ -195,10 +195,26 @@ jobs:
 
       # A real jar rather than `bootRun`, so the smoke test runs against the
       # artefact and the step exits once the server is listening.
+      # Presets are rows, so the smoke test needs the database too — §23's done-when is that a
+      # preset saved from the wizard survives a cold load and generates in one click, and a
+      # preset that was never stored cannot.
+      - name: Start Postgres
+        run: |
+          docker run -d --name kitbash-postgres -p 5432:5432 \
+            -e POSTGRES_DB=kitbash -e POSTGRES_USER=kitbash -e POSTGRES_PASSWORD=kitbash \
+            postgres:16-alpine
+          for i in $(seq 1 60); do
+            docker exec kitbash-postgres pg_isready -U kitbash -d kitbash && exit 0
+            sleep 2
+          done
+          echo "Postgres did not become ready" >&2
+          exit 1
+
       - name: Build and start the API
         working-directory: server
         env:
-          SPRING_PROFILES_ACTIVE: dev-auth
+          SPRING_PROFILES_ACTIVE: persistence,dev-auth
+          KITBASH_DB_URL: jdbc:postgresql://localhost:5432/kitbash
           KITBASH_OIDC_JWKS: http://localhost:9500/kitbash/jwks
         run: |
           ./gradlew :api:bootJar

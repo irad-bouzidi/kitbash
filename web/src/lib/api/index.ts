@@ -22,6 +22,8 @@ export type CatalogVariable = components['schemas']['Variable'];
 export type RecipeSummary = components['schemas']['RecipeSummary'];
 
 export type GenerateRequest = components['schemas']['GenerateRequest'];
+export type Preset = components['schemas']['PresetResponse'];
+export type PresetRequest = components['schemas']['PresetRequest'];
 export type ValidationResponse = components['schemas']['ValidationResponse'];
 export type Diagnostic = components['schemas']['Diagnostic'];
 export type ResolvedRecipe = components['schemas']['ResolvedRecipe'];
@@ -111,12 +113,16 @@ export async function downloadProject(selection: GenerateRequest): Promise<void>
     throw new ApiError(problem, response.status);
   }
 
-  const blob = await response.blob();
+  saveBlob(await response.blob(), `${selection.projectName}.zip`);
+}
+
+/** Hands a blob to the browser's download manager under a name. */
+function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   try {
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${selection.projectName}.zip`;
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -125,4 +131,59 @@ export async function downloadProject(selection: GenerateRequest): Promise<void>
     // handed the bytes to the download manager by the time this runs.
     URL.revokeObjectURL(url);
   }
+}
+
+/*
+ * Presets (§3, §7, §9).
+ *
+ * The list is the landing page for a returning user — §9 folds the Implementation Plan's Dashboard
+ * into it, because a page of counter tiles earns nothing and what somebody coming back wants is
+ * their own stacks.
+ */
+
+export function fetchPresets(): Promise<Preset[]> {
+  return request<Preset[]>('/api/v1/presets');
+}
+
+export function fetchPreset(id: string): Promise<Preset> {
+  return request<Preset>(`/api/v1/presets/${id}`);
+}
+
+export function createPreset(preset: PresetRequest): Promise<Preset> {
+  return request<Preset>('/api/v1/presets', { method: 'POST', body: JSON.stringify(preset) });
+}
+
+export function updatePreset(id: string, preset: PresetRequest): Promise<Preset> {
+  return request<Preset>(`/api/v1/presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
+}
+
+export async function deletePreset(id: string): Promise<void> {
+  const response = await fetch(`/api/v1/presets/${id}`, {
+    method: 'DELETE',
+    headers: authorizationHeader(),
+  });
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+}
+
+/**
+ * The one click §9 asks for: a cold load, a preset, a zip.
+ *
+ * The selection is resolved now rather than when the preset was saved, which is what "tracks
+ * latest" means mechanically (§7) — so this deliberately sends nothing but the id.
+ */
+export async function downloadFromPreset(preset: Preset): Promise<void> {
+  const response = await fetch(`/api/v1/presets/${preset.id}/generate`, {
+    method: 'POST',
+    headers: authorizationHeader(),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+
+  saveBlob(await response.blob(), `${preset.selection?.projectName ?? preset.name}.zip`);
 }

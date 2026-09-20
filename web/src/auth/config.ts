@@ -32,14 +32,12 @@ export const oidcConfig: AuthProviderProps = {
   // The provider's own callback handling leaves the code and state in the address bar; clearing
   // them keeps a reload from replaying a code that has already been redeemed.
   //
-  // The selection is restored at the same time. §9 makes the URL the configuration — a link is
-  // how somebody shares a stack — and the sign-in round trip replaces that URL with the
-  // provider's callback, so a shared link opened by somebody without a session would arrive
-  // empty. Stashing the query string before the redirect and putting it back here is what keeps
-  // "open this link" working for a signed-out colleague.
+  // Only the code and state are cleared here, so a reload cannot replay a code that has already
+  // been redeemed. Restoring where the user was going is the router's job — see AuthGate — because
+  // history.replaceState does not tell React Router that the location changed, and a page that
+  // silently rendered the wrong route would be harder to notice than one that failed.
   onSigninCallback: () => {
-    const selection = readAndClear(RETURN_TO) ?? '';
-    window.history.replaceState({}, document.title, window.location.pathname + selection);
+    window.history.replaceState({}, document.title, window.location.pathname);
   },
 };
 
@@ -48,10 +46,20 @@ const RETURN_TO = 'kitbash.returnTo';
 /** Called immediately before a sign-in redirect, while the address bar still holds the link. */
 export function rememberWhereWeWere(): void {
   try {
-    window.sessionStorage.setItem(RETURN_TO, window.location.search);
+    window.sessionStorage.setItem(RETURN_TO, window.location.pathname + window.location.search);
   } catch {
-    // A browser with storage disabled still signs in; it just loses the selection in the link.
+    // A browser with storage disabled still signs in; it just lands on the page it was sent to.
   }
+}
+
+/**
+ * Where the user was going before they were sent to sign in, if anywhere.
+ *
+ * Reading it clears it: this is consumed once, on the navigation that follows sign-in, and a
+ * value left behind would hijack the next one.
+ */
+export function takeReturnTo(): string | null {
+  return readAndClear(RETURN_TO);
 }
 
 function readAndClear(key: string): string | null {
