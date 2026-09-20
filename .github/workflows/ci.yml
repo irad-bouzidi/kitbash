@@ -7,6 +7,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Nightly, 02:00 UTC. §12: the matrix runs every night against the catalog as it is,
+    # because a recipe rots when nothing upstream of it does.
+    - cron: "0 2 * * *"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -200,11 +204,11 @@ jobs:
           path: web/playwright-report
           if-no-files-found: ignore
 
-  generated-build:
-    name: generated project builds
+  matrix:
+    name: verification matrix
     runs-on: ubuntu-latest
-    # Generous relative to the 600s per-cell budget the script asserts: this bound
-    # catches a wedged runner, the script catches a slow build.
+    # Generous relative to the ten-minute budget the runner prints: this bound catches a
+    # wedged runner, the runner's own per-cell timeout catches a wedged build.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -218,10 +222,25 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build the JVM ecosystem image
-        run: docker build -t kitbash/verify-jvm:latest -f verification/images/jvm/Dockerfile .
+      - name: Build the ecosystem images
+        run: |
+          docker build -t kitbash/verify-jvm:latest  -f verification/images/jvm/Dockerfile  .
+          docker build -t kitbash/verify-node:latest -f verification/images/node/Dockerfile .
 
-      # The phase exit test: the downloaded zip unzips and ./gradlew build passes,
-      # in a container, never on the API host (§12).
-      - name: Verify the phase-0 cell
-        run: ./verification/run-cell.sh verification/selections/phase0-spring-java-gradle.json
+      # The phase exit test: each cell generates a project and runs that stack's real build
+      # and test commands, in a container, never on the API host (§12).
+      # One runner, two triggers, differing only in which cells they select. A third —
+      # a user's own combination — plugs into the same runner in kitbash-37.
+      - name: ./gradlew :verify:runMatrix
+        working-directory: server
+        run: >-
+          ./gradlew :verify:runMatrix
+          -Pkitbash.trigger=${{ github.event_name == 'schedule' && 'nightly' || 'merge-request' }}
+
+      - name: Upload the matrix logs and status page
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-matrix
+          path: verification/build
+          if-no-files-found: ignore

@@ -5,6 +5,12 @@ set -euo pipefail
 
 cp -a /input/. /workspace/
 
+# A cell names the directory its commands run in. For the JVM half that is always the
+# project root today, and saying so explicitly keeps one cell shape covering both images.
+if [ -n "${KITBASH_WORKING_DIRECTORY:-}" ]; then
+  cd "/workspace/${KITBASH_WORKING_DIRECTORY}"
+fi
+
 # docker-java — which Testcontainers uses — defaults to Docker API v1.32, and
 # daemons from Docker 29 onward refuse it outright ("Could not find a valid Docker
 # environment"). The runner passes the daemon's own advertised version, which every

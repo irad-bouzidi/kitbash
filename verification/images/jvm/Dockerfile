@@ -26,8 +26,13 @@ ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.welcome=never"
 # cell — which is the point. An offline cache would silently go stale and then hide
 # real breakage (§12).
 COPY reference/spring-boot-java-gradle-layered /tmp/warmup
+#
+# `compileTestJava` rather than `build -x test`: the latter never resolves the test
+# classpath, so every cell re-downloaded JUnit, AssertJ and Testcontainers before it
+# could compile a test. Compiling the tests warms exactly those coordinates and still
+# needs no Docker daemon at image-build time, which running them would.
 RUN cd /tmp/warmup \
-    && ./gradlew build -x test --no-daemon \
+    && ./gradlew build -x test compileTestJava --no-daemon \
     && cd / && rm -rf /tmp/warmup \
     && rm -rf "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/native"
 
