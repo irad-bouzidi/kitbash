@@ -26,6 +26,8 @@ export type Preset = components['schemas']['PresetResponse'];
 export type Generation = components['schemas']['GenerationResponse'];
 export type ShareToken = components['schemas']['ShareResponse'];
 export type SharedSelection = components['schemas']['SharedSelection'];
+export type PreviewTree = components['schemas']['PreviewTree'];
+export type PreviewFile = components['schemas']['PreviewFile'];
 export type Replay = components['schemas']['ReplayResponse'];
 export type PresetRequest = components['schemas']['PresetRequest'];
 export type ValidationResponse = components['schemas']['ValidationResponse'];
@@ -250,4 +252,25 @@ export function createShareLink(selection: GenerateRequest): Promise<ShareToken>
 
 export function fetchSharedSelection(token: string): Promise<SharedSelection> {
   return request<SharedSelection>(`/api/v1/share/${token}`);
+}
+
+/*
+ * Preview (§6, §8, §9).
+ *
+ * Stages 1–5 of the pipeline and stop. The tree is paths and sizes; a file's contents arrive when
+ * it is clicked, which is what keeps the first response small and predictable.
+ */
+
+export function fetchPreviewTree(selection: GenerateRequest): Promise<PreviewTree> {
+  return request<PreviewTree>('/api/v1/preview', {
+    method: 'POST',
+    body: JSON.stringify(selection),
+  });
+}
+
+export function fetchPreviewFile(selection: GenerateRequest, path: string): Promise<PreviewFile> {
+  return request<PreviewFile>(`/api/v1/preview/file?path=${encodeURIComponent(path)}`, {
+    method: 'POST',
+    body: JSON.stringify(selection),
+  });
 }
