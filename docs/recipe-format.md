@@ -197,11 +197,56 @@ directories). **A glob that matches nothing is an error** — a rule matching no
 somebody meant to ship and silently is not shipping, and that failure is otherwise invisible until
 a user's project will not compile.
 
+---
+
+## Templating
+
 Paths inside the tree are themselves templated, so
-`files/src/main/java/{{ packagePath }}/Application.java.peb` lands in the right package. The `.peb`
-suffix marks a file as a template and is stripped from the output; files without it are copied
-through untouched, and binary files are never run through the engine. That is `kitbash-9`'s job;
-this document records the convention the manifests are written against.
+`files/src/main/java/{{ packageName | packagePath }}/Application.java.peb` lands where javac
+expects it. The `.peb` suffix marks a file as a template and is **stripped from the output**; a file
+without it is copied through byte for byte.
+
+That distinction is load-bearing rather than tidy: a Gradle Kotlin DSL script, a shell script or a
+GitHub Actions workflow can contain `{{ }}` for its own reasons, and a binary run through a text
+engine comes out corrupted. Only name a file `.peb` when it is genuinely a template. A binary that
+is named `.peb` anyway is refused with `RENDER_FAILED` rather than mangled.
+
+### Filters
+
+Five, and no others:
+
+| Filter | `com.acme.customer` / `customer-management` becomes |
+| --- | --- |
+| `packagePath` | `com/acme/customer` |
+| `camel` | `customerManagement` |
+| `pascal` | `CustomerManagement` |
+| `kebab` | `customer-management` |
+| `snake` | `customer_management` |
+
+They are total: any of the five naming forms converts to any other, so a recipe never has to know
+whether the caller typed `customer-management` or `CustomerManagement`. Pebble's own standard
+library is aimed at rendering HTML for humans and is not registered. A recipe that needs something
+these cannot express is usually a recipe that should be computing it in a hook
+([`docs/hooks.md`](hooks.md)) instead — and any filter added here must be documented in this table
+in the same change, because an undocumented filter is one only its author can use.
+
+### What a template cannot do
+
+A generator writes strings into files somebody is then going to execute, so the engine is fenced in
+(§13):
+
+- **No method access at all.** `{{ ''.getClass() }}`, `{{ name.toUpperCase() }}` and every other
+  route from a value into the JVM fail. Pebble ships a blacklist validator; a blacklist is a list of
+  the attacks somebody already thought of, and there is nothing in the variable map worth calling a
+  method on.
+- **No filesystem.** Templates resolve against the catalog's own set and nothing else, so
+  `{% include "/etc/passwd" %}` fails because that name does not exist — not because a path check
+  caught it. An `include` of a template the catalog *does* contain works, which is the point.
+- **No lenient variables.** A typo is `RENDER_FAILED` naming the template and the line, not a
+  silently empty package declaration the user discovers at their first compile.
+- **Primitives only.** The variable map holds strings, booleans, numbers and lists of strings. It is
+  not possible to pass a live object into a template.
+- **No HTML escaping.** The output is source code; escaping it would be corruption, not safety.
 
 ---
 
