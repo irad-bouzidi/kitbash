@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Wizard } from '@/wizard/Wizard';
+import { setAccessToken } from '@/auth/token';
 import { useSelectionStore } from '@/wizard/useSelection';
 
 /**
@@ -99,10 +100,17 @@ function emptyResolution(overrides: Record<string, unknown> = {}) {
 
 let validateBody: unknown;
 
-function stubApi(resolution: unknown = emptyResolution()) {
+function stubApi(
+  resolution: unknown = emptyResolution(),
+  generate: () => Promise<Response> = () =>
+    Promise.resolve(new Response(new Blob(['zip']), { status: 200 })),
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/generate')) {
+        return generate();
+      }
       if (String(url).endsWith('/metadata')) {
         return Promise.resolve(
           new Response(JSON.stringify(METADATA), {
@@ -136,11 +144,16 @@ describe('Wizard', () => {
     useSelectionStore.setState({ values: {}, ready: false });
     window.history.replaceState(null, '', '/');
     validateBody = undefined;
+    setAccessToken(null);
     stubApi();
+    // jsdom implements neither, and the download path uses both.
+    URL.createObjectURL = vi.fn(() => 'blob:generated');
+    URL.revokeObjectURL = vi.fn();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -328,14 +341,76 @@ describe('Wizard', () => {
     expect(within(rail).getByText('added for you')).toBeInTheDocument();
   });
 
-  it('downloads through a real form submission, so the browser shows native progress', async () => {
+  it("downloads by posting the selection with the signed-in user's token", async () => {
+    setAccessToken('a-token');
+    // A resolved stack, or the Generate button is correctly disabled and this tests nothing.
+    stubApi(
+      emptyResolution({
+        recipes: [
+          {
+            id: 'contraption-alpha',
+            label: 'Alpha',
+            kind: 'gadget',
+            recipeVersion: '1.0.0',
+            frameworkVersion: '9.9',
+            implied: false,
+          },
+        ],
+      }),
+    );
+    const clicked = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(clicked);
     renderWizard();
-    await screen.findByLabelText('Contraption');
+    // Validation is debounced, and Generate stays disabled until it answers — so waiting for the
+    // resolved stack to appear is waiting for the button to be real.
+    await within(await screen.findByTestId('stack-summary')).findByText('Alpha');
 
-    const form = screen.getByTestId('download-form');
-    expect(form).toHaveProperty('method', 'post');
-    expect(form.getAttribute('action')).toBe('/api/v1/generate');
-    expect(form.querySelector('input[name="selection"]')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    await waitFor(() => expect(clicked).toHaveBeenCalled());
+    const generate = vi
+      .mocked(fetch)
+      .mock.calls.find(([url]) => typeof url === 'string' && url.endsWith('/generate'));
+    expect(generate).toBeDefined();
+    // The whole point of the auth wiring: every request carries the token, including this one.
+    // It used to be a form navigation, which cannot (§13, and the note in lib/api).
+    expect((generate?.[1]?.headers as Record<string, string>).Authorization).toBe('Bearer a-token');
+  });
+
+  it("shows the server's hint when a download is refused, rather than failing silently", async () => {
+    setAccessToken('a-token');
+    stubApi(
+      emptyResolution({
+        recipes: [
+          {
+            id: 'contraption-alpha',
+            label: 'Alpha',
+            kind: 'gadget',
+            recipeVersion: '1.0.0',
+            frameworkVersion: '9.9',
+            implied: false,
+          },
+        ],
+      }),
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              detail: 'Too many requests in a short time.',
+              error: 'RATE_LIMITED',
+              hint: 'Wait 30 seconds and try again.',
+            }),
+            { status: 429, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+    );
+    renderWizard();
+    await within(await screen.findByTestId('stack-summary')).findByText('Alpha');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    // §14 puts the next action in the hint, and a user who is not shown it has to guess.
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wait 30 seconds and try again.');
   });
 
   it('shows the catalog digest, which is what makes a bug report actionable', async () => {

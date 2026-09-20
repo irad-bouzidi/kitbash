@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GENERATE_URL, type CatalogVariable, type MetadataDocument } from '@/lib/api';
+import { ApiError, downloadProject, type CatalogVariable, type MetadataDocument } from '@/lib/api';
 import { useMetadata } from '@/catalog/useMetadata';
 import { FieldRenderer } from '@/wizard/FieldRenderer';
 import { toEnvelope, useSelectionStore, useUrlSync } from '@/wizard/useSelection';
@@ -21,6 +22,8 @@ export function Wizard() {
   const { resolution } = useValidation(metadata);
   const values = useSelectionStore((state) => state.values);
   const fieldErrors = useFieldErrors(metadata);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<ApiError | null>(null);
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading the catalog…</p>;
   if (isError || !metadata) {
@@ -84,27 +87,50 @@ export function Wizard() {
       </div>
 
       {/*
-        A real form submission, so the browser downloads natively: its own progress indicator,
-        its own resume, no blob held in memory (§9). fetch + createObjectURL would put a
-        multi-megabyte string in the tab and show the user nothing.
+        This was a real form submission until kitbash-22, for the browser's own download progress
+        (§9). A form navigation cannot carry a bearer token, and the alternatives — the token in a
+        query string, or a cookie session beside the bearer tokens — are both worse than losing a
+        progress bar on a few hundred kilobytes.
       */}
       <form
-        method="post"
-        action={GENERATE_URL}
         data-testid="download-form"
-        className="sticky bottom-0 flex items-center gap-2 border-t bg-background/95 py-3 backdrop-blur"
+        className="sticky bottom-0 flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setDownloadError(null);
+          setDownloading(true);
+          downloadProject(envelope)
+            .catch((error: unknown) => {
+              setDownloadError(error instanceof ApiError ? error : null);
+            })
+            .finally(() => setDownloading(false));
+        }}
       >
-        <input type="hidden" name="selection" value={JSON.stringify(envelope)} />
-        <Button type="button" variant="outline" disabled title="Preview arrives in phase 2.">
-          Preview
-        </Button>
-        <Button type="button" variant="outline" disabled title="Presets arrive in phase 2.">
-          Save as preset
-        </Button>
-        <span className="flex-1" />
-        <Button type="submit" disabled={blocked} title={blocked ? blockedReason : undefined}>
-          Generate
-        </Button>
+        {downloadError && (
+          <p role="alert" className="text-sm text-destructive">
+            {downloadError.problem.detail ?? downloadError.message}
+            {/* §14 puts the next action in the hint, which is the part worth showing. */}
+            {downloadError.problem.hint && (
+              <span className="block text-muted-foreground">{downloadError.problem.hint}</span>
+            )}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" disabled title="Preview arrives in phase 2.">
+            Preview
+          </Button>
+          <Button type="button" variant="outline" disabled title="Presets arrive in phase 2.">
+            Save as preset
+          </Button>
+          <span className="flex-1" />
+          <Button
+            type="submit"
+            disabled={blocked || downloading}
+            title={blocked ? blockedReason : undefined}
+          >
+            {downloading ? 'Generating…' : 'Generate'}
+          </Button>
+        </div>
       </form>
 
       {/* The digest is what makes a bug report actionable (§9). */}

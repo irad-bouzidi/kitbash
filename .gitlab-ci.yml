@@ -102,12 +102,28 @@ web:
 web-e2e:
   stage: build
   image: mcr.microsoft.com/playwright:v1.55.0-noble
+  # The stub issuer, the same one `docker compose up` runs. §13 closes every endpoint but
+  # health, so the smoke test needs a real token — and stubbing the issuer rather than the
+  # filter means the security configuration this job exercises is the one that ships.
+  services:
+    - name: ghcr.io/navikt/mock-oauth2-server:2.1.11
+      alias: oidc
+      variables:
+        JSON_CONFIG: >-
+          {"interactiveLogin":false,"httpServer":"NettyWrapper","tokenCallbacks":[{"issuerId":"kitbash","tokenExpiry":3600,"requestMappings":[{"requestParam":"client_id","match":"kitbash-web","claims":{"sub":"dev-user","roles":["kitbash-author","kitbash-publisher"]}}]}]}
   variables:
     GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
     GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+    SPRING_PROFILES_ACTIVE: dev-auth
+    KITBASH_OIDC_JWKS: http://oidc:8080/kitbash/jwks
+    # The browser reaches the issuer by the same name the job does, so the token's `iss` and the
+    # discovery document agree. The API verifies against the key set either way.
+    VITE_OIDC_ISSUER: http://oidc:8080/kitbash
+    VITE_OIDC_CLIENT_ID: kitbash-web
   before_script:
     - corepack enable
     - apt-get update && apt-get install -y --no-install-recommends openjdk-21-jdk-headless curl
+    - for i in $(seq 1 60); do curl -sf -o /dev/null http://oidc:8080/kitbash/.well-known/openid-configuration && break; sleep 2; done
   script:
     # A real jar rather than `bootRun`, so the smoke test runs against the
     # artefact and the step exits once the server is listening.

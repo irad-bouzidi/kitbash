@@ -2,12 +2,19 @@ package dev.kitbash.api.generate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.security.Caller;
+import dev.kitbash.api.security.RateLimiter;
+import dev.kitbash.core.hash.Sha256;
 import dev.kitbash.core.pipeline.GeneratedProject;
 import dev.kitbash.core.pipeline.GenerationPipeline;
+import dev.kitbash.core.selection.Selection;
+import dev.kitbash.core.selection.SelectionEnvelope;
 import dev.kitbash.core.selection.SelectionValidationException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -26,10 +33,14 @@ public class GenerateController {
 
     private final GenerationPipeline pipeline;
     private final ObjectMapper json;
+    private final RateLimiter limiter;
+    private final ZipCache cache;
 
-    public GenerateController(GenerationPipeline pipeline, ObjectMapper json) {
+    public GenerateController(GenerationPipeline pipeline, ObjectMapper json, RateLimiter limiter, ZipCache cache) {
         this.pipeline = pipeline;
         this.json = json;
+        this.limiter = limiter;
+        this.cache = cache;
     }
 
     /**
@@ -40,8 +51,10 @@ public class GenerateController {
      * validation, which genuinely takes minutes.
      */
     @PostMapping(value = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE, produces = "application/zip")
-    public void generate(@RequestBody GenerateRequest request, HttpServletResponse response) throws IOException {
-        stream(request, response);
+    public void generate(
+            @RequestBody GenerateRequest request, HttpServletRequest httpRequest, HttpServletResponse response)
+            throws IOException {
+        stream(request, httpRequest, response);
     }
 
     /**
@@ -56,7 +69,8 @@ public class GenerateController {
             value = "/generate",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = "application/zip")
-    public void generateFromForm(@RequestParam("selection") String selection, HttpServletResponse response)
+    public void generateFromForm(
+            @RequestParam("selection") String selection, HttpServletRequest httpRequest, HttpServletResponse response)
             throws IOException {
         GenerateRequest request;
         try {
@@ -64,28 +78,59 @@ public class GenerateController {
         } catch (JsonProcessingException e) {
             throw new SelectionValidationException("selection", "The 'selection' field is not a valid envelope.");
         }
-        stream(request, response);
+        stream(request, httpRequest, response);
     }
 
-    private void stream(GenerateRequest request, HttpServletResponse response) throws IOException {
+    private void stream(GenerateRequest request, HttpServletRequest httpRequest, HttpServletResponse response)
+            throws IOException {
         long start = System.nanoTime();
+        SelectionEnvelope envelope = request.toEnvelope();
+
+        // Stage 1 first, on its own. Parsing is pure and cheap, it rejects a hostile or malformed
+        // selection before anything is spent on it (§13, kitbash-20), and it is what produces the
+        // hash the cache is keyed on.
+        Selection selection = pipeline.parse(envelope);
+        String cacheKey = cacheKey(selection);
+
+        Optional<byte[]> cached = cache.find(cacheKey);
+        if (cached.isPresent()) {
+            // §13: a cache hit consumes no budget. The limiter is below this return on purpose —
+            // regenerating the house stack over and over is the usage this product most wants to
+            // encourage, and serving bytes that already exist costs nothing worth metering. This
+            // is also why the limiter is not a servlet filter: a filter would have charged for
+            // this request before the handler ever got the chance to find them.
+            writeZip(response, selection.projectName(), pipeline.catalog().digest(), selection.hash());
+            try (OutputStream out = response.getOutputStream()) {
+                out.write(cached.get());
+            }
+            log.info("Served selection={} from cache bytes={}", selection.hash(), cached.get().length);
+            return;
+        }
+
+        limiter.require(RateLimiter.Bucket.GENERATE, Caller.key(httpRequest));
 
         // The whole pipeline runs before a single header is written: once the body starts
         // streaming there is no way to turn the response into a 400, and every failure worth
         // reporting — an unknown recipe, a conflict, a breached cap — happens before packaging.
-        GeneratedProject project = pipeline.generate(request.toEnvelope());
+        GeneratedProject project = pipeline.generate(envelope);
 
-        response.setContentType("application/zip");
-        response.setHeader(
-                HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + project.projectName() + ".zip\"");
-        // The zip is deterministic but the endpoint is not idempotent for caches to guess at.
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        // The digest that makes a bug report actionable (§9), and the hash the cache will key on.
-        response.setHeader("X-Kitbash-Catalog-Digest", project.lock().catalogDigest());
-        response.setHeader("X-Kitbash-Selection-Hash", project.selectionHash());
+        writeZip(response, project.projectName(), project.lock().catalogDigest(), project.selectionHash());
 
-        try (OutputStream out = response.getOutputStream()) {
-            project.streamTo(out);
+        if (cache.stores()) {
+            // Held whole only when something is going to keep it. The zip is a few hundred
+            // kilobytes (§2 keeps the workspace in memory anyway), so this is one copy, not a
+            // second rendering.
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            project.streamTo(buffer);
+            byte[] zip = buffer.toByteArray();
+            cache.put(cacheKey, zip);
+            try (OutputStream out = response.getOutputStream()) {
+                out.write(zip);
+            }
+        } else {
+            try (OutputStream out = response.getOutputStream()) {
+                project.streamTo(out);
+            }
         }
 
         // Hashes and recipe ids only: §10 keeps project and package names out of the logs.
@@ -96,5 +141,21 @@ public class GenerateController {
                 project.fileCount(),
                 project.totalBytes(),
                 (System.nanoTime() - start) / 1_000_000);
+    }
+
+    /** §10's key: the catalog and the canonical selection together, since either changes the bytes. */
+    private String cacheKey(Selection selection) {
+        return Sha256.ofUtf8(pipeline.catalog().digest() + "\u0000" + selection.hash());
+    }
+
+    private static void writeZip(
+            HttpServletResponse response, String projectName, String catalogDigest, String selectionHash) {
+        response.setContentType("application/zip");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + projectName + ".zip\"");
+        // The zip is deterministic but the endpoint is not idempotent for caches to guess at.
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        // The digest that makes a bug report actionable (§9), and the hash the cache keys on.
+        response.setHeader("X-Kitbash-Catalog-Digest", catalogDigest);
+        response.setHeader("X-Kitbash-Selection-Hash", selectionHash);
     }
 }

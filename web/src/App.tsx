@@ -1,4 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from 'react-oidc-context';
+import { AuthGate } from '@/auth/AuthGate';
+import { authEnabled, oidcConfig } from '@/auth/config';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Wizard } from '@/wizard/Wizard';
 
@@ -21,8 +24,27 @@ export function App() {
           </div>
           <ThemeToggle />
         </header>
-        <Wizard />
+        <SignedIn>
+          <Wizard />
+        </SignedIn>
       </div>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * The wizard, behind whatever sign-in this build has.
+ *
+ * Authentication is a build-time switch rather than a runtime one: the component tests render this
+ * tree in jsdom, where starting an OIDC redirect would be a navigation to nowhere. A production
+ * build cannot express "no authentication", which is the property worth having.
+ */
+function SignedIn({ children }: { children: React.ReactNode }) {
+  if (!authEnabled) return <>{children}</>;
+
+  return (
+    <AuthProvider {...oidcConfig}>
+      <AuthGate>{children}</AuthGate>
+    </AuthProvider>
   );
 }

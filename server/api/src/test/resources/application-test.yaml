@@ -1,0 +1,19 @@
+# Every @SpringBootTest in this module runs with this profile.
+#
+# It stubs the *issuer*, not the security: the filter chain under test is the real one, so a test
+# that forgets to authenticate fails the way a real caller would. `jwk-set-uri` rather than
+# `issuer-uri` because the latter performs OIDC discovery at startup, and a test that needed a
+# network round trip to boot would be a test nobody runs offline. Nothing ever fetches this URL —
+# MockMvc's jwt() post-processor builds the authentication directly.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost/never-fetched/jwks.json
+
+kitbash:
+  limits:
+    # High enough that an ordinary test never trips it. The burst test sets its own.
+    generate-per-minute: 10000
+    generate-burst: 10000

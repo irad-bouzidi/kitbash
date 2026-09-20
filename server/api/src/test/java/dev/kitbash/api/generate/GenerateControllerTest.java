@@ -15,9 +15,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
+@ActiveProfiles("test")
+// Signed in, because since kitbash-22 every endpoint but /actuator/health is (§13). These tests
+// are about what the endpoints say, not about who may call them — SecurityTest covers that.
+@WithMockUser
 @AutoConfigureMockMvc
 class GenerateControllerTest {
 

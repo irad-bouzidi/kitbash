@@ -10,6 +10,7 @@
  * and types, and this module carries only the request shapes — which is the difference between a
  * client that follows the catalog and one that has to be redeployed when the catalog grows.
  */
+import { authorizationHeader } from '@/auth/token';
 import type { components, paths } from '@/lib/api/schema';
 
 export type MetadataDocument =
@@ -51,7 +52,13 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      // Every endpoint but health is closed (§13), so every request carries the token. One place,
+      // because a request that forgets is a 401 the user cannot act on.
+      ...authorizationHeader(),
+      ...init?.headers,
+    },
   });
 
   if (!response.ok) {
@@ -77,9 +84,45 @@ export function validate(selection: GenerateRequest): Promise<ValidationResponse
   });
 }
 
-/**
- * Generation is not here on purpose. §9 wants the download to be a real form submission so the
- * browser shows native progress; `fetch` plus a blob URL would hold a multi-megabyte string in
- * the tab and show the user nothing.
- */
 export const GENERATE_URL = '/api/v1/generate';
+
+/**
+ * Downloads the generated project.
+ *
+ * <p>This used to be a real form submission, because §9 wanted the browser's own download
+ * progress rather than a blob held in the tab. Authentication ended that: a form navigation
+ * cannot carry an Authorization header, and the alternatives — the token in a query string, or a
+ * cookie session beside the bearer tokens — are both worse than losing a progress bar. A token in
+ * a URL ends up in history, in referrers and in access logs.
+ *
+ * <p>The cost is small in practice. A generated project is a few hundred kilobytes, so the blob
+ * exists for about as long as it takes to click; §9's concern was multi-megabyte downloads that
+ * appear to hang. The form endpoint stays on the server for clients that are not browsers.
+ */
+export async function downloadProject(selection: GenerateRequest): Promise<void> {
+  const response = await fetch(GENERATE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeader() },
+    body: JSON.stringify(selection),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${selection.projectName}.zip`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    // The object URL pins the blob in memory until it is revoked, and the click has already
+    // handed the bytes to the download manager by the time this runs.
+    URL.revokeObjectURL(url);
+  }
+}

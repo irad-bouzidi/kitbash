@@ -28,6 +28,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // There is no identity provider in jsdom, and starting an OIDC redirect from a component
+    // test would be a navigation to nowhere. The component tests are about what the wizard
+    // renders; who may see it is asserted against the real filter chain, on the server.
+    env: { VITE_OIDC_DISABLED: 'true' },
     css: true,
     // Playwright specs live in e2e/ and are run by `pnpm test:e2e`; Vitest would
     // otherwise try to execute them and fail on the missing test runner.

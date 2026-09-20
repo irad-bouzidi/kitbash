@@ -1,11 +1,14 @@
 package dev.kitbash.api.error;
 
+import dev.kitbash.api.security.RateLimitExceededException;
 import dev.kitbash.core.error.ErrorCode;
 import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.error.GenerationException;
 import dev.kitbash.core.selection.SelectionValidationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -56,6 +59,33 @@ public class ApiExceptionHandler {
         problem.setTitle("Invalid selection");
         problem.setProperty("field", exception.field());
         return problem;
+    }
+
+    /**
+     * The budget is spent (§13, §14).
+     *
+     * <p>A 429 with no body is a client that retries immediately and fails again. This one carries
+     * the envelope and a {@code Retry-After}, so the wizard can say when rather than whether.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> rateLimited(RateLimitExceededException exception) {
+        long seconds = exception.retryAfterSeconds();
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Too many requests in a short time. This limit is per person, and it is modest "
+                        + "rather than metered.");
+        problem.setTitle("Slow down");
+        problem.setProperty("error", "RATE_LIMITED");
+        problem.setProperty("retryAfterSeconds", seconds);
+        problem.setProperty(
+                "hint",
+                "Wait %d second%s and try again. A repeat of a generation already served from cache "
+                                .formatted(seconds, seconds == 1 ? "" : "s")
+                        + "costs nothing, so identical downloads are not what ran this out.");
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(problem);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

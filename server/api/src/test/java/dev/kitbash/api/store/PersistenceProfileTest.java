@@ -25,7 +25,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * which is the §10/§12 property this profile exists to preserve.
  */
 @SpringBootTest
-@ActiveProfiles("persistence")
+@ActiveProfiles({"persistence", "test"})
 class PersistenceProfileTest {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
