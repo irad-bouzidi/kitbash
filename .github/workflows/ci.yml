@@ -178,10 +178,28 @@ jobs:
         working-directory: web
         run: pnpm exec playwright install --with-deps chromium
 
+      # The stub issuer, the same one `docker compose up` runs. §13 closes every endpoint but
+      # health, so the smoke test needs a real token — and stubbing the issuer rather than the
+      # filter means the security configuration this job exercises is the one that ships.
+      - name: Start the stub issuer
+        run: |
+          docker run -d --name kitbash-oidc -p 9500:8080 \
+            -e JSON_CONFIG='{"interactiveLogin":false,"httpServer":"NettyWrapper","tokenCallbacks":[{"issuerId":"kitbash","tokenExpiry":3600,"requestMappings":[{"requestParam":"client_id","match":"kitbash-web","claims":{"sub":"dev-user","roles":["kitbash-author","kitbash-publisher"]}}]}]}' \
+            ghcr.io/navikt/mock-oauth2-server:2.1.11
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:9500/kitbash/.well-known/openid-configuration && exit 0
+            sleep 2
+          done
+          echo "the stub issuer did not come up" >&2
+          exit 1
+
       # A real jar rather than `bootRun`, so the smoke test runs against the
       # artefact and the step exits once the server is listening.
       - name: Build and start the API
         working-directory: server
+        env:
+          SPRING_PROFILES_ACTIVE: dev-auth
+          KITBASH_OIDC_JWKS: http://localhost:9500/kitbash/jwks
         run: |
           ./gradlew :api:bootJar
           java -jar api/build/libs/api-*.jar &
@@ -194,6 +212,9 @@ jobs:
 
       - name: pnpm test:e2e
         working-directory: web
+        env:
+          VITE_OIDC_ISSUER: http://localhost:9500/kitbash
+          VITE_OIDC_CLIENT_ID: kitbash-web
         run: pnpm test:e2e
 
       - name: Upload the Playwright report

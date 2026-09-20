@@ -27,6 +27,32 @@ spring:
     problemdetails:
       enabled: true
 
+  # §13, §18: a resource server and nothing else. There is no registration and no password
+  # handling here, because the audience is one internal team behind the SSO they already have.
+  #
+  # The issuer is deliberately not defaulted. A service that cannot verify a token must not start,
+  # because starting would mean serving unauthenticated — so a deployment sets KITBASH_OIDC_ISSUER
+  # (or SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI), and a laptop runs the `dev-auth`
+  # profile below. `IssuerRequired` turns the missing case into a sentence rather than a stack
+  # trace about a decoder bean.
+
+kitbash:
+  security:
+    # The claim roles arrive in, and the two roles this service authorises on. Named in
+    # configuration rather than in code: the mapping to an identity provider's groups is the part
+    # most likely to change, and renaming a group should not be a deploy.
+    roles-claim: ${KITBASH_OIDC_ROLES_CLAIM:roles}
+    preset-author: ${KITBASH_ROLE_PRESET_AUTHOR:kitbash-author}
+    publisher: ${KITBASH_ROLE_PUBLISHER:kitbash-publisher}
+  limits:
+    # Modest, per §13 and §18 — one internal team, not a public service. These exist to stop a
+    # loop in somebody's script from saturating the box, not to meter usage, and a cache hit
+    # spends none of it.
+    generate-per-minute: ${KITBASH_LIMIT_GENERATE_PER_MINUTE:60}
+    generate-burst: ${KITBASH_LIMIT_GENERATE_BURST:20}
+    share-per-minute: ${KITBASH_LIMIT_SHARE_PER_MINUTE:30}
+    share-burst: ${KITBASH_LIMIT_SHARE_BURST:10}
+
 server:
   error:
     include-message: always
@@ -70,3 +96,25 @@ spring:
     # The schema is created from V1 on an empty database. Baselining an existing one would mean
     # trusting that it already matches, which is how two environments quietly diverge.
     baseline-on-migrate: false
+
+---
+# Local development, with a stub issuer instead of the corporate one. `docker compose up` runs it
+# alongside the service and the web app, so the whole stack works on a laptop with no access to
+# the company's identity provider — and the security configuration under test is the real one
+# rather than a disabled one, which is the point of stubbing the issuer rather than the filter.
+spring:
+  config:
+    activate:
+      on-profile: dev-auth
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # The key set rather than the issuer, and only here.
+          #
+          # The browser reaches the stub on the host's published port and the API reaches it by
+          # its service name, so a token minted for the browser carries an `iss` the API would
+          # not recognise. Verifying against the key set keeps the signature check — which is the
+          # part that matters — without demanding that two different networks agree on one name.
+          # Deployments set KITBASH_OIDC_ISSUER and get issuer validation as well.
+          jwk-set-uri: ${KITBASH_OIDC_JWKS:http://oidc:8080/kitbash/jwks}

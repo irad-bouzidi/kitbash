@@ -11,6 +11,20 @@ import { stat } from 'node:fs/promises';
  * test drives the rendered page, so naming what is on it is the job.
  */
 
+/**
+ * Signs in, the way a person does.
+ *
+ * §13 closes every endpoint but health, so the wizard renders nothing until there is a token.
+ * The stub issuer `docker compose up` starts is configured not to prompt, so this is a redirect
+ * out and a redirect back — which is also exactly what an SSO with an existing session does. The
+ * flow under test is the real authorization-code-with-PKCE one; only the issuer is a stub.
+ */
+async function open(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  // The catalog is the first thing the wizard asks for, and it needs the token to get it.
+  await expect(page.getByLabel('Backend')).toBeVisible({ timeout: 30_000 });
+}
+
 async function chooseAStack(page: import('@playwright/test').Page) {
   await page.getByLabel('Backend').selectOption('backend-spring-java');
   await page.getByLabel('Build tool').selectOption('build-gradle-kts');
@@ -18,10 +32,7 @@ async function chooseAStack(page: import('@playwright/test').Page) {
 }
 
 test('choosing a stack and clicking Generate downloads a zip', async ({ page }) => {
-  await page.goto('/');
-
-  // The wizard renders from /api/v1/metadata, so the first thing to wait for is the catalog.
-  await expect(page.getByLabel('Backend')).toBeVisible();
+  await open(page);
   await chooseAStack(page);
 
   await page.getByLabel('Project name').fill('billing-service');
@@ -54,8 +65,7 @@ test('choosing a stack and clicking Generate downloads a zip', async ({ page }) 
 });
 
 test('the right rail shows what the resolver added, not just what was picked', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByLabel('Backend')).toBeVisible();
+  await open(page);
   await chooseAStack(page);
 
   // §9: a user who picked a backend and got a project skeleton should be told.
@@ -66,8 +76,7 @@ test('the right rail shows what the resolver added, not just what was picked', a
 test('an invalid project name blocks the download, with the reason on the field', async ({
   page,
 }) => {
-  await page.goto('/');
-  await expect(page.getByLabel('Backend')).toBeVisible();
+  await open(page);
   await chooseAStack(page);
 
   await page.getByLabel('Project name').fill('Not A Project');
@@ -77,8 +86,7 @@ test('an invalid project name blocks the download, with the reason on the field'
 });
 
 test('the selection is in the URL, so a link captures a configuration', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByLabel('Backend')).toBeVisible();
+  await open(page);
   await chooseAStack(page);
 
   await expect(page).toHaveURL(/backend=backend-spring-java/);

@@ -17,6 +17,11 @@ dependencies {
     // §10's data model. JDBC rather than JPA: the rows are four flat tables with jsonb columns
     // read back as text, and an ORM would add a mapping layer, a dialect and a lazy-loading
     // failure mode for no gain. There is no entity graph here to map.
+    // §18 settles the audience: one internal team behind the SSO they already have. That is why
+    // this is a resource server and nothing else — no registration, no password handling, no
+    // tenancy. `owner_id` is the token's subject.
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
@@ -25,6 +30,7 @@ dependencies {
     implementation(libs.springdoc.openapi.webmvc)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.testcontainers.postgresql)

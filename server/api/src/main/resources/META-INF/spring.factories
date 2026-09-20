@@ -1,0 +1,3 @@
+# Registered as a listener rather than a bean: the check has to run before the context starts, so
+# that a missing issuer is a sentence at startup rather than a bean-creation failure later.
+org.springframework.context.ApplicationListener=dev.kitbash.api.security.IssuerRequired

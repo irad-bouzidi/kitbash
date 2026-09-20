@@ -37,6 +37,50 @@ services:
       timeout: 5s
       retries: 10
 
+  # The stub identity provider, so the whole stack runs on a laptop without the corporate one.
+  #
+  # It stubs the *issuer*, not the security: the API runs its real filter chain against real
+  # signed tokens, so a mistake in the authorization rules shows up here rather than in
+  # production. `interactiveLogin` gives a login page where any username works — the point is a
+  # token with the right shape, not an authentication decision.
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.11
+    ports:
+      - "9500:8080"
+    environment:
+      # No login prompt, and a token that carries both roles. Signing in locally should be a
+      # redirect the developer does not see, and it should grant everything §13 gates — otherwise
+      # the first person to work on presets discovers their dev token cannot write one.
+      #
+      # Keyed on client_id rather than scope: a code exchange does not send `scope`, so a mapping
+      # on it matches the client-credentials grant and silently misses the browser's. The symptom
+      # was an ID token with no subject, which oidc-client-ts rightly refuses.
+      JSON_CONFIG: >-
+        {
+          "interactiveLogin": false,
+          "httpServer": "NettyWrapper",
+          "tokenCallbacks": [
+            {
+              "issuerId": "kitbash",
+              "tokenExpiry": 3600,
+              "requestMappings": [
+                {
+                  "requestParam": "client_id",
+                  "match": "kitbash-web",
+                  "claims": {
+                    "sub": "dev-user",
+                    "roles": ["kitbash-author", "kitbash-publisher"]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+    # No healthcheck: the image is distroless, so there is no shell or wget inside it to run one
+    # with. Nothing here needs one — the API verifies tokens against the key set and fetches it on
+    # the first request rather than at startup, so the issuer only has to be up before somebody
+    # signs in, not before the service boots.
+
   server:
     build:
       # The repository root, because the phase-0 generator stages /reference onto
@@ -49,7 +93,7 @@ services:
       # The database is opt-in (§10, §12): /metadata, /validate and /generate need no
       # persistence, so the service starts without one and a missing Postgres cannot take
       # the generator down with it. This profile is what a deployment with a database runs.
-      SPRING_PROFILES_ACTIVE: persistence
+      SPRING_PROFILES_ACTIVE: persistence,dev-auth
       KITBASH_DB_URL: jdbc:postgresql://postgres:5432/kitbash
       KITBASH_DB_USER: kitbash
       KITBASH_DB_PASSWORD: kitbash
@@ -58,12 +102,23 @@ services:
         # Flyway runs at startup, so the database has to be accepting connections rather
         # than merely started.
         condition: service_healthy
+      oidc:
+        condition: service_started
     # The object store arrives with kitbash-27 and adds its own condition here.
 
   web:
     build:
       context: .
       dockerfile: web/Dockerfile
+      # Build arguments rather than environment: Vite resolves these when the bundle is built,
+      # and a static file server has nothing left to substitute at startup.
+      #
+      # The browser reaches the stub on the host's published port, which is a different address
+      # from the one the API uses inside the network — see the note in application.yaml about why
+      # the dev profile verifies against the key set rather than the issuer claim.
+      args:
+        VITE_OIDC_ISSUER: http://localhost:9500/kitbash
+        VITE_OIDC_CLIENT_ID: kitbash-web
     ports:
       - "5173:80"
     depends_on:
