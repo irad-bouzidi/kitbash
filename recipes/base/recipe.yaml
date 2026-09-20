@@ -5,6 +5,9 @@ kind: base
 label: Project skeleton
 provides: [project-root]
 
+# No slot: nothing offers `base` as a choice. It arrives because something else requires
+# `project-root`, and putting it in the wizard would be offering a decision nobody has.
+
 # Everything here is stack-agnostic: the files a project has because it is a project,
 # not because of what it is written in. The moment something in `base` would need to
 # know a technology, it belongs in the recipe for that technology instead (§19).

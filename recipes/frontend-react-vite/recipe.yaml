@@ -12,6 +12,7 @@ version: 1.0.0
 frameworkVersion: "19"
 kind: frontend
 label: React + TypeScript (Vite)
+slot: frontend
 
 provides: [spa]
 # Only `project-root`. §18 settles that a standalone frontend is supported, so requiring a

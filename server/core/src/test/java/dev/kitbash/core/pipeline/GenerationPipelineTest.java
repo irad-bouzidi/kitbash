@@ -81,7 +81,7 @@ class GenerationPipelineTest {
             Catalog withModular = Catalog.of(
                     java.util.List.of(
                             TestCatalogFixture.base(),
-                            new dev.kitbash.core.recipe.Recipe(
+                            dev.kitbash.core.recipe.Recipe.implied(
                                     TestCatalogFixture.BACKEND,
                                     dev.kitbash.core.recipe.RecipeVersion.parse("1.0.0"),
                                     null,

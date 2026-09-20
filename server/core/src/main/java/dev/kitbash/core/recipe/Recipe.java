@@ -16,6 +16,11 @@ import java.util.stream.Collectors;
  * <p>This record holds the manifest only. The files stay where they are until the plan stage asks
  * for them, so the whole catalog can sit in memory without also holding every template body.
  *
+ * <p>{@code slot} is the option that offers this recipe as a choice — {@code backend}, {@code
+ * database}, {@code docker}. It is null for a recipe nothing chooses directly: {@code base}
+ * arrives because something else requires {@code project-root}, and offering it in the wizard
+ * would be offering a decision nobody has.
+ *
  * <p>Collections are stored sorted rather than in manifest order. Two recipes that declare the same
  * capabilities in a different order must resolve the same and hash the same, and the catalog digest
  * (§7) is computed over this data — sorting here means nothing downstream has to remember to.
@@ -33,7 +38,8 @@ public record Recipe(
         Set<String> requiredVariables,
         List<FileRule> files,
         List<PatchRule> patches,
-        boolean hasHook) {
+        boolean hasHook,
+        String slot) {
 
     public Recipe {
         Objects.requireNonNull(id, "id");
@@ -47,6 +53,50 @@ public record Recipe(
         requiredVariables = sorted(requiredVariables);
         files = files == null ? List.of() : List.copyOf(files);
         patches = patches == null ? List.of() : List.copyOf(patches);
+        slot = slot == null || slot.isBlank() ? null : slot;
+    }
+
+    /**
+     * The twelve-argument form, for a recipe nothing selects directly.
+     *
+     * <p>{@code base} is the case: nothing offers it as a choice, and it arrives because something
+     * else requires {@code project-root}. A recipe with no slot can only be reached by implication,
+     * which is exactly right for the ones that are not decisions.
+     */
+    public static Recipe implied(
+            RecipeId id,
+            RecipeVersion version,
+            String frameworkVersion,
+            RecipeKind kind,
+            String label,
+            Set<Capability> provides,
+            Set<Capability> requires,
+            Set<RecipeId> conflictsWith,
+            List<OptionSpec> options,
+            Set<String> requiredVariables,
+            List<FileRule> files,
+            List<PatchRule> patches,
+            boolean hasHook) {
+        return new Recipe(
+                id,
+                version,
+                frameworkVersion,
+                kind,
+                label,
+                provides,
+                requires,
+                conflictsWith,
+                options,
+                requiredVariables,
+                files,
+                patches,
+                hasHook,
+                null);
+    }
+
+    /** Whether some option offers this recipe as a choice, rather than it arriving by implication. */
+    public boolean isSelectable() {
+        return slot != null;
     }
 
     /** The options this recipe declares, keyed by id, in declaration order. */

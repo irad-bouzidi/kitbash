@@ -28,11 +28,34 @@ public final class Catalog {
     private final List<Recipe> recipes;
     private final Map<RecipeId, Recipe> byId;
     private final Map<Capability, List<Recipe>> providers;
+    private final Map<String, Slot> slots;
+    private final Map<String, List<Recipe>> bySlot;
+    private final List<OptionGroup> groups;
+    private final List<VariableSpec> variables;
     private final String digest;
 
-    private Catalog(List<Recipe> recipes, String digest) {
+    private Catalog(List<Recipe> recipes, String digest, List<OptionGroup> groups, List<VariableSpec> variables) {
         this.recipes = List.copyOf(recipes);
         this.digest = Objects.requireNonNull(digest, "digest");
+        this.groups = List.copyOf(groups);
+        this.variables = List.copyOf(variables);
+
+        Map<String, Slot> declaredSlots = new LinkedHashMap<>();
+        this.groups.stream()
+                .sorted(Comparator.comparingInt(OptionGroup::order).thenComparing(OptionGroup::id))
+                .forEach(group -> group.slots().forEach(slot -> declaredSlots.put(slot.id(), slot)));
+        this.slots = Map.copyOf(declaredSlots);
+
+        Map<String, List<Recipe>> inSlot = new LinkedHashMap<>();
+        this.recipes.forEach(recipe -> {
+            if (recipe.slot() != null) {
+                inSlot.computeIfAbsent(recipe.slot(), ignored -> new java.util.ArrayList<>())
+                        .add(recipe);
+            }
+        });
+        Map<String, List<Recipe>> frozenSlots = new LinkedHashMap<>();
+        inSlot.forEach((slot, list) -> frozenSlots.put(slot, List.copyOf(list)));
+        this.bySlot = Map.copyOf(frozenSlots);
         Map<RecipeId, Recipe> index = new LinkedHashMap<>();
         Map<Capability, List<Recipe>> byCapability = new LinkedHashMap<>();
         for (Recipe recipe : this.recipes) {
@@ -54,12 +77,40 @@ public final class Catalog {
      * the metadata document, the digest — sees the same order without having to ask for it.
      */
     public static Catalog of(Collection<Recipe> recipes, String digest) {
+        return of(recipes, digest, List.of(), List.of());
+    }
+
+    public static Catalog of(
+            Collection<Recipe> recipes, String digest, List<OptionGroup> groups, List<VariableSpec> variables) {
         return new Catalog(
-                recipes.stream().sorted(Comparator.comparing(Recipe::id)).toList(), digest);
+                recipes.stream().sorted(Comparator.comparing(Recipe::id)).toList(), digest, groups, variables);
     }
 
     public static Catalog empty() {
-        return new Catalog(List.of(), "sha256:" + "0".repeat(64));
+        return new Catalog(List.of(), "sha256:" + "0".repeat(64), List.of(), List.of());
+    }
+
+    /** The wizard's sections, in display order (§8). */
+    public List<OptionGroup> groups() {
+        return groups;
+    }
+
+    /** The free-text inputs, with the labels, help and patterns a client renders them from. */
+    public List<VariableSpec> variables() {
+        return variables;
+    }
+
+    public Optional<Slot> slot(String id) {
+        return Optional.ofNullable(slots.get(id));
+    }
+
+    public Set<String> slotIds() {
+        return slots.keySet();
+    }
+
+    /** The recipes a slot offers, in id order. Empty means a slot nobody fills. */
+    public List<Recipe> recipesInSlot(String slotId) {
+        return bySlot.getOrDefault(slotId, List.of());
     }
 
     /** sha256 over the sorted set of (recipeId, version, contentHash) — §7. */

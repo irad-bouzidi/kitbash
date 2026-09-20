@@ -3,3 +3,7 @@ coverage
 pnpm-lock.yaml
 playwright-report
 test-results
+
+# Generated from the server's OpenAPI document by `pnpm gen:api`.
+src/lib/api/schema.d.ts
+src/lib/api/openapi.json

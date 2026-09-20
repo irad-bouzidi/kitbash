@@ -3,6 +3,9 @@
 One directory per recipe, each a manifest plus the files and patch operations it contributes.
 Recipes are the *only* place in this repository allowed to know a technology's name (§19).
 
+[`_catalog.yaml`](_catalog.yaml) describes what the catalog *offers* — the wizard's sections, the
+slots recipes fill, the free-text inputs — and is what `GET /api/v1/metadata` is assembled from.
+
 The manifest format is specified in [`docs/recipe-format.md`](../docs/recipe-format.md) and
 enforced by [`_schema/recipe.schema.json`](_schema/recipe.schema.json), which the loader validates
 against at boot and which editors can be pointed at directly:

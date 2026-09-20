@@ -118,10 +118,12 @@ class GenerateControllerTest {
         MockHttpServletResponse response = generate(body);
 
         assertThat(response.getStatus()).isEqualTo(400);
+        // Which variable is named depends on recipe order, and pinning that would make this a
+        // test of the sort order. What matters is that it names one, and the recipe that wants it.
         assertThat(response.getContentAsString())
                 .contains("\"error\":\"INVALID_IDENTIFIER\"")
                 .contains("not supplied")
-                .contains("entityName");
+                .contains("required by");
     }
 
     @Test

@@ -2,7 +2,6 @@ package dev.kitbash.verify;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.kitbash.catalog.LoadedRecipe;
 import dev.kitbash.core.pipeline.GeneratedProject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -40,9 +39,8 @@ class ReferenceProjectEqualityTest {
     @MethodSource("referenceProjects")
     @DisplayName("generating with the checked-in variables reproduces the reference project")
     void reproducesTheReferenceProject(Path referenceProject) {
-        List<LoadedRecipe> loaded = ReferenceProjects.loadRecipes();
-        GeneratedProject generated =
-                ReferenceProjects.pipeline(loaded).generate(ReferenceProjects.selectionFor(referenceProject));
+        GeneratedProject generated = ReferenceProjects.pipeline(ReferenceProjects.loadCatalog())
+                .generate(ReferenceProjects.selectionFor(referenceProject));
 
         if (Boolean.getBoolean("kitbash.reference.adopt")) {
             // Extraction-time only, and the opposite of the normal workflow. When recipes are first

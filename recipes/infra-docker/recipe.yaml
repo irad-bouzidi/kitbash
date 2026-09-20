@@ -11,6 +11,7 @@ id: infra-docker
 version: 1.1.0
 kind: infra
 label: Docker and Compose
+slot: docker
 # `docker` is what the wizard's toggle is named, and `containers` is what other recipes
 # test for. Two names for one thing looks redundant until a second container runtime
 # exists: the toggle is a product decision, the capability is a contract.

@@ -9,6 +9,7 @@ import dev.kitbash.core.recipe.OptionSpec;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.recipe.RecipeKind;
+import dev.kitbash.core.recipe.Slot;
 import dev.kitbash.core.selection.OptionValue;
 import dev.kitbash.core.selection.Selection;
 import java.util.ArrayDeque;
@@ -35,16 +36,24 @@ import java.util.stream.Collectors;
  * as much the deliverable as the code — and it only stays fast enough to run on every save if
  * nothing here needs constructing.
  *
- * <p><b>How a recipe gets selected.</b> Three rules, and nothing else:
+ * <p><b>How a recipe gets selected.</b> Four rules, and nothing else:
  *
  * <ol>
- *   <li>An option whose value names a recipe id selects that recipe; a multi-select selects each of
- *       its values.
- *   <li>A boolean option set to {@code true} whose id names a capability demands that capability,
- *       which implied expansion then satisfies. This is how {@code "docker": true} reaches the
- *       container recipe without the envelope, the wizard or this class naming it.
+ *   <li>An <b>enum slot</b>'s value names a recipe assigned to that slot, and selects it.
+ *   <li>A <b>boolean slot</b> set to {@code true} selects the recipes assigned to it. This is how
+ *       {@code "docker": true} reaches the container recipe without the envelope, the wizard or
+ *       this class naming it.
+ *   <li>A recipe's own boolean option that declares {@code demands} adds that capability as a
+ *       requirement when it is on, which implied expansion then satisfies. §18 needs this: a
+ *       standalone frontend is supported, so the recipe cannot require a REST API, while its
+ *       typed-client option genuinely does.
  *   <li>Everything else is configuration, read by templates and by {@code when} expressions.
  * </ol>
+ *
+ * <p>Slots are declared in {@code /recipes/_catalog.yaml}, not inferred from values. An earlier
+ * version worked the other way — any option value that happened to name a recipe selected it —
+ * which resolves a selection somebody has already made and cannot describe one nobody has yet. A
+ * wizard needs the slot before the value exists.
  *
  * <p>There is no compatibility matrix in here, which is the whole of §4. Recipes declare what they
  * provide and require and the selected set is checked structurally; a hand-written table of legal
@@ -78,7 +87,8 @@ public final class Resolver {
         checkConflicts(chosen, reading, conflicts);
 
         checkRequiredVariables(chosen, selection, conflicts);
-        Map<String, OptionValue> effective = effectiveOptions(chosen, selection, reading, conflicts, warnings);
+        Map<String, OptionValue> effective =
+                effectiveOptions(chosen, selection, reading, catalog.slotIds(), conflicts, warnings);
         Set<Capability> capabilities = chosen.stream()
                 .flatMap(recipe -> recipe.provides().stream())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -101,43 +111,59 @@ public final class Resolver {
             slots.addAll(capabilitySlots.values());
             return slots;
         }
+
+        static Reading empty() {
+            return new Reading(Set.of(), Map.of(), Map.of());
+        }
     }
 
     private Reading read(Selection selection) {
         Set<RecipeId> selected = new LinkedHashSet<>();
         Map<RecipeId, String> recipeSlots = new LinkedHashMap<>();
         Map<Capability, String> capabilitySlots = new LinkedHashMap<>();
-        Set<Capability> known = catalog.allCapabilities();
 
         selection.canonical().options().forEach((optionId, value) -> {
-            switch (value) {
-                case OptionValue.Text text ->
-                    asRecipe(text.value()).ifPresent(id -> {
-                        selected.add(id);
-                        recipeSlots.putIfAbsent(id, optionId);
-                    });
-                case OptionValue.Multi multi ->
-                    multi.values().forEach(entry -> asRecipe(entry).ifPresent(id -> {
-                        selected.add(id);
-                        recipeSlots.putIfAbsent(id, optionId);
-                    }));
-                case OptionValue.Flag flag -> {
-                    if (!flag.value()) {
-                        return;
-                    }
-                    // Rule 2, in two forms. An option may name the capability it demands in its
-                    // manifest — which is how `typedClient: true` asks for `openapi-spec` without
-                    // sharing its name — and failing that, an option id that is itself a capability
-                    // name demands it, which is how `docker: true` reaches the container recipe.
-                    Capability declared = declaredDemand(optionId);
-                    Capability capability = declared != null ? declared : asCapability(optionId);
-                    if (capability != null && known.contains(capability)) {
-                        capabilitySlots.putIfAbsent(capability, optionId);
-                    }
-                }
-            }
+            catalog.slot(optionId).ifPresent(slot -> fill(slot, value, selected, recipeSlots));
+            demandedBy(optionId, value).ifPresent(capability -> capabilitySlots.putIfAbsent(capability, optionId));
         });
         return new Reading(selected, recipeSlots, capabilitySlots);
+    }
+
+    /** Rules 1 and 2: what a slot's value selects. */
+    private void fill(Slot slot, OptionValue value, Set<RecipeId> selected, Map<RecipeId, String> recipeSlots) {
+        List<Recipe> offered = catalog.recipesInSlot(slot.id());
+        switch (slot.type()) {
+            case ENUM -> {
+                String chosen = value instanceof OptionValue.Text text ? text.value() : null;
+                offered.stream()
+                        .filter(recipe -> recipe.id().value().equals(chosen))
+                        .forEach(recipe -> {
+                            selected.add(recipe.id());
+                            recipeSlots.putIfAbsent(recipe.id(), slot.id());
+                        });
+            }
+            case BOOLEAN -> {
+                if (value instanceof OptionValue.Flag flag && flag.value()) {
+                    offered.forEach(recipe -> {
+                        selected.add(recipe.id());
+                        recipeSlots.putIfAbsent(recipe.id(), slot.id());
+                    });
+                }
+            }
+        }
+    }
+
+    /** Rule 3: a recipe's own toggle asking for a capability its recipe does not require. */
+    private Optional<Capability> demandedBy(String optionId, OptionValue value) {
+        if (!(value instanceof OptionValue.Flag flag) || !flag.value()) {
+            return Optional.empty();
+        }
+        return catalog.recipes().stream()
+                .map(recipe -> recipe.option(optionId))
+                .flatMap(Optional::stream)
+                .map(OptionSpec::demands)
+                .filter(java.util.Objects::nonNull)
+                .findFirst();
     }
 
     // --- 2. implied expansion -----------------------------------------------
@@ -286,6 +312,7 @@ public final class Resolver {
             List<Recipe> chosen,
             Selection selection,
             Reading reading,
+            Set<String> declaredSlots,
             List<GenerationError> conflicts,
             List<ResolutionWarning> warnings) {
         Map<String, OptionSpec> declared = new LinkedHashMap<>();
@@ -300,7 +327,7 @@ public final class Resolver {
             OptionSpec spec = declared.get(optionId);
             if (spec == null) {
                 effective.put(optionId, value);
-                if (!reading.slotOptions().contains(optionId)) {
+                if (!reading.slotOptions().contains(optionId) && !declaredSlots.contains(optionId)) {
                     // Carried rather than rejected: the envelope is flat and forward-compatible
                     // (§7), and an option belonging to a recipe the user just deselected is the
                     // ordinary case. Carried *silently* is how somebody believes a setting applied.
@@ -457,39 +484,6 @@ public final class Resolver {
     }
 
     // --- helpers -------------------------------------------------------------
-
-    private Optional<RecipeId> asRecipe(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            return catalog.find(RecipeId.of(value)).map(Recipe::id);
-        } catch (IllegalArgumentException notAnId) {
-            // 'layered' and 'hexagonal' land here, which is right: an option value that is not a
-            // recipe id is configuration, not a selection.
-            return Optional.empty();
-        }
-    }
-
-    /** The capability an option's own manifest says it demands when switched on. */
-    private Capability declaredDemand(String optionId) {
-        return catalog.recipes().stream()
-                .map(recipe -> recipe.option(optionId))
-                .filter(java.util.Optional::isPresent)
-                .map(java.util.Optional::get)
-                .map(OptionSpec::demands)
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-    }
-
-    private static Capability asCapability(String optionId) {
-        try {
-            return Capability.of(optionId);
-        } catch (IllegalArgumentException notACapability) {
-            return null;
-        }
-    }
 
     private Recipe require(RecipeId id) {
         return catalog.find(id).orElseThrow(() -> GenerationError.unknownRecipe(id.value(), catalog.recipeIds())

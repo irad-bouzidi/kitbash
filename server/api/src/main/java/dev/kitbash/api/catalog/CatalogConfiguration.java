@@ -1,14 +1,11 @@
 package dev.kitbash.api.catalog;
 
 import dev.kitbash.catalog.CatalogLoader;
-import dev.kitbash.catalog.LoadedRecipe;
-import dev.kitbash.catalog.LoadedRecipeContent;
 import dev.kitbash.core.pipeline.GenerationPipeline;
 import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.render.PebbleRenderStage;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,23 +31,25 @@ public class CatalogConfiguration {
     }
 
     @Bean
-    public List<LoadedRecipe> loadedRecipes() {
+    public CatalogLoader.LoadedCatalog loadedCatalog() {
         Path root = locate();
-        List<LoadedRecipe> loaded = new CatalogLoader().loadDetailed(root);
-        log.info("Loaded {} recipes from {}", loaded.size(), root);
+        CatalogLoader.LoadedCatalog loaded = new CatalogLoader().loadAll(root);
+        log.info(
+                "Loaded {} recipes from {}, catalog digest {}",
+                loaded.recipes().size(),
+                root,
+                loaded.catalog().digest());
         return loaded;
     }
 
     @Bean
-    public Catalog catalog(List<LoadedRecipe> loadedRecipes) {
-        return Catalog.of(
-                loadedRecipes.stream().map(LoadedRecipe::recipe).toList(),
-                CatalogLoader.digestOfRecipes(loadedRecipes));
+    public Catalog catalog(CatalogLoader.LoadedCatalog loadedCatalog) {
+        return loadedCatalog.catalog();
     }
 
     @Bean
-    public GenerationPipeline generationPipeline(Catalog catalog, List<LoadedRecipe> loadedRecipes) {
-        return GenerationPipeline.over(catalog, LoadedRecipeContent.of(loadedRecipes), new PebbleRenderStage());
+    public GenerationPipeline generationPipeline(CatalogLoader.LoadedCatalog loadedCatalog) {
+        return GenerationPipeline.over(loadedCatalog.catalog(), loadedCatalog.content(), new PebbleRenderStage());
     }
 
     /**

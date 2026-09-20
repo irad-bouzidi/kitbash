@@ -4,6 +4,7 @@ version: 1.1.0
 frameworkVersion: "3.5.5"
 kind: backend
 label: Spring Boot (Java)
+slot: backend
 
 provides: [http-server, rest-api, openapi-spec, jvm-project]
 requires: [project-root, build-tool, database]

@@ -3,10 +3,7 @@ package dev.kitbash.verify;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.kitbash.catalog.CatalogLoader;
-import dev.kitbash.catalog.LoadedRecipe;
-import dev.kitbash.catalog.LoadedRecipeContent;
 import dev.kitbash.core.pipeline.GenerationPipeline;
-import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.core.selection.SelectionEnvelope;
 import dev.kitbash.render.PebbleRenderStage;
 import java.io.IOException;
@@ -43,14 +40,12 @@ final class ReferenceProjects {
         return candidate;
     }
 
-    static List<LoadedRecipe> loadRecipes() {
-        return new CatalogLoader().loadDetailed(repositoryRoot().resolve("recipes"));
+    static CatalogLoader.LoadedCatalog loadCatalog() {
+        return new CatalogLoader().loadAll(repositoryRoot().resolve("recipes"));
     }
 
-    static GenerationPipeline pipeline(List<LoadedRecipe> loaded) {
-        Catalog catalog =
-                Catalog.of(loaded.stream().map(LoadedRecipe::recipe).toList(), CatalogLoader.digestOfRecipes(loaded));
-        return GenerationPipeline.over(catalog, LoadedRecipeContent.of(loaded), new PebbleRenderStage());
+    static GenerationPipeline pipeline(CatalogLoader.LoadedCatalog loaded) {
+        return GenerationPipeline.over(loaded.catalog(), loaded.content(), new PebbleRenderStage());
     }
 
     /** Every reference project directory, each of which carries its own variable set. */

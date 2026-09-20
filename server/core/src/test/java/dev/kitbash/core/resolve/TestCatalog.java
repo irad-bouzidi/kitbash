@@ -2,12 +2,15 @@ package dev.kitbash.core.resolve;
 
 import dev.kitbash.core.recipe.Capability;
 import dev.kitbash.core.recipe.Catalog;
+import dev.kitbash.core.recipe.OptionGroup;
 import dev.kitbash.core.recipe.OptionSpec;
 import dev.kitbash.core.recipe.OptionType;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.recipe.RecipeKind;
 import dev.kitbash.core.recipe.RecipeVersion;
+import dev.kitbash.core.recipe.Slot;
+import dev.kitbash.core.recipe.SlotType;
 import dev.kitbash.core.selection.OptionValue;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -20,8 +23,9 @@ import java.util.stream.Collectors;
  *
  * <p>Resolver tests must not read a recipe tree: §8 requires the suite to be pure and fast enough
  * to run on every save, and a test that touches the filesystem is neither. This mirrors the real
- * catalog's *shape* — a base, two mutually exclusive backends, two build tools, a database, a
- * frontend, a feature, containers and CI — which is all the resolver reasons about.
+ * catalog's <i>shape</i> — a base, two mutually exclusive backends, two build tools, a database, a
+ * frontend, a feature, containers and CI, each in a declared slot — which is all the resolver
+ * reasons about.
  */
 final class TestCatalog {
 
@@ -30,21 +34,67 @@ final class TestCatalog {
     static Catalog v1() {
         return Catalog.of(
                 List.of(
-                        recipe("base", RecipeKind.BASE, provides("project-root"), requires()),
-                        recipe("build-gradle-kts", RecipeKind.BASE, provides("build-tool"), requires("project-root")),
-                        recipe("build-maven", RecipeKind.BASE, provides("build-tool"), requires("project-root")),
+                        recipe("base", RecipeKind.BASE, provides("project-root"), requires(), null),
+                        recipe(
+                                "build-gradle-kts",
+                                RecipeKind.BASE,
+                                provides("build-tool"),
+                                requires("project-root"),
+                                "buildTool"),
+                        recipe(
+                                "build-maven",
+                                RecipeKind.BASE,
+                                provides("build-tool"),
+                                requires("project-root"),
+                                "buildTool"),
                         backend("backend-spring-java", "backend-spring-kotlin"),
                         backend("backend-spring-kotlin", "backend-spring-java"),
-                        recipe("db-postgres-flyway", RecipeKind.FEATURE, provides("database"), requires("jvm-project")),
+                        recipe(
+                                "db-postgres-flyway",
+                                RecipeKind.FEATURE,
+                                provides("database"),
+                                requires("jvm-project"),
+                                "database"),
                         frontend(),
-                        recipe("feature-auth-jwt", RecipeKind.FEATURE, provides("auth"), requires("http-server")),
+                        mobile(),
+                        recipe(
+                                "feature-auth-jwt",
+                                RecipeKind.FEATURE,
+                                provides("auth"),
+                                requires("http-server"),
+                                "auth"),
                         recipe(
                                 "infra-docker",
                                 RecipeKind.INFRA,
                                 provides("docker", "containers"),
-                                requires("project-root")),
-                        recipe("ci-gitlab", RecipeKind.CI, provides("ci"), requires("project-root"))),
-                "sha256:test");
+                                requires("project-root"),
+                                "docker"),
+                        recipe("ci-gitlab", RecipeKind.CI, provides("ci"), requires("project-root"), "ci")),
+                "sha256:test",
+                groups(),
+                List.of());
+    }
+
+    /** The slots this catalog offers, in one group — enough for the resolver to read. */
+    static List<OptionGroup> groups() {
+        return List.of(new OptionGroup(
+                "stack",
+                "Stack",
+                "What the project is made of.",
+                1,
+                List.of(
+                        slot("backend", SlotType.ENUM),
+                        slot("frontend", SlotType.ENUM),
+                        slot("mobile", SlotType.ENUM),
+                        slot("buildTool", SlotType.ENUM),
+                        slot("database", SlotType.ENUM),
+                        slot("auth", SlotType.ENUM),
+                        slot("ci", SlotType.ENUM),
+                        slot("docker", SlotType.BOOLEAN))));
+    }
+
+    static Slot slot(String id, SlotType type) {
+        return new Slot(id, type, id, "help for " + id, false, false, "stack");
     }
 
     private static Recipe backend(String id, String conflictsWith) {
@@ -67,7 +117,8 @@ final class TestCatalog {
                 Set.of("groupId", "packageName"),
                 List.of(),
                 List.of(),
-                false);
+                false,
+                "backend");
     }
 
     private static Recipe frontend() {
@@ -91,10 +142,34 @@ final class TestCatalog {
                 Set.of(),
                 List.of(),
                 List.of(),
-                false);
+                false,
+                "frontend");
     }
 
-    static Recipe recipe(String id, RecipeKind kind, Set<Capability> provides, Set<Capability> requires) {
+    /**
+     * Conflicts worth testing are cross-slot ones. Two recipes in the <i>same</i> slot exclude each
+     * other structurally — a slot holds one — so a {@code conflictsWith} between them is dead
+     * configuration, and the loader refuses it.
+     */
+    private static Recipe mobile() {
+        return new Recipe(
+                RecipeId.of("mobile-expo"),
+                RecipeVersion.parse("1.0.0"),
+                null,
+                RecipeKind.MOBILE,
+                "React Native (Expo)",
+                provides("mobile-app"),
+                provides("project-root"),
+                Set.of(RecipeId.of("frontend-react-vite")),
+                List.of(),
+                Set.of(),
+                List.of(),
+                List.of(),
+                false,
+                "mobile");
+    }
+
+    static Recipe recipe(String id, RecipeKind kind, Set<Capability> provides, Set<Capability> requires, String slot) {
         return new Recipe(
                 RecipeId.of(id),
                 RecipeVersion.parse("1.0.0"),
@@ -108,7 +183,8 @@ final class TestCatalog {
                 Set.of(),
                 List.of(),
                 List.of(),
-                false);
+                false,
+                slot);
     }
 
     static Set<Capability> provides(String... names) {

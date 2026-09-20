@@ -4,6 +4,7 @@ version: 1.0.0
 frameworkVersion: "16"
 kind: feature
 label: Postgres with Flyway
+slot: database
 provides: [database]
 requires: [jvm-project]
 

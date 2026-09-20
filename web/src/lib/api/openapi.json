@@ -1,0 +1,410 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "Kitbash API",
+    "description" : "Generate a project that already builds. The catalog is served by /metadata and everything else is driven from it — a client hardcodes no option name, and adding a recipe is a backend-only change.",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/v1/validate" : {
+      "post" : {
+        "tags" : [ "validate-controller" ],
+        "operationId" : "validate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generate" : {
+      "post" : {
+        "tags" : [ "generate-controller" ],
+        "operationId" : "generateFromForm",
+        "requestBody" : {
+          "content" : {
+            "application/x-www-form-urlencoded" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "selection" : {
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "selection" ]
+              }
+            },
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/metadata" : {
+      "get" : {
+        "tags" : [ "metadata-controller" ],
+        "operationId" : "metadata",
+        "parameters" : [ {
+          "name" : "If-None-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MetadataDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "GenerateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "schemaVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "options" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "variables" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Diagnostic" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "stage" : {
+            "type" : "string"
+          },
+          "optionId" : {
+            "type" : "string"
+          },
+          "recipe" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "hint" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ResolvedRecipe" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "recipeVersion" : {
+            "type" : "string"
+          },
+          "frameworkVersion" : {
+            "type" : "string"
+          },
+          "implied" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ValidationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "valid" : {
+            "type" : "boolean"
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "recipes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ResolvedRecipe"
+            }
+          },
+          "capabilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "effectiveOptions" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "conflicts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Diagnostic"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Diagnostic"
+            }
+          }
+        }
+      },
+      "Choice" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "recipeId" : {
+            "type" : "string"
+          },
+          "recipeVersion" : {
+            "type" : "string"
+          },
+          "frameworkVersion" : {
+            "type" : "string"
+          },
+          "provides" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "requires" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "conflictsWith" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "verification" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Group" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "help" : {
+            "type" : "string"
+          },
+          "order" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "options" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "MetadataDocument" : {
+        "type" : "object",
+        "properties" : {
+          "schemaVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "recipeCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Group"
+            }
+          },
+          "variables" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Variable"
+            }
+          },
+          "recipes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecipeSummary"
+            }
+          }
+        }
+      },
+      "Option" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "help" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "defaultValue" : { },
+          "availableWhen" : {
+            "type" : "string"
+          },
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Choice"
+            }
+          }
+        }
+      },
+      "RecipeSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "slot" : {
+            "type" : "string"
+          },
+          "recipeVersion" : {
+            "type" : "string"
+          },
+          "frameworkVersion" : {
+            "type" : "string"
+          },
+          "provides" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "requires" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "conflictsWith" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Variable" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "help" : {
+            "type" : "string"
+          },
+          "pattern" : {
+            "type" : "string"
+          },
+          "defaultValue" : {
+            "type" : "string"
+          },
+          "requiredBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

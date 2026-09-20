@@ -104,7 +104,7 @@ class RecipeTest {
     }
 
     private static Recipe backend(Set<Capability> provides) {
-        return new Recipe(
+        return Recipe.implied(
                 RecipeId.of("backend-spring-java"),
                 RecipeVersion.parse("1.4.0"),
                 "3.5.5",

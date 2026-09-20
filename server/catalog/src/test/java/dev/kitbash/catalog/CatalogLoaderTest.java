@@ -308,7 +308,7 @@ class CatalogLoaderTest {
         }
 
         private LoadedRecipe loadOne(Path root, String id) {
-            return loader.loadDetailed(new RecipeTreeFixture(root).base().root()).stream()
+            return loader.loadAll(new RecipeTreeFixture(root).base().root()).recipes().stream()
                     .filter(entry -> entry.recipe().id().value().equals(id))
                     .findFirst()
                     .orElseThrow();
