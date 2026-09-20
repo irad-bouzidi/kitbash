@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.pebble)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
