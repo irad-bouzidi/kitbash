@@ -14,6 +14,10 @@ testcontainers = "1.21.3"
 json-schema-validator = "2.0.7"
 springdoc = "2.8.13"
 slf4j = "2.0.17"
+# The generated projects pin their own Flyway through Spring Boot's BOM; this one is the
+# generator's own, and they move independently on purpose.
+flyway = "11.13.2"
+postgresql = "42.7.8"
 spotless = "7.0.4"
 palantir-java-format = "2.57.0"
 
@@ -31,6 +35,9 @@ assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

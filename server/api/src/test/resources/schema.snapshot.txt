@@ -1,0 +1,55 @@
+columns
+  generation.id : uuid not null
+  generation.owner_id : uuid
+  generation.preset_id : uuid
+  generation.project_name : text not null
+  generation.selection : jsonb not null
+  generation.lock : jsonb not null
+  generation.catalog_digest : text not null
+  generation.selection_hash : text not null
+  generation.artifact_key : text
+  generation.status : text not null
+  generation.duration_ms : integer
+  generation.size_bytes : integer
+  generation.created_at : timestamp with time zone not null
+  generation.expires_at : timestamp with time zone
+  generation.kept : boolean not null default false
+  preset.id : uuid not null
+  preset.owner_id : uuid not null
+  preset.name : text not null
+  preset.description : text
+  preset.visibility : text not null
+  preset.selection : jsonb not null
+  preset.version_policy : text not null
+  preset.pinned_recipes : jsonb
+  preset.revision : integer not null default 1
+  preset.created_at : timestamp with time zone not null
+  preset.updated_at : timestamp with time zone not null
+  share_link.token : text not null
+  share_link.selection : jsonb not null
+  share_link.created_at : timestamp with time zone not null
+  share_link.expires_at : timestamp with time zone
+  verification_run.id : uuid not null
+  verification_run.requested_by : uuid
+  verification_run.selection : jsonb not null
+  verification_run.lock : jsonb not null
+  verification_run.selection_hash : text not null
+  verification_run.catalog_digest : text not null
+  verification_run.status : text not null
+  verification_run.log_key : text
+  verification_run.started_at : timestamp with time zone
+  verification_run.finished_at : timestamp with time zone
+  verification_run.expires_at : timestamp with time zone
+
+indexes and constraints
+  CREATE INDEX generation_owner_created_at_idx ON public.generation USING btree (owner_id, created_at DESC)
+  CREATE UNIQUE INDEX generation_pkey ON public.generation USING btree (id)
+  CREATE INDEX generation_selection_hash_idx ON public.generation USING btree (selection_hash)
+  CREATE UNIQUE INDEX preset_owner_id_name_revision_key ON public.preset USING btree (owner_id, name, revision)
+  CREATE UNIQUE INDEX preset_pkey ON public.preset USING btree (id)
+  CREATE UNIQUE INDEX share_link_pkey ON public.share_link USING btree (token)
+  CREATE UNIQUE INDEX verification_run_dedupe_idx ON public.verification_run USING btree (selection_hash, catalog_digest) WHERE (status = ANY (ARRAY['pending'::text, 'running'::text, 'passed'::text]))
+  CREATE UNIQUE INDEX verification_run_pkey ON public.verification_run USING btree (id)
+
+foreign keys
+  generation -> preset on delete set null
