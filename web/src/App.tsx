@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { HistoryPage } from '@/history/HistoryPage';
 import { PresetDetail } from '@/presets/PresetDetail';
 import { PresetsPage } from '@/presets/PresetsPage';
+import { SharedLink } from '@/wizard/SharedLink';
 import { Wizard } from '@/wizard/Wizard';
 
 // The catalog is immutable per digest and the server sends an ETag that is that digest, so
@@ -56,6 +57,8 @@ export function App() {
               <Route path="/new" element={<Wizard />} />
               <Route path="/presets/:id" element={<PresetDetail />} />
               <Route path="/history" element={<HistoryPage />} />
+              {/* A short link resolves to the wizard's own URL form, so both arrive the same way. */}
+              <Route path="/s/:token" element={<SharedLink />} />
             </Routes>
           </SignedIn>
         </div>

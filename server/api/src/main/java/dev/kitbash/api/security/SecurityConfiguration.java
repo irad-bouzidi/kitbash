@@ -89,6 +89,13 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/presets/**")
                         .hasAuthority(roles.presetAuthorAuthority())
 
+                        // A share link is a capability within the team, not on the internet: §13
+                        // closes every endpoint, so opening one still needs a token from the
+                        // identity provider. What it does not need is a role, or to be its
+                        // creator — a link nobody else can open is not a share link.
+                        .requestMatchers("/api/v1/share", "/api/v1/share/**")
+                        .authenticated()
+
                         // History is personal but needs no role: a receipt for something you
                         // generated is yours, and the service decides which rows are whose.
                         .requestMatchers("/api/v1/generations", "/api/v1/generations/**")
