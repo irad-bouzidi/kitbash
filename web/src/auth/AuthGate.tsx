@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Button } from '@/components/ui/button';
-import { rememberWhereWeWere } from '@/auth/config';
+import { useNavigate } from 'react-router-dom';
+import { rememberWhereWeWere, takeReturnTo } from '@/auth/config';
 import { setAccessToken } from '@/auth/token';
 
 /**
@@ -17,6 +18,7 @@ import { setAccessToken } from '@/auth/token';
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const navigate = useNavigate();
 
   // Published during render, not in an effect, and that ordering is the whole point: React runs
   // a child's effects before its parent's, so the wizard's first request would go out before this
@@ -31,6 +33,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
       void auth.signinRedirect();
     }
   }, [auth]);
+
+  // The sign-in round trip lands on the origin, because that is the redirect_uri an identity
+  // provider registers — so a deep link has to be restored afterwards, through the router rather
+  // than through history.replaceState, which React Router does not hear.
+  useEffect(() => {
+    if (!auth.isAuthenticated) return;
+    const wasGoingTo = takeReturnTo();
+    if (wasGoingTo && wasGoingTo !== window.location.pathname + window.location.search) {
+      void navigate(wasGoingTo, { replace: true });
+    }
+  }, [auth.isAuthenticated, navigate]);
 
   if (auth.isLoading || auth.activeNavigator) {
     return <Status>Signing in…</Status>;

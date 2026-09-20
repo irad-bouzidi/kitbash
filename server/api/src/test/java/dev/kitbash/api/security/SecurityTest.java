@@ -145,18 +145,18 @@ class SecurityTest {
         assertThat(status).isNotEqualTo(403).isNotEqualTo(401);
     }
 
+    /**
+     * Generating from a saved preset is still generating, so it needs no role — otherwise the one
+     * click §9 asks for would be available to fewer people than the button that saved it.
+     *
+     * <p>Publishing is the other half of the rule, and it is not here: visibility is a field in a
+     * body, so no path pattern can see it. {@code PresetApiTest} asserts it against the service.
+     */
     @Test
-    @DisplayName("publishing needs its own role, which authoring does not grant")
-    void publishingNeedsItsOwnRole() throws Exception {
-        assertThat(mvc.perform(post("/api/v1/presets/01234567-89ab-cdef-0123-456789abcdef/publish")
-                                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_kitbash-author"))))
-                        .andReturn()
-                        .getResponse()
-                        .getStatus())
-                .isEqualTo(403);
-
-        assertThat(mvc.perform(post("/api/v1/presets/01234567-89ab-cdef-0123-456789abcdef/publish")
-                                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_kitbash-publisher"))))
+    @DisplayName("generating from a preset needs no role, because generating never does")
+    void generatingFromAPresetNeedsNoRole() throws Exception {
+        assertThat(mvc.perform(post("/api/v1/presets/01234567-89ab-cdef-0123-456789abcdef/generate")
+                                .with(jwt()))
                         .andReturn()
                         .getResponse()
                         .getStatus())

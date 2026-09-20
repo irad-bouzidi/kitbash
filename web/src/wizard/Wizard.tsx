@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SavePresetDialog } from '@/presets/SavePresetDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError, downloadProject, type CatalogVariable, type MetadataDocument } from '@/lib/api';
@@ -24,6 +25,7 @@ export function Wizard() {
   const fieldErrors = useFieldErrors(metadata);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<ApiError | null>(null);
+  const [saving, setSaving] = useState(false);
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading the catalog…</p>;
   if (isError || !metadata) {
@@ -119,7 +121,13 @@ export function Wizard() {
           <Button type="button" variant="outline" disabled title="Preview arrives in phase 2.">
             Preview
           </Button>
-          <Button type="button" variant="outline" disabled title="Presets arrive in phase 2.">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={blocked}
+            title={blocked ? blockedReason : undefined}
+            onClick={() => setSaving(true)}
+          >
             Save as preset
           </Button>
           <span className="flex-1" />
@@ -132,6 +140,8 @@ export function Wizard() {
           </Button>
         </div>
       </form>
+
+      {saving && <SavePresetDialog envelope={envelope} onClose={() => setSaving(false)} />}
 
       {/* The digest is what makes a bug report actionable (§9). */}
       <footer className="pb-6 text-xs text-muted-foreground">

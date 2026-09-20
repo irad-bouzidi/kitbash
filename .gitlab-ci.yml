@@ -106,6 +106,14 @@ web-e2e:
   # health, so the smoke test needs a real token — and stubbing the issuer rather than the
   # filter means the security configuration this job exercises is the one that ships.
   services:
+    # Presets are rows, so the smoke test needs a database as well as an issuer: §23's done-when
+    # is that a preset survives a cold load, and one that was never stored cannot.
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_DB: kitbash
+        POSTGRES_USER: kitbash
+        POSTGRES_PASSWORD: kitbash
     - name: ghcr.io/navikt/mock-oauth2-server:2.1.11
       alias: oidc
       variables:
@@ -114,7 +122,8 @@ web-e2e:
   variables:
     GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
     GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-    SPRING_PROFILES_ACTIVE: dev-auth
+    SPRING_PROFILES_ACTIVE: persistence,dev-auth
+    KITBASH_DB_URL: jdbc:postgresql://postgres:5432/kitbash
     KITBASH_OIDC_JWKS: http://oidc:8080/kitbash/jwks
     # The browser reaches the issuer by the same name the job does, so the token's `iss` and the
     # discovery document agree. The API verifies against the key set either way.

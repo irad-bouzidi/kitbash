@@ -20,7 +20,9 @@ import { stat } from 'node:fs/promises';
  * flow under test is the real authorization-code-with-PKCE one; only the issuer is a stub.
  */
 async function open(page: import('@playwright/test').Page) {
-  await page.goto('/');
+  // `/new`, not `/`: since kitbash-23 the landing page is the preset list (§9 folds the
+  // Dashboard into it), and the wizard — which is where the URL carries the selection — is here.
+  await page.goto('/new');
   // The catalog is the first thing the wizard asks for, and it needs the token to get it.
   await expect(page.getByLabel('Backend')).toBeVisible({ timeout: 30_000 });
 }

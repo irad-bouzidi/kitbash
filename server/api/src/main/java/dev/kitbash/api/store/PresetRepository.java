@@ -71,6 +71,25 @@ public class PresetRepository {
     }
 
     /**
+     * Presets somebody else shared.
+     *
+     * <p>{@code team} and {@code public} both mean "not just mine" today, since §18 has one team.
+     * They stay separate columns because {@code public} is the one a role gates, and collapsing
+     * them now would mean inventing the distinction again later out of rows that had lost it.
+     */
+    public List<Preset> findByVisibleToOthers(UUID excludingOwner) {
+        return jdbc.sql(
+                        """
+                        select * from preset
+                        where owner_id <> :owner and visibility in ('team', 'public')
+                        order by name, revision desc
+                        """)
+                .param("owner", excludingOwner)
+                .query(PresetRepository::map)
+                .list();
+    }
+
+    /**
      * The revision a new save should take.
      *
      * <p>Computed rather than sequenced, because revisions are per owner and name rather than

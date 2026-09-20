@@ -70,17 +70,18 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/validate", "/api/v1/preview", "/api/v1/generate")
                         .authenticated()
 
-                        // Presets are shared objects: writing one is a role, and publishing one to
-                        // everybody is a second role. Reading stays open to any authenticated user
-                        // because a preset nobody can read is not worth saving. The endpoints
-                        // themselves arrive with kitbash-23; the rule is declared here so there is
-                        // one place to read it rather than an annotation per controller.
+                        // Presets are shared objects: writing one is a role. Reading stays open to
+                        // any authenticated user, because a preset nobody can read is not worth
+                        // saving — which of them a caller may see is the service's decision, since
+                        // it depends on the row rather than on the path.
                         .requestMatchers(HttpMethod.GET, "/api/v1/presets", "/api/v1/presets/**")
                         .authenticated()
-                        // One segment, not `**`: a preset id is a single path element, and `**`
-                        // may only be the last thing in a pattern anyway.
-                        .requestMatchers("/api/v1/presets/*/publish")
-                        .hasAuthority(roles.publisherAuthority())
+                        // Generating from a preset is generating: no role, same as /generate.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/presets/*/generate")
+                        .authenticated()
+                        // Publishing — making a preset visible to everybody — needs the second role,
+                        // and it is enforced in PresetService rather than here: visibility is a
+                        // field in a body, and no path pattern can see one.
                         .requestMatchers(HttpMethod.POST, "/api/v1/presets", "/api/v1/presets/**")
                         .hasAuthority(roles.presetAuthorAuthority())
                         .requestMatchers(HttpMethod.PUT, "/api/v1/presets/**")
