@@ -13,10 +13,23 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // §10's data model. JDBC rather than JPA: the rows are four flat tables with jsonb columns
+    // read back as text, and an ORM would add a mapping layer, a dialect and a lazy-loading
+    // failure mode for no gain. There is no entity graph here to map.
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgresql)
+    runtimeOnly(libs.postgresql)
     // Publishes the OpenAPI document the web client's types are generated from (§9).
     implementation(libs.springdoc.openapi.webmvc)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(platform(libs.testcontainers.bom))
+    testImplementation(libs.testcontainers.junit)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.postgresql)
+    testImplementation(libs.flyway.postgresql)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)
@@ -35,4 +48,18 @@ tasks.named<Test>("test") {
         "kitbash.openapi.update",
         providers.systemProperty("kitbash.openapi.update").getOrElse("false"),
     )
+    // The §10 schema snapshot is regenerated deliberately too — the diff is how a migration gets
+    // reviewed as a shape rather than as a list of statements.
+    systemProperty(
+        "kitbash.schema.update",
+        providers.systemProperty("kitbash.schema.update").getOrElse("false"),
+    )
+
+    // docker-java — which Testcontainers uses — defaults to Docker API v1.32, and daemons from
+    // Docker 29 onward refuse it outright ("Could not find a valid Docker environment"). It reads
+    // `api.version` as a JVM property and ignores DOCKER_API_VERSION, so the env var a developer
+    // would reach for has to be forwarded. Unset on CI runners, whose daemons accept the default.
+    //
+    //   DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}') ./gradlew :api:test
+    providers.environmentVariable("DOCKER_API_VERSION").orNull?.let { systemProperty("api.version", it) }
 }

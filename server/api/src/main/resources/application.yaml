@@ -1,6 +1,22 @@
 spring:
   application:
     name: kitbash
+  # The database is opt-in, and that is a §10/§12 decision rather than a convenience.
+  #
+  # Half of this service — /metadata, /validate, /generate — needs no persistence at all: the
+  # catalog lives in git and a generation is a pure function of a selection. Presets, history and
+  # share links are the half that needs rows. A generator that refused to start without Postgres
+  # would make the useful half hostage to the optional half, and §12 is explicit that verification
+  # must stay independent of the API's persistence.
+  #
+  # So the JDBC and Flyway autoconfigurations are off unless the `persistence` profile turns them
+  # on, and that profile is what a deployment with a database runs.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
   threads:
     virtual:
       # Generation is CPU work that streams a response, not I/O fan-out (§5).
@@ -32,3 +48,25 @@ springdoc:
     path: /api/v1/openapi
   swagger-ui:
     path: /swagger-ui.html
+
+---
+# With a database. `SPRING_PROFILES_ACTIVE=persistence` plus a datasource URL is the whole of it;
+# the exclusions above are dropped, Flyway runs the §10 migrations at startup, and the repository
+# beans appear.
+spring:
+  config:
+    activate:
+      on-profile: persistence
+  autoconfigure:
+    exclude:
+  datasource:
+    url: ${KITBASH_DB_URL:jdbc:postgresql://localhost:5432/kitbash}
+    username: ${KITBASH_DB_USER:kitbash}
+    password: ${KITBASH_DB_PASSWORD:kitbash}
+  flyway:
+    # Explicit rather than implied: a migration is the one thing in this service that changes a
+    # database it does not own, so where the migrations come from is worth being able to read.
+    locations: classpath:db/migration
+    # The schema is created from V1 on an empty database. Baselining an existing one would mean
+    # trusting that it already matches, which is how two environments quietly diverge.
+    baseline-on-migrate: false

@@ -11,6 +11,17 @@ variables:
 build:
   stage: build
   image: eclipse-temurin:21-jdk
+  # `check` includes the §10 repository tests, which run against a real Postgres 16 through
+  # Testcontainers — everything worth testing about that schema is a property of the database
+  # rather than of the code, so a fake would only assert that the fake agrees with itself.
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    # Ryuk needs a privileged socket the runner does not hand out; the job's own container is
+    # discarded at the end, which is the cleanup Ryuk would have done.
+    TESTCONTAINERS_RYUK_DISABLED: "true"
   cache:
     key:
       files:

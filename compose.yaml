@@ -45,9 +45,20 @@ services:
       dockerfile: server/Dockerfile
     ports:
       - "8080:8080"
-    # Deliberately no depends_on yet: phase 0 holds its workspace in memory and
-    # talks to neither service. Postgres arrives with kitbash-21, the object store
-    # with kitbash-27, and each adds its own healthcheck condition here.
+    environment:
+      # The database is opt-in (§10, §12): /metadata, /validate and /generate need no
+      # persistence, so the service starts without one and a missing Postgres cannot take
+      # the generator down with it. This profile is what a deployment with a database runs.
+      SPRING_PROFILES_ACTIVE: persistence
+      KITBASH_DB_URL: jdbc:postgresql://postgres:5432/kitbash
+      KITBASH_DB_USER: kitbash
+      KITBASH_DB_PASSWORD: kitbash
+    depends_on:
+      postgres:
+        # Flyway runs at startup, so the database has to be accepting connections rather
+        # than merely started.
+        condition: service_healthy
+    # The object store arrives with kitbash-27 and adds its own condition here.
 
   web:
     build:
