@@ -1,6 +1,7 @@
 package dev.kitbash.api.generate;
 
 import dev.kitbash.core.selection.Selection;
+import dev.kitbash.core.selection.SelectionEnvelope;
 import java.util.Map;
 
 /**
@@ -17,10 +18,11 @@ public record GenerateRequest(
         Integer schemaVersion, String projectName, Map<String, Object> options, Map<String, String> variables) {
 
     public Selection toSelection() {
-        return new Selection(
-                schemaVersion == null ? Selection.CURRENT_SCHEMA_VERSION : schemaVersion,
-                projectName,
-                options,
-                variables);
+        return new SelectionEnvelope(
+                        schemaVersion == null ? SelectionEnvelope.CURRENT_SCHEMA_VERSION : schemaVersion,
+                        projectName,
+                        options,
+                        variables)
+                .parse();
     }
 }

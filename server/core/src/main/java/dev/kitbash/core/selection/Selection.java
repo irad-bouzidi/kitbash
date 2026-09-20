@@ -1,24 +1,26 @@
 package dev.kitbash.core.selection;
 
+import dev.kitbash.core.hash.Sha256;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 
 /**
- * The §7 selection envelope: what the caller asked for.
+ * A selection after parsing: migrated to the current schema version, option values typed, ready for
+ * the resolver (§6, stage 1).
  *
- * <p>Flat and keyed by option id, never nested by category — a nested shape bakes the category
- * taxonomy into every client, and adding a category then becomes a breaking change.
+ * <p>Flat and keyed by option id, never nested by category. §7 is explicit about why: a nested
+ * shape bakes the category taxonomy into every client, so adding a category becomes a breaking
+ * change for all of them.
  *
- * <p>Phase 0 honours only {@code projectName} and the four variables below; the rest is carried but
- * unused. It is modelled fully anyway so no client has to change shape when the resolver arrives.
- * Unknown option keys are accepted and ignored **for this phase only** — once the catalog exists,
- * an unknown option id is a rejected request.
+ * <p>The canonical form and the hash computed from it live here rather than beside their first
+ * consumer, because three separate subsystems key on them and they must agree: the zip cache (§10),
+ * the verification dedupe key (§12) and generation dedupe in history (§10). A second, slightly
+ * different canonicalisation somewhere else is a cache that returns the wrong project.
  */
-public record Selection(
-        int schemaVersion, String projectName, Map<String, Object> options, Map<String, String> variables) {
-
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+public record Selection(String projectName, Map<String, OptionValue> options, Map<String, String> variables) {
 
     public Selection {
         Objects.requireNonNull(projectName, "projectName");
@@ -27,7 +29,11 @@ public record Selection(
     }
 
     public static Selection of(String projectName, Map<String, String> variables) {
-        return new Selection(CURRENT_SCHEMA_VERSION, projectName, Map.of(), variables);
+        return new Selection(projectName, Map.of(), variables);
+    }
+
+    public static Selection of(String projectName, Map<String, OptionValue> options, Map<String, String> variables) {
+        return new Selection(projectName, options, variables);
     }
 
     public String variable(String name, String fallback) {
@@ -35,19 +41,110 @@ public record Selection(
         return value == null || value.isBlank() ? fallback : value;
     }
 
+    public Optional<OptionValue> option(String optionId) {
+        return Optional.ofNullable(options.get(optionId));
+    }
+
+    /** The value of an enum or string option, or {@code fallback} when it was not set. */
+    public String optionText(String optionId, String fallback) {
+        return option(optionId)
+                .filter(OptionValue.Text.class::isInstance)
+                .map(value -> ((OptionValue.Text) value).value())
+                .filter(value -> !value.isBlank())
+                .orElse(fallback);
+    }
+
+    public boolean flag(String optionId, boolean fallback) {
+        return option(optionId)
+                .filter(OptionValue.Flag.class::isInstance)
+                .map(value -> ((OptionValue.Flag) value).value())
+                .orElse(fallback);
+    }
+
+    /** This selection with an option forced — how the resolver applies a catalog default. */
+    public Selection with(String optionId, OptionValue value) {
+        Map<String, OptionValue> merged = new LinkedHashMap<>(options);
+        merged.put(optionId, value);
+        return new Selection(projectName, merged, variables);
+    }
+
     /**
-     * The canonical form the cache key is computed over: keys sorted, blank values elided. Not used
-     * for caching yet — the cache is kitbash-27 — but the canonicalisation belongs with the type it
-     * canonicalises rather than with the first caller that needs it.
+     * The form everything hashes: keys sorted with an explicit comparator, blank variables dropped.
+     *
+     * <p>Sorting is explicit rather than incidental because {@code HashMap} iteration order is not
+     * a contract, and a hash that changes when the JVM's hashing seed changes is a cache that
+     * silently stops hitting.
      */
     public Selection canonical() {
-        Map<String, Object> canonicalOptions = new LinkedHashMap<>(new java.util.TreeMap<>(options));
-        Map<String, String> canonicalVariables = new LinkedHashMap<>();
-        new java.util.TreeMap<>(variables).forEach((key, value) -> {
+        Map<String, OptionValue> canonicalOptions = new TreeMap<>(String::compareTo);
+        options.forEach((key, value) -> {
+            if (value != null) {
+                canonicalOptions.put(key, value);
+            }
+        });
+        Map<String, String> canonicalVariables = new TreeMap<>(String::compareTo);
+        variables.forEach((key, value) -> {
             if (value != null && !value.isBlank()) {
                 canonicalVariables.put(key, value);
             }
         });
-        return new Selection(schemaVersion, projectName, canonicalOptions, canonicalVariables);
+        return new Selection(
+                projectName, new LinkedHashMap<>(canonicalOptions), new LinkedHashMap<>(canonicalVariables));
+    }
+
+    /**
+     * The canonical form with every option left at its catalog default removed (§7).
+     *
+     * <p>Two users who reach the same stack — one by accepting the defaults, one by clicking every
+     * control back to where it started — have made the same selection and must share a cache entry.
+     */
+    public Selection withDefaultsElided(Map<String, OptionValue> defaults) {
+        Map<String, OptionValue> reduced = new LinkedHashMap<>();
+        canonical().options.forEach((key, value) -> {
+            if (!value.equals(defaults.get(key))) {
+                reduced.put(key, value);
+            }
+        });
+        return new Selection(projectName, reduced, canonical().variables);
+    }
+
+    /** Deterministic JSON, sorted, minimal whitespace: the exact bytes {@link #hash()} digests. */
+    public String canonicalJson() {
+        Selection canonical = canonical();
+        StringBuilder out = new StringBuilder("{\"projectName\":")
+                .append(Json.quote(canonical.projectName))
+                .append(",\"options\":{");
+        boolean first = true;
+        for (Map.Entry<String, OptionValue> entry : canonical.options.entrySet()) {
+            if (!first) {
+                out.append(',');
+            }
+            first = false;
+            out.append(Json.quote(entry.getKey()))
+                    .append(':')
+                    .append(entry.getValue().toJson());
+        }
+        out.append("},\"variables\":{");
+        first = true;
+        for (Map.Entry<String, String> entry : canonical.variables.entrySet()) {
+            if (!first) {
+                out.append(',');
+            }
+            first = false;
+            out.append(Json.quote(entry.getKey())).append(':').append(Json.quote(entry.getValue()));
+        }
+        return out.append("}}").toString();
+    }
+
+    /** The {@code selectionHash} of §10 and §12: sha256 over {@link #canonicalJson()}. */
+    public String hash() {
+        return Sha256.ofUtf8(canonicalJson());
+    }
+
+    /** Back to the wire shape, at the current schema version. */
+    public SelectionEnvelope toEnvelope() {
+        Map<String, Object> wireOptions = new LinkedHashMap<>();
+        options.forEach((key, value) -> wireOptions.put(key, value));
+        return new SelectionEnvelope(SelectionEnvelope.CURRENT_SCHEMA_VERSION, projectName, wireOptions, variables);
     }
 }
