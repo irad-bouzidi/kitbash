@@ -93,18 +93,21 @@ public final class GenerationPipeline {
      * file's contents, without the git skeleton or the zip.
      */
     public Workspace preview(SelectionEnvelope envelope) {
+        Caps.Deadline deadline = caps.deadline();
         Selection selection = parse(envelope);
         Resolution resolution = requireResolvable(Resolver.resolve(catalog, selection));
-        return renderAndPatch(resolution, selection);
+        return renderAndPatch(resolution, selection, deadline);
     }
 
     /** All seven stages. The result knows how to stream itself. */
     public GeneratedProject generate(SelectionEnvelope envelope) {
+        Caps.Deadline deadline = caps.deadline();
         Selection selection = parse(envelope);
         Resolution resolution = requireResolvable(Resolver.resolve(catalog, selection));
 
-        Workspace workspace = renderAndPatch(resolution, selection);
+        Workspace workspace = renderAndPatch(resolution, selection, deadline);
         String commitId = PostProcessor.postProcess(workspace);
+        deadline.check("post-process");
 
         return new GeneratedProject(
                 workspace,
@@ -115,10 +118,13 @@ public final class GenerationPipeline {
                 selection.projectName());
     }
 
-    private Workspace renderAndPatch(Resolution resolution, Selection selection) {
+    private Workspace renderAndPatch(Resolution resolution, Selection selection, Caps.Deadline deadline) {
         FilePlan plan = plan(resolution);
+        deadline.check("plan");
         Workspace workspace = renderStage.render(plan, selection, resolution);
+        deadline.check("render");
         PatchApplier.apply(workspace, renderStage.renderPatches(plan.patches(), selection, resolution));
+        deadline.check("patch");
         return workspace;
     }
 

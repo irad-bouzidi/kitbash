@@ -140,6 +140,29 @@ class TemplateEngineSandboxTest {
                 .isEqualTo(4);
     }
 
+    /**
+     * The attack kitbash-20 adds to this file: a value is data, not source.
+     *
+     * <p>Every other test here is about what a <i>template</i> may do. This one is about what a
+     * user's value may do, and the answer has to be nothing — a single pass means a value
+     * containing {@code {{ }}} is written out as those characters rather than evaluated. Anything
+     * that re-rendered output would hand template authorship to whoever filled in the form.
+     */
+    @Test
+    @DisplayName("a value that looks like a template is written out, not evaluated")
+    void valuesAreDataNotSource() {
+        String injected = TemplateEngine.over(TemplateRegistry.of(Map.of("t", "name: {{ projectName }}")))
+                .render(
+                        "t",
+                        "base",
+                        TemplateVariables.builder()
+                                .put("projectName", "{{ packageName }}")
+                                .put("packageName", "com.acme.secret")
+                                .build());
+
+        assertThat(injected).isEqualTo("name: {{ packageName }}").doesNotContain("com.acme.secret");
+    }
+
     @Test
     @DisplayName("an edited template is never served from the cache, because the key carries its hash")
     void cacheIsContentAddressed() {

@@ -1,5 +1,9 @@
 plugins {
     id("kitbash.pure-java-module")
+    // The hostile-input corpus is a test fixture rather than a test class because kitbash-39 and
+    // kitbash-47 both want it from other modules, and a corpus that has to be copied to be reused
+    // is a corpus that drifts.
+    `java-test-fixtures`
 }
 
 // Selection, Recipe, Capability, FilePlan, PatchOp, hooks; resolver; patch appliers; zip
@@ -13,10 +17,13 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.jackson.dataformat.yaml)
 
+    testImplementation(testFixtures(project(":core")))
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    testFixturesImplementation(platform(libs.junit.bom))
 }
 
 // Golden files are regenerated deliberately, never as a side effect of a normal run:

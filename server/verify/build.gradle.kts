@@ -16,6 +16,10 @@ dependencies {
     // banner on stderr is noise in front of it, and the runner logs nothing through SLF4J itself.
     runtimeOnly(libs.slf4j.nop)
 
+    // The hostile-input corpus, shared rather than copied: §13's rules and the values that
+    // probe them belong together wherever they are checked.
+    testImplementation(testFixtures(project(":core")))
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)

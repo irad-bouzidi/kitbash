@@ -1,7 +1,11 @@
 package dev.kitbash.core.workspace;
 
+import dev.kitbash.core.plan.SafePaths;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -20,8 +24,18 @@ public final class Workspace {
 
     private final NavigableMap<String, GeneratedFile> files = new TreeMap<>();
 
+    /** Lowercased path to the one actually written, which is how a case collision becomes visible. */
+    private final Map<String, String> byFoldedCase = new HashMap<>();
+
     public void put(String path, GeneratedFile file) {
-        files.put(validatePath(path), Objects.requireNonNull(file, "file"));
+        String safe = SafePaths.require(null, path);
+        Objects.requireNonNull(file, "file");
+
+        String existing = byFoldedCase.putIfAbsent(safe.toLowerCase(Locale.ROOT), safe);
+        if (existing != null && !existing.equals(safe)) {
+            throw SafePaths.refuseCaseCollision(null, safe, existing);
+        }
+        files.put(safe, file);
     }
 
     public void putText(String path, String content) {
@@ -47,29 +61,5 @@ public final class Workspace {
 
     public long totalBytes() {
         return files.values().stream().mapToLong(GeneratedFile::size).sum();
-    }
-
-    /**
-     * Rejects the paths that would let a generated project write outside its own directory. The
-     * full traversal defence and the size caps land in kitbash-20; this is the floor below which
-     * nothing should be written at all.
-     */
-    private static String validatePath(String path) {
-        Objects.requireNonNull(path, "path");
-        if (path.isBlank()) {
-            throw new IllegalArgumentException("path must not be blank");
-        }
-        if (path.startsWith("/") || path.contains("\\")) {
-            throw new IllegalArgumentException("path must be relative and /-separated: " + path);
-        }
-        if (path.contains("//")) {
-            throw new IllegalArgumentException("path must not contain an empty segment: " + path);
-        }
-        for (String segment : path.split("/")) {
-            if (segment.equals(".") || segment.equals("..")) {
-                throw new IllegalArgumentException("path must not traverse: " + path);
-            }
-        }
-        return path;
     }
 }

@@ -290,7 +290,16 @@ public sealed interface GenerationError {
 
     static InvalidIdentifier invalidIdentifier(String field, String value, String rule, String hint) {
         return new InvalidIdentifier(
-                new ErrorDetail(Stage.PARSE, null, null, "'" + field + "' is not valid: " + rule, hint, null),
+                new ErrorDetail(
+                        Stage.PARSE,
+                        null,
+                        null,
+                        // §13 wants the offending value in the rejection, not only the rule it broke:
+                        // "must be lowercase" without saying what was sent makes the user guess which
+                        // of their fields the server disliked.
+                        "'" + field + "' is not valid: it " + rule + " (got: " + value + ")",
+                        hint,
+                        null),
                 field,
                 value,
                 rule);
@@ -303,7 +312,11 @@ public sealed interface GenerationError {
                         recipe,
                         path,
                         "Refusing to write '" + path + "': " + reason,
-                        "Fix the templated path in " + recipe + "; it has to resolve inside the project root.",
+                        recipe == null
+                                ? "The path is computed from the selection and a recipe's file rules; one of "
+                                        + "them produced something that cannot be written."
+                                : "Fix the templated path in " + recipe + "; it has to resolve inside the "
+                                        + "project root and be writable on every platform the zip lands on.",
                         null),
                 path,
                 reason);
