@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: base
+version: 1.0.0
+kind: base
+label: Project skeleton
+provides: [project-root]
+
+# Everything here is stack-agnostic: the files a project has because it is a project,
+# not because of what it is written in. The moment something in `base` would need to
+# know a technology, it belongs in the recipe for that technology instead (§19).
+files:
+  - from: files/**
+
+patches:
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "cp .env.example .env          # then export it, or let your IDE load it"
+      - "```"
+      - ""
+
+# The five markers below are this recipe's contract with every other one. A recipe
+# describes its own half of the stack by inserting at them, which is what makes the
+# README describe only what was selected (§15) — a README mentioning Redis when Redis
+# was not chosen is the tell of a broken generator.
+#
+#   kitbash:stack    one bullet naming what this recipe contributes
+#   kitbash:start    how to get the project running, shortest path first
+#   kitbash:work     the day-to-day commands
+#   kitbash:layout   where this recipe's files live
+#   kitbash:rules    anything an editor of this project has to know before changing it
+#
+# Lines stack above each marker in resolved recipe order, so base reads first and CI last.

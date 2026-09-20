@@ -2,14 +2,19 @@
   "schemaVersion": 1,
   "projectName": "verification-cell",
   "options": {
-    "backend": "backend-spring-boot-java",
-    "buildTool": "gradle-kts",
+    "buildTool": "build-gradle-kts",
+    "backend": "backend-spring-java",
     "architecture": "layered",
-    "database": "db-postgres-flyway"
+    "database": "db-postgres-flyway",
+    "ci": "ci-gitlab",
+    "docker": true
   },
   "variables": {
     "groupId": "com.example",
     "packageName": "com.example.verification",
-    "javaVersion": "21"
+    "javaVersion": "21",
+    "entityName": "Widget",
+    "entityTable": "widgets",
+    "envPrefix": "VERIFICATION"
   }
 }

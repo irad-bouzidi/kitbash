@@ -200,6 +200,26 @@ public sealed interface GenerationError {
                 recipeId);
     }
 
+    /**
+     * A selection that names nothing. Reported as an unsatisfied {@code project-root} because that
+     * is literally what it is, and because the alternative — generating an empty zip — looks like
+     * the generator worked.
+     */
+    static CapabilityUnsatisfied emptySelection() {
+        return new CapabilityUnsatisfied(
+                new ErrorDetail(
+                        Stage.RESOLVE,
+                        null,
+                        null,
+                        "This selection does not name anything to generate.",
+                        "Choose at least a backend or a frontend. GET /api/v1/metadata lists what "
+                                + "this catalog offers.",
+                        null),
+                "project-root",
+                "the selection",
+                "backend");
+    }
+
     static CapabilityUnsatisfied capabilityUnsatisfied(String capability, String requiredBy, String optionId) {
         return new CapabilityUnsatisfied(
                 new ErrorDetail(

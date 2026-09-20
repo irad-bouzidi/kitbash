@@ -65,15 +65,27 @@ export function Phase0Form() {
   );
   const valid = Object.keys(errors).length === 0;
 
-  // The §7 envelope, already the shape the resolver will consume.
+  // The §7 envelope. The options below are the one stack this form advertises, hardcoded
+  // here precisely because that is what makes this file disposable: the wizard in
+  // kitbash-16 reads them from /api/v1/metadata and this whole block disappears with it.
   const selection = JSON.stringify({
     schemaVersion: 1,
     projectName: values.projectName,
-    options: {},
+    options: {
+      buildTool: 'build-gradle-kts',
+      backend: 'backend-spring-java',
+      architecture: 'layered',
+      database: 'db-postgres-flyway',
+      ci: 'ci-gitlab',
+      docker: true,
+    },
     variables: {
       groupId: values.groupId,
       packageName: values.packageName,
       javaVersion: values.javaVersion,
+      entityName: 'Widget',
+      entityTable: 'widgets',
+      envPrefix: values.projectName.toUpperCase().replace(/-/g, '_'),
     },
   });
 

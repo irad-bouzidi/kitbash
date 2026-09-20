@@ -103,9 +103,14 @@ public sealed interface PatchOp {
     }
 
     /**
-     * Inserts lines at a {@code // kitbash:…} marker placed by whichever recipe owns the target. A
-     * missing marker is an error naming that recipe — markers are a contract between recipes, and
-     * an unmet contract should not quietly degrade into an append at the end of the file.
+     * Inserts lines <b>above</b> a {@code // kitbash:…} marker placed by whichever recipe owns the
+     * target. Above rather than below, so that when several recipes share one anchor their blocks
+     * stack in resolved recipe order instead of in reverse — the marker ends up at the foot of the
+     * section it anchors, which is also where the owning recipe should place it.
+     *
+     * <p>A missing marker is an error naming the recipe that was supposed to place it. Markers are
+     * a contract between recipes, and an unmet contract should not quietly degrade into an append
+     * at the end of the file, which for an import statement means below the class it belongs to.
      */
     record InsertAtMarker(RecipeId owner, String target, String marker, List<String> lines) implements PatchOp {
 
@@ -142,6 +147,12 @@ public sealed interface PatchOp {
      *
      * <p>{@code composeTarget} and {@code composeService} are null when containers were not
      * selected; the applier then writes only the example file.
+     *
+     * <p>{@code composeValue} exists because the two files genuinely disagree: a developer on the
+     * host reaches the database at {@code localhost}, and the application container reaches it at
+     * the compose service's name. One value for both looks tidier and produces a compose file that
+     * cannot connect — which is exactly the class of error that only shows up after the zip is
+     * downloaded. Null means "the same as {@code value}", which is the common case.
      */
     record AddEnvVar(
             RecipeId owner,
@@ -150,6 +161,7 @@ public sealed interface PatchOp {
             String composeService,
             String name,
             String value,
+            String composeValue,
             String comment)
             implements PatchOp {
 
@@ -157,6 +169,11 @@ public sealed interface PatchOp {
             requireOwnerAndTarget(owner, target);
             Objects.requireNonNull(name, "name");
             Objects.requireNonNull(value, "value");
+        }
+
+        /** What the compose service should see: the container-side value, or the host one. */
+        public String effectiveComposeValue() {
+            return composeValue == null || composeValue.isBlank() ? value : composeValue;
         }
 
         @Override

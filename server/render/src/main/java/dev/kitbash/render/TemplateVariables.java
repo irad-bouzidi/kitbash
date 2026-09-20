@@ -1,5 +1,6 @@
 package dev.kitbash.render;
 
+import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.selection.OptionValue;
 import dev.kitbash.core.selection.Selection;
 import java.util.LinkedHashMap;
@@ -39,6 +40,21 @@ public final class TemplateVariables {
      * flat in the envelope (§7) and collisions are rare, but a silent one would mean a template
      * reading the wrong value — so the precedence is fixed here, once, rather than per template.
      */
+    /**
+     * The same map plus the facts a recipe knows about itself.
+     *
+     * <p>A README fragment that says "Spring Boot 3.5.5" should read the number out of the manifest
+     * that already holds it, not carry a second copy destined to drift from the first.
+     */
+    public TemplateVariables forRecipe(Recipe recipe) {
+        Builder builder = builder();
+        values.forEach(builder::put);
+        builder.put("recipeId", recipe.id().value());
+        builder.put("recipeVersion", recipe.version().toString());
+        builder.put("frameworkVersion", recipe.frameworkVersion() == null ? "" : recipe.frameworkVersion());
+        return builder.build();
+    }
+
     public static TemplateVariables of(Selection selection, Map<String, OptionValue> effectiveOptions) {
         Builder builder = builder();
         effectiveOptions.forEach((id, value) -> builder.put(id, value.templateValue()));

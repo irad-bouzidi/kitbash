@@ -62,7 +62,11 @@ public final class TemplateEngine {
     }
 
     public static TemplateEngine over(TemplateRegistry registry) {
-        PebbleEngine engine = new PebbleEngine.Builder()
+        return new TemplateEngine(build(registry), registry);
+    }
+
+    private static PebbleEngine build(TemplateRegistry registry) {
+        return new PebbleEngine.Builder()
                 .loader(new RegistryLoader(registry))
                 .extension(new KitbashFilters())
                 .methodAccessValidator(DENY_ALL)
@@ -73,7 +77,6 @@ public final class TemplateEngine {
                 .cacheActive(true)
                 .templateCache(TEMPLATE_CACHE)
                 .build();
-        return new TemplateEngine(engine, registry);
     }
 
     public TemplateRegistry registry() {
@@ -86,8 +89,20 @@ public final class TemplateEngine {
      * nothing they can act on (§14).
      */
     public String render(String templateName, String recipeId, TemplateVariables variables) {
+        return render(registry, templateName, recipeId, variables);
+    }
+
+    /**
+     * Renders against a registry other than the one this engine was built over.
+     *
+     * <p>Patch strings are known only after the plan stage, so they cannot be in the boot-time
+     * registry. A throwaway engine for each of them would lose the shared parsed-template cache,
+     * which is content-addressed and therefore safe to reuse — so the loader is swapped instead.
+     */
+    public String render(TemplateRegistry registry, String templateName, String recipeId, TemplateVariables variables) {
+        PebbleEngine forRegistry = registry == this.registry ? engine : build(registry);
         try {
-            PebbleTemplate template = engine.getTemplate(templateName);
+            PebbleTemplate template = forRegistry.getTemplate(templateName);
             StringWriter out = new StringWriter();
             template.evaluate(out, variables.asMap(), Locale.ROOT);
             return out.toString();

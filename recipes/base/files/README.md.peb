@@ -1,0 +1,21 @@
+# {{ projectName }}
+
+## The stack
+
+<!-- kitbash:stack -->
+
+## Start it
+
+<!-- kitbash:start -->
+
+## Work on it
+
+<!-- kitbash:work -->
+
+## How it is laid out
+
+<!-- kitbash:layout -->
+
+## Rules worth knowing before editing
+
+<!-- kitbash:rules -->

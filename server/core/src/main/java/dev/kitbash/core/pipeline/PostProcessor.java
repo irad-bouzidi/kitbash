@@ -34,11 +34,18 @@ public final class PostProcessor {
         return GitSkeletonWriter.write(workspace, COMMIT_MESSAGE);
     }
 
+    /**
+     * Files that are broken by LF. {@code cmd.exe} reads a {@code .bat} line by line and a lone LF
+     * leaves stray characters in the last token on each line, so a normalised {@code gradlew.bat}
+     * fails on the first Windows machine that runs it — which is not a machine CI has.
+     */
+    private static final java.util.Set<String> KEEPS_CRLF = java.util.Set.of(".bat", ".cmd");
+
     private static void normaliseLineEndings(Workspace workspace) {
         Map<String, GeneratedFile> files = Map.copyOf(workspace.files());
         files.forEach((path, file) -> {
             byte[] content = file.content();
-            if (isBinary(content)) {
+            if (isBinary(content) || keepsCrlf(path)) {
                 return;
             }
             String text = new String(content, StandardCharsets.UTF_8);
@@ -47,6 +54,11 @@ public final class PostProcessor {
                 workspace.put(path, new GeneratedFile(normalised.getBytes(StandardCharsets.UTF_8), file.executable()));
             }
         });
+    }
+
+    private static boolean keepsCrlf(String path) {
+        int dot = path.lastIndexOf('.');
+        return dot >= 0 && KEEPS_CRLF.contains(path.substring(dot).toLowerCase(java.util.Locale.ROOT));
     }
 
     /** Detected by content rather than extension, so a new binary needs no list edited. */

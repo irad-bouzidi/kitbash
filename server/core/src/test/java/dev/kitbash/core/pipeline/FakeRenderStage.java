@@ -7,6 +7,7 @@ import dev.kitbash.core.selection.Selection;
 import dev.kitbash.core.workspace.GeneratedFile;
 import dev.kitbash.core.workspace.Workspace;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,7 +21,18 @@ import java.util.Map;
 final class FakeRenderStage implements RenderStage {
 
     @Override
-    public Workspace render(FilePlan plan, Selection selection, Map<String, OptionValue> effectiveOptions) {
+    public List<dev.kitbash.core.patch.PatchOp> renderPatches(
+            List<dev.kitbash.core.patch.PatchOp> ops,
+            Selection selection,
+            dev.kitbash.core.resolve.Resolution resolution) {
+        // The fixture's patches are literal, so there is nothing to substitute. The real
+        // implementation lives in `render`, where the engine is.
+        return ops;
+    }
+
+    @Override
+    public Workspace render(FilePlan plan, Selection selection, dev.kitbash.core.resolve.Resolution resolution) {
+        Map<String, OptionValue> effectiveOptions = resolution.effectiveOptions();
         Workspace workspace = new Workspace();
         for (FileEntry entry : plan.effectiveEntries()) {
             String path = substitute(strip(entry.path()), selection, effectiveOptions);

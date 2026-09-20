@@ -3,6 +3,7 @@ package dev.kitbash.render;
 import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.plan.FileEntry;
 import dev.kitbash.core.plan.FilePlan;
+import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.workspace.GeneratedFile;
 import dev.kitbash.core.workspace.Workspace;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,15 @@ public final class Renderer {
     private Renderer() {}
 
     public static Workspace render(FilePlan plan, TemplateVariables variables) {
+        return render(plan, variables, Map.of());
+    }
+
+    /**
+     * The same, with a per-recipe variable overlay so a template can read its own manifest's
+     * framework version.
+     */
+    public static Workspace render(
+            FilePlan plan, TemplateVariables variables, Map<RecipeId, TemplateVariables> perRecipe) {
         List<FileEntry> entries = plan.effectiveEntries();
         TemplateEngine engine = TemplateEngine.over(registryFor(entries));
 
@@ -44,7 +54,8 @@ public final class Renderer {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Rendered>> futures = new ArrayList<>(entries.size());
             for (FileEntry entry : entries) {
-                futures.add(executor.submit(() -> renderOne(engine, entry, variables)));
+                futures.add(executor.submit(
+                        () -> renderOne(engine, entry, perRecipe.getOrDefault(entry.owner(), variables))));
             }
             for (Future<Rendered> future : futures) {
                 rendered.add(await(future));

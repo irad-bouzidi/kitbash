@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store

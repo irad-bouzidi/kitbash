@@ -40,6 +40,8 @@ class WhenExpressionTest {
         "features, true",
         "capability('rest-api'), true",
         "capability('spa'), false",
+        "!capability('spa'), true",
+        "!capability('rest-api'), false",
         "docker && architecture == 'hexagonal', true",
         "docker && typedClient, false",
         "typedClient || docker, true",

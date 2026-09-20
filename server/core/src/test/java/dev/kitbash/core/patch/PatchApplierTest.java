@@ -264,9 +264,37 @@ class PatchApplierTest {
                             AUTH, "Application.java", "// kitbash:imports", List.of("import com.acme.Security;")),
                     "Application.java");
 
+            // Above the marker, not below: several recipes sharing one anchor have to stack in
+            // recipe order, and inserting below reverses them.
             assertThat(result)
-                    .contains("// kitbash:imports\nimport com.acme.Security;")
+                    .contains("import com.acme.Security;\n// kitbash:imports")
                     .containsOnlyOnce("import com.acme.Security;");
+        }
+
+        @Test
+        @DisplayName("two recipes at one marker stack in recipe order, and both stay idempotent")
+        void stacksInRecipeOrder() {
+            Workspace workspace = workspaceWith(
+                    "Application.java",
+                    """
+                    package com.acme;
+
+                    // kitbash:imports
+
+                    public class Application {}
+                    """);
+
+            PatchOp first = new PatchOp.InsertAtMarker(
+                    AUTH, "Application.java", "// kitbash:imports", List.of("import com.acme.Auth;"));
+            PatchOp second = new PatchOp.InsertAtMarker(
+                    FRONTEND, "Application.java", "// kitbash:imports", List.of("import com.acme.Web;"));
+
+            PatchApplier.apply(workspace, List.of(first, second));
+            String once = text(workspace, "Application.java");
+            PatchApplier.apply(workspace, List.of(first, second));
+
+            assertThat(once).contains("import com.acme.Auth;\nimport com.acme.Web;\n// kitbash:imports");
+            assertThat(text(workspace, "Application.java")).isEqualTo(once);
         }
 
         @Test
@@ -302,7 +330,7 @@ class PatchApplierTest {
             workspace.putText("compose.yaml", "services:\n  api:\n    build: .\n");
 
             PatchOp op = new PatchOp.AddEnvVar(
-                    AUTH, ".env.example", "compose.yaml", "api", "JWT_ISSUER", "https://id", "The token issuer");
+                    AUTH, ".env.example", "compose.yaml", "api", "JWT_ISSUER", "https://id", null, "The token issuer");
             applyTwice(workspace, op, ".env.example");
 
             assertThat(text(workspace, ".env.example"))
@@ -318,6 +346,32 @@ class PatchApplierTest {
         }
 
         @Test
+        @DisplayName("the container sees its own value when the two genuinely differ")
+        void composeValueCanDiffer() {
+            // A developer on the host reaches the database at localhost; the application container
+            // reaches it at the compose service's name. One value for both produces a compose file
+            // that cannot connect.
+            Workspace workspace = new Workspace();
+            workspace.putText(".env.example", "");
+            workspace.putText("compose.yaml", "services:\n  app:\n    build: .\n");
+
+            PatchApplier.apply(
+                    workspace,
+                    List.of(new PatchOp.AddEnvVar(
+                            AUTH,
+                            ".env.example",
+                            "compose.yaml",
+                            "app",
+                            "DB_URL",
+                            "jdbc:postgresql://localhost:5432/app",
+                            "jdbc:postgresql://db:5432/app",
+                            null)));
+
+            assertThat(text(workspace, ".env.example")).contains("jdbc:postgresql://localhost:5432/app");
+            assertThat(text(workspace, "compose.yaml")).contains("jdbc:postgresql://db:5432/app");
+        }
+
+        @Test
         @DisplayName("writes only the example file when containers were not selected")
         void skipsComposeWhenAbsent() {
             Workspace workspace = workspaceWith(".env.example", "");
@@ -325,7 +379,7 @@ class PatchApplierTest {
             PatchApplier.apply(
                     workspace,
                     List.of(new PatchOp.AddEnvVar(
-                            AUTH, ".env.example", "compose.yaml", "api", "JWT_ISSUER", "https://id", null)));
+                            AUTH, ".env.example", "compose.yaml", "api", "JWT_ISSUER", "https://id", null, null)));
 
             assertThat(text(workspace, ".env.example")).contains("JWT_ISSUER=https://id");
             assertThat(workspace.contains("compose.yaml")).isFalse();

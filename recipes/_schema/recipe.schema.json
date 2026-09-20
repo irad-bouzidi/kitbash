@@ -194,8 +194,9 @@
             "additionalProperties": false,
             "properties": {
               "op": true, "target": true, "when": true,
-              "name": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+              "name": { "type": "string", "pattern": "^(\\{\\{[^}]*\\}\\}[A-Z0-9_]*|[A-Z][A-Z0-9_]*)$", "description": "An environment variable name, or a template that renders to one — the prefix is usually a variable." },
               "value": { "type": "string" },
+              "composeValue": { "type": "string", "description": "What the compose service should see, when it differs from the host value — a database is at localhost for a developer and at the service name for the app container." },
               "comment": { "type": "string" },
               "composeTarget": { "type": "string" },
               "composeService": { "type": "string" }

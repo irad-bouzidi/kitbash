@@ -77,6 +77,7 @@ public final class Resolver {
         List<Recipe> chosen = selected.stream().map(this::require).toList();
         checkConflicts(chosen, reading, conflicts);
 
+        checkRequiredVariables(chosen, selection, conflicts);
         Map<String, OptionValue> effective = effectiveOptions(chosen, selection, reading, conflicts, warnings);
         Set<Capability> capabilities = chosen.stream()
                 .flatMap(recipe -> recipe.provides().stream())
@@ -239,6 +240,30 @@ public final class Resolver {
                             other.value(),
                             reading.recipeSlots()
                                     .getOrDefault(recipe.id(), recipe.kind().wireName())));
+                }
+            }
+        }
+    }
+
+    /**
+     * Every variable a selected recipe declares has to be supplied.
+     *
+     * <p>Checked here rather than left to the renderer, because the renderer's report is a Pebble
+     * line number in a template the caller has never seen. The manifest already says which recipe
+     * needs what; this is where that gets used.
+     */
+    private static void checkRequiredVariables(
+            List<Recipe> chosen, Selection selection, List<GenerationError> conflicts) {
+        Set<String> reported = new LinkedHashSet<>();
+        for (Recipe recipe : chosen) {
+            for (String variable : recipe.requiredVariables()) {
+                String value = selection.variables().get(variable);
+                if ((value == null || value.isBlank()) && reported.add(variable)) {
+                    conflicts.add(GenerationError.invalidIdentifier(
+                            variable,
+                            "",
+                            "required by " + recipe.id() + " and not supplied",
+                            "Add \"" + variable + "\" to the selection's variables."));
                 }
             }
         }

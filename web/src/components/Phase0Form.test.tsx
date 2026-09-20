@@ -16,6 +16,7 @@ function envelope() {
   return JSON.parse(field!.value) as {
     schemaVersion: number;
     projectName: string;
+    options: Record<string, unknown>;
     variables: Record<string, string>;
   };
 }
@@ -28,8 +29,24 @@ describe('Phase0Form', () => {
     expect(envelope()).toEqual({
       schemaVersion: 1,
       projectName: 'customer-management',
-      options: {},
-      variables: { groupId: 'com.example', packageName: 'com.example.customer', javaVersion: '21' },
+      // The one stack this disposable form advertises. kitbash-16 reads these from
+      // /api/v1/metadata instead, and this expectation goes with the file.
+      options: {
+        buildTool: 'build-gradle-kts',
+        backend: 'backend-spring-java',
+        architecture: 'layered',
+        database: 'db-postgres-flyway',
+        ci: 'ci-gitlab',
+        docker: true,
+      },
+      variables: {
+        groupId: 'com.example',
+        packageName: 'com.example.customer',
+        javaVersion: '21',
+        entityName: 'Widget',
+        entityTable: 'widgets',
+        envPrefix: 'CUSTOMER_MANAGEMENT',
+      },
     });
 
     const projectName = screen.getByLabelText('Project name');

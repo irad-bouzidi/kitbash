@@ -1,0 +1,74 @@
+package {{ packageName }}.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import {{ packageName }}.domain.{{ entityName }};
+import {{ packageName }}.repository.{{ entityName }}Repository;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+/** The rules the service enforces, tested without a database or a Spring context. */
+@ExtendWith(MockitoExtension.class)
+class {{ entityName }}ServiceTest {
+
+    @Mock
+    private {{ entityName }}Repository {{ entityTable }};
+
+    private {{ entityName }}Service service;
+
+    @BeforeEach
+    void setUp() {
+        service = new {{ entityName }}Service({{ entityTable }});
+    }
+
+    @Test
+    @DisplayName("creating a {{ entityName | camel }} whose name is taken is rejected before it reaches the database")
+    void rejectsDuplicateName() {
+        when({{ entityTable }}.existsByName("flux capacitor")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.create("flux capacitor", 1))
+                .isInstanceOf(Duplicate{{ entityName }}NameException.class)
+                .hasMessageContaining("flux capacitor");
+
+        verify({{ entityTable }}, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("fetching an unknown id reports the id that was not found")
+    void reportsMissingId() {
+        when({{ entityTable }}.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.findById(404L))
+                .isInstanceOf({{ entityName }}NotFoundException.class)
+                .hasMessageContaining("404");
+    }
+
+    @Test
+    @DisplayName("restocking adds to the existing quantity")
+    void restockAdds() {
+        {{ entityName }} {{ entityName | camel }} = {{ entityName }}.of("flux capacitor", 2);
+        when({{ entityTable }}.findById(1L)).thenReturn(Optional.of({{ entityName | camel }}));
+
+        assertThat(service.restock(1L, 5).quantity()).isEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("a negative restock is a programming error, not a quiet decrement")
+    void rejectsNegativeRestock() {
+        {{ entityName }} {{ entityName | camel }} = {{ entityName }}.of("flux capacitor", 2);
+        when({{ entityTable }}.findById(1L)).thenReturn(Optional.of({{ entityName | camel }}));
+
+        assertThatThrownBy(() -> service.restock(1L, -1)).isInstanceOf(IllegalArgumentException.class);
+        assertThat({{ entityName | camel }}.quantity()).isEqualTo(2);
+    }
+}

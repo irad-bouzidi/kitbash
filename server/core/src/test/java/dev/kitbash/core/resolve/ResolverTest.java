@@ -36,6 +36,10 @@ class ResolverTest {
 
     private static final Catalog CATALOG = TestCatalog.v1();
 
+    /** Every variable the fixture's recipes declare, so an unrelated test never trips that check. */
+    private static final Map<String, String> VARIABLES =
+            Map.of("groupId", "com.acme", "packageName", "com.acme.customer");
+
     private static Selection selection(Object... optionPairs) {
         Map<String, OptionValue> options = new LinkedHashMap<>();
         for (int i = 0; i < optionPairs.length; i += 2) {
@@ -44,7 +48,10 @@ class ResolverTest {
                     (String) optionPairs[i],
                     value instanceof Boolean flag ? OptionValue.flag(flag) : OptionValue.text((String) value));
         }
-        return new Selection("customer-management", options, Map.of("groupId", "com.acme"));
+        // Both variables the fixture's backend declares: a missing one is now a conflict, which is
+        // the point of the check and not something these tests are about.
+        return new Selection(
+                "customer-management", options, Map.of("groupId", "com.acme", "packageName", "com.acme.customer"));
     }
 
     private static List<String> ids(Resolution resolution) {
@@ -133,7 +140,7 @@ class ResolverTest {
                                                 OptionValue.multi(
                                                         List.of("backend-spring-java", "backend-spring-kotlin")),
                                         "buildTool", OptionValue.text("build-gradle-kts")),
-                                Map.of()),
+                                VARIABLES),
                         ErrorCode.CONFLICT,
                         "backend"),
                 Arguments.of(
@@ -156,7 +163,7 @@ class ResolverTest {
                                 Map.of(
                                         "frontend", OptionValue.text("frontend-react-vite"),
                                         "typedClient", OptionValue.text("yes")),
-                                Map.of()),
+                                VARIABLES),
                         ErrorCode.INVALID_IDENTIFIER,
                         "typedClient"));
     }
@@ -296,8 +303,8 @@ class ResolverTest {
             theOther.put("backend", OptionValue.text("backend-spring-java"));
             theOther.put("ci", OptionValue.text("ci-gitlab"));
 
-            assertThat(ids(Resolver.resolve(CATALOG, new Selection("svc", oneWay, Map.of()))))
-                    .isEqualTo(ids(Resolver.resolve(CATALOG, new Selection("svc", theOther, Map.of()))));
+            assertThat(ids(Resolver.resolve(CATALOG, new Selection("svc", oneWay, VARIABLES))))
+                    .isEqualTo(ids(Resolver.resolve(CATALOG, new Selection("svc", theOther, VARIABLES))));
         }
 
         @Test

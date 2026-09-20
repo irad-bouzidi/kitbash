@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: ci-gitlab
+version: 1.0.0
+kind: ci
+label: GitLab CI
+provides: [ci]
+requires: [project-root]
+
+variables:
+  required: [javaVersion]
+
+files:
+  - from: files/**
+
+patches:
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **CI** — GitLab CI: build, test, format check, and a container image on the default branch"

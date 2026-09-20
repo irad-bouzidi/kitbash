@@ -11,8 +11,19 @@ against at boot and which editors can be pointed at directly:
 # yaml-language-server: $schema=../_schema/recipe.schema.json
 ```
 
-No recipes yet — [`kitbash-13`](../docs/tasks/phase-1-recipe-engine/kitbash-13-recipes-extract-phase0-stack.md)
-extracts the first ones from `/reference`.
+Six recipes today, extracted from [`/reference/spring-boot-java-gradle-layered`](../reference/spring-boot-java-gradle-layered):
+
+| Recipe | Kind | Provides |
+| --- | --- | --- |
+| `base` | base | `project-root` |
+| `build-gradle-kts` | base | `build-tool` |
+| `backend-spring-java` | backend | `http-server`, `rest-api`, `openapi-spec`, `jvm-project` |
+| `db-postgres-flyway` | feature | `database` |
+| `infra-docker` | infra | `containers`, `docker` |
+| `ci-gitlab` | ci | `ci` |
+
+A CI test renders them with the selection in that project's `reference-variables.json` and asserts
+the result equals the directory byte for byte, so the two cannot drift.
 
 Planned shape (§16):
 

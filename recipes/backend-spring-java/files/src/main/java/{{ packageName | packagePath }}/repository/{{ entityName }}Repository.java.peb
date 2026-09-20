@@ -1,0 +1,12 @@
+package {{ packageName }}.repository;
+
+import {{ packageName }}.domain.{{ entityName }};
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface {{ entityName }}Repository extends JpaRepository<{{ entityName }}, Long> {
+
+    Optional<{{ entityName }}> findByName(String name);
+
+    boolean existsByName(String name);
+}

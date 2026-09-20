@@ -2,11 +2,9 @@ package dev.kitbash.api.generate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.kitbash.core.pack.DeterministicZipWriter;
-import dev.kitbash.core.selection.Identifiers;
-import dev.kitbash.core.selection.Selection;
+import dev.kitbash.core.pipeline.GeneratedProject;
+import dev.kitbash.core.pipeline.GenerationPipeline;
 import dev.kitbash.core.selection.SelectionValidationException;
-import dev.kitbash.core.workspace.Workspace;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -26,11 +24,11 @@ public class GenerateController {
 
     private static final Logger log = LoggerFactory.getLogger(GenerateController.class);
 
-    private final Phase0ProjectGenerator generator;
+    private final GenerationPipeline pipeline;
     private final ObjectMapper json;
 
-    public GenerateController(Phase0ProjectGenerator generator, ObjectMapper json) {
-        this.generator = generator;
+    public GenerateController(GenerationPipeline pipeline, ObjectMapper json) {
+        this.pipeline = pipeline;
         this.json = json;
     }
 
@@ -70,28 +68,33 @@ public class GenerateController {
     }
 
     private void stream(GenerateRequest request, HttpServletResponse response) throws IOException {
-        Selection selection = request.toSelection();
-        // Validated before a single header is written: once the body starts streaming there is no
-        // way to turn the response into a 400.
-        String projectName = Identifiers.requireProjectName(selection.projectName());
-
-        Workspace workspace = generator.generate(selection);
         long start = System.nanoTime();
 
+        // The whole pipeline runs before a single header is written: once the body starts
+        // streaming there is no way to turn the response into a 400, and every failure worth
+        // reporting — an unknown recipe, a conflict, a breached cap — happens before packaging.
+        GeneratedProject project = pipeline.generate(request.toEnvelope());
+
         response.setContentType("application/zip");
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + projectName + ".zip\"");
+        response.setHeader(
+                HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + project.projectName() + ".zip\"");
         // The zip is deterministic but the endpoint is not idempotent for caches to guess at.
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        // The digest that makes a bug report actionable (§9), and the hash the cache will key on.
+        response.setHeader("X-Kitbash-Catalog-Digest", project.lock().catalogDigest());
+        response.setHeader("X-Kitbash-Selection-Hash", project.selectionHash());
 
         try (OutputStream out = response.getOutputStream()) {
-            DeterministicZipWriter.write(workspace, projectName, out);
+            project.streamTo(out);
         }
 
+        // Hashes and recipe ids only: §10 keeps project and package names out of the logs.
         log.info(
-                "Generated project name={} files={} bytes={} in {}ms",
-                projectName,
-                workspace.fileCount(),
-                workspace.totalBytes(),
+                "Generated selection={} recipes=[{}] files={} bytes={} in {}ms",
+                project.selectionHash(),
+                project.lock().coordinates(),
+                project.fileCount(),
+                project.totalBytes(),
                 (System.nanoTime() - start) / 1_000_000);
     }
 }

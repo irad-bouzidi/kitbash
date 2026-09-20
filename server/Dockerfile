@@ -1,6 +1,5 @@
-# Built from the repository root, because the phase-0 generator stages /reference
-# onto the api classpath at build time. kitbash-13 replaces that with /recipes and
-# the context stays the root for the same reason.
+# Built from the repository root, because the application reads the recipe catalog
+# from /recipes at boot (§10) and the runtime image therefore has to carry it.
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /build
 
@@ -16,7 +15,7 @@ COPY server/render ./server/render
 COPY server/api ./server/api
 COPY server/verify ./server/verify
 COPY server/cli ./server/cli
-COPY reference ./reference
+COPY recipes ./recipes
 
 RUN cd server && ./gradlew :api:bootJar --no-daemon && \
     java -Djarmode=tools -jar api/build/libs/*.jar extract --layers --destination /build/extracted && \
@@ -31,6 +30,9 @@ COPY --from=build --chown=kitbash:kitbash /build/extracted/dependencies/ ./
 COPY --from=build --chown=kitbash:kitbash /build/extracted/spring-boot-loader/ ./
 COPY --from=build --chown=kitbash:kitbash /build/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=kitbash:kitbash /build/extracted/application/ ./
+# The catalog is data the application refuses to start without, so it ships beside
+# the jar rather than being mounted and hoped for.
+COPY --chown=kitbash:kitbash recipes ./recipes
 
 USER kitbash
 EXPOSE 8080
