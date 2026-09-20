@@ -13,6 +13,7 @@ import dev.kitbash.core.selection.SelectionEnvelope;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
@@ -46,7 +47,14 @@ public class StoredGenerations implements GenerationRecorder {
     }
 
     @Override
-    public void succeeded(Selection selection, Lock lock, UUID owner, String projectName, long bytes, Duration took) {
+    public void succeeded(
+            Selection selection,
+            Lock lock,
+            UUID owner,
+            String projectName,
+            String artifactKey,
+            long bytes,
+            Duration took) {
         Instant now = Instant.now();
         generations.insert(new Generation(
                 UUID.randomUUID(),
@@ -57,9 +65,41 @@ public class StoredGenerations implements GenerationRecorder {
                 serialize(lock),
                 lock.catalogDigest(),
                 selection.hash(),
-                // The object store is kitbash-27. Until then a download re-renders, which is
-                // exactly as correct and merely slower, because the render is deterministic.
+                // Null when nothing cached it: a download then re-renders, which is exactly as
+                // correct and merely slower, because the render is deterministic (§4).
+                artifactKey,
+                GenerationStatus.SUCCEEDED,
+                (int) took.toMillis(),
+                (int) bytes,
+                now,
+                now.plus(RETENTION),
+                false));
+    }
+
+    /**
+     * A generation somebody received without anything being rendered for it.
+     *
+     * <p>The lock is copied from the row that first produced this artifact rather than resolved
+     * again: these bytes came from those versions, and recording today's would make the receipt
+     * describe a generation that never happened.
+     */
+    @Override
+    public void servedFromCache(Selection selection, UUID owner, String artifactKey, long bytes, Duration took) {
+        Instant now = Instant.now();
+        Optional<Generation> original = generations.findBySelectionHash(selection.hash()).stream()
+                .filter(row -> row.status() == GenerationStatus.SUCCEEDED)
+                .findFirst();
+
+        generations.insert(new Generation(
+                UUID.randomUUID(),
+                owner,
                 null,
+                selection.projectName(),
+                serialize(selection),
+                original.map(Generation::lock).orElse("{}"),
+                original.map(Generation::catalogDigest).orElse(""),
+                selection.hash(),
+                artifactKey,
                 GenerationStatus.SUCCEEDED,
                 (int) took.toMillis(),
                 (int) bytes,

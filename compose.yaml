@@ -93,10 +93,16 @@ services:
       # The database is opt-in (§10, §12): /metadata, /validate and /generate need no
       # persistence, so the service starts without one and a missing Postgres cannot take
       # the generator down with it. This profile is what a deployment with a database runs.
-      SPRING_PROFILES_ACTIVE: persistence,dev-auth
+      SPRING_PROFILES_ACTIVE: persistence,dev-auth,objectstore
       KITBASH_DB_URL: jdbc:postgresql://postgres:5432/kitbash
       KITBASH_DB_USER: kitbash
       KITBASH_DB_PASSWORD: kitbash
+      # §10's zip cache. Determinism is what makes serving a hit verbatim safe, and the bucket's
+      # own lifecycle rule is what expires it after thirty days.
+      KITBASH_S3_ENDPOINT: http://minio:9000
+      KITBASH_S3_BUCKET: kitbash-artifacts
+      KITBASH_S3_ACCESS_KEY: kitbash
+      KITBASH_S3_SECRET_KEY: kitbash-dev-secret
     depends_on:
       postgres:
         # Flyway runs at startup, so the database has to be accepting connections rather
@@ -104,7 +110,10 @@ services:
         condition: service_healthy
       oidc:
         condition: service_started
-    # The object store arrives with kitbash-27 and adds its own condition here.
+      minio:
+        # The bucket is created at startup, so the store has to be answering by then. A cache
+        # that is merely late would be shrugged off; one that is absent means no bucket.
+        condition: service_healthy
 
   web:
     build:

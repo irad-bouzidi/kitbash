@@ -38,18 +38,21 @@ public class GenerateController {
     private final RateLimiter limiter;
     private final ZipCache cache;
     private final GenerationRecorder history;
+    private final PopularSelections popular;
 
     public GenerateController(
             GenerationPipeline pipeline,
             ObjectMapper json,
             RateLimiter limiter,
             ZipCache cache,
-            GenerationRecorder history) {
+            GenerationRecorder history,
+            PopularSelections popular) {
         this.pipeline = pipeline;
         this.json = json;
         this.limiter = limiter;
         this.cache = cache;
         this.history = history;
+        this.popular = popular;
     }
 
     /**
@@ -114,6 +117,9 @@ public class GenerateController {
             throw failure;
         }
         String cacheKey = cacheKey(selection);
+        // Counted whether or not it is served from cache: kitbash-40 wants what people generate,
+        // and a popular selection is popular precisely because it keeps being asked for.
+        popular.record(selection.hash());
 
         Optional<byte[]> cached = cache.find(cacheKey);
         if (cached.isPresent()) {
@@ -122,11 +128,17 @@ public class GenerateController {
             // encourage, and serving bytes that already exist costs nothing worth metering. This
             // is also why the limiter is not a servlet filter: a filter would have charged for
             // this request before the handler ever got the chance to find them.
+            byte[] zip = cached.get();
             writeZip(response, selection.projectName(), pipeline.catalog().digest(), selection.hash());
             try (OutputStream out = response.getOutputStream()) {
-                out.write(cached.get());
+                out.write(zip);
             }
-            log.info("Served selection={} from cache bytes={}", selection.hash(), cached.get().length);
+            log.info("Served selection={} from cache bytes={}", selection.hash(), zip.length);
+
+            // Still a row (§27): what somebody downloaded is worth recording whether or not it
+            // cost anything to produce, and it points at the artifact that served it rather than
+            // at one this request would have made.
+            history.servedFromCache(selection, Caller.ownerId().orElse(null), cacheKey, zip.length, elapsed(start));
             return;
         }
 
@@ -191,6 +203,9 @@ public class GenerateController {
                 project.lock(),
                 Caller.ownerId().orElse(null),
                 project.projectName(),
+                // Only when something kept the bytes: a row pointing at an object that was never
+                // written would promise a download it cannot serve.
+                cache.stores() ? cacheKey : null,
                 zipBytes,
                 elapsed(start));
     }

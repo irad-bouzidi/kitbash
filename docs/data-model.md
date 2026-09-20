@@ -90,14 +90,52 @@ duplicates could be written.
 ## Retention: 30 days, uniformly
 
 One number across all three stores, so the story is explainable: *anything older than a month is
-gone unless you kept it.* Cached zips expire by an object-store lifecycle rule, rows and logs by a
-nightly sweep on `expires_at` (`kitbash-27`).
+gone unless you kept it.* Three separate policies would be three things nobody can recall.
+
+It is enforced in two halves, split by who is best placed to do it:
+
+| What | How | Where |
+| --- | --- | --- |
+| Cached zips | a bucket lifecycle rule, set at startup | `ObjectStoreConfiguration` |
+| Generation rows, share links, verification runs | a nightly sweep on `expires_at` | `RetentionSweep` |
+
+The lifecycle rule is applied by the service rather than left to whoever provisioned the bucket: a
+retention policy that lives in somebody's console is one nobody can review, and one that silently
+was not applied looks exactly like one that was. A store that refuses the rule is logged loudly,
+because the sweep does not cover that half.
+
+The sweep is idempotent — every statement is bounded by a timestamp comparison — so it can be run
+twice, or re-run after a crash, without doing anything twice. A job nobody dares re-run is a job
+that stops being run.
 
 Keeping a row is expressed as clearing `expires_at` rather than as a second policy. Expiring an
 *artifact* while keeping its row is also allowed and is what the sweep does to a kept row's zip
 after a year: the row still replays, it just re-renders.
 
 Nothing reproducible is lost at expiry, because the lock is small and the lock is what matters.
+
+## The zip cache
+
+Keyed on `sha256(catalogDigest + canonicalSelection)`, which is what makes serving a hit
+**verbatim** safe: the same catalog and the same selection produce the same bytes (§4). In a
+generator whose output varied — a timestamp in a header, a map iterated in hash order — the same
+cache would be a correctness bug showing up as one person's project differing from another's.
+
+The digest being part of the key is why a catalog change cannot be served stale. That is a
+property of the key rather than a risk to manage, and `ZipCacheTest` asserts it.
+
+A cache hit **consumes no rate-limit budget** (§13), which is a wiring decision: the lookup sits
+above the limiter in `GenerateController`, not in a filter that would charge before the handler
+could find anything. It is still recorded as a generation row, pointing at the artifact that
+served it.
+
+Two numbers are published from day one (`/actuator/metrics`):
+
+- `kitbash.cache.requests{result=hit|miss}` — the hit rate is what says whether determinism is
+  still holding in production.
+- `kitbash.generations.byselection{selection=<hash>}` — what `kitbash-40` reads to decide which
+  stacks the nightly matrix should prioritise. Tagged by hash and bounded, because a metric tag is
+  a time series and §10 keeps names out of metrics.
 
 ## Running it
 
