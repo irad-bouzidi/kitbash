@@ -44,7 +44,8 @@ public final class Planner {
                     continue;
                 }
                 for (RecipeContent.RecipeFile file : content.filesMatching(recipe.id(), rule.from())) {
-                    String path = stripPrefix(rule.from(), file.path());
+                    String path =
+                            SafePaths.requireTemplatePath(recipe.id().value(), stripPrefix(rule.from(), file.path()));
                     caps.checkFileBytes(path, file.size());
                     entries.add(new FileEntry(
                             path,

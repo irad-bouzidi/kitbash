@@ -11,8 +11,13 @@ schemaVersion: 1
 variables:
   - id: projectName
     label: Project name
-    help: Becomes the directory, the zip and the compose project. Lowercase, hyphens allowed.
-    pattern: "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+    help: >-
+      Becomes the directory, the zip and the compose project. Lowercase, hyphens allowed, starting
+      with a letter. The names MS-DOS reserved for devices are excluded because Windows still
+      refuses to create a folder called any of them.
+    # The lookahead is not decoration. The server rejects these names too, and a pattern that
+    # accepted what the API refuses would have the wizard say yes and the request say no.
+    pattern: "^(?!(con|prn|aux|nul|com[1-9]|lpt[1-9])$)[a-z]([a-z0-9-]{0,62}[a-z0-9])?$"
     default: demo
     # The one variable with its own field in the §7 envelope. Declared rather than left for a
     # client to special-case by id, which is the failure §9 warns about.

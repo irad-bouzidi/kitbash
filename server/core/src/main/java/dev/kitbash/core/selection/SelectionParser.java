@@ -4,6 +4,7 @@ import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.core.recipe.OptionSpec;
 import dev.kitbash.core.recipe.Recipe;
+import dev.kitbash.core.recipe.VariableSpec;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,22 +34,58 @@ public final class SelectionParser {
     public static Selection parse(Catalog catalog, SelectionEnvelope envelope) {
         Selection selection = envelope.parse();
         Identifiers.requireProjectName(selection.projectName());
-        selection.variables().forEach(SelectionParser::validateVariable);
+        selection.variables().forEach((name, value) -> validateVariable(catalog, name, value));
 
         Set<String> known = knownValues(catalog);
         selection.options().values().forEach(value -> rejectUnknownRecipes(catalog, known, value));
         return selection;
     }
 
-    private static void validateVariable(String name, String value) {
+    /**
+     * Three layers, and every variable goes through at least one.
+     *
+     * <p>The catalog already declares a {@code pattern} for each variable, and until kitbash-20
+     * only the wizard enforced it — which made it a hint rather than a rule, since a crafted
+     * request never goes near the wizard. {@code entityName} becomes a Java class name, a SQL
+     * table and a URL path; an unvalidated one is arbitrary text written into a file somebody then
+     * compiles. So the declared pattern is enforced here, where the catalog is in hand: the
+     * catalog declares the rule once, the server enforces it and the client renders it (§9).
+     *
+     * <p>{@code Identifiers} stays for the three that need more than a regex can say — no regex
+     * expresses "not a Java keyword" — and the generic floor catches a variable no manifest
+     * declares, which is still a string that ends up in a file.
+     */
+    private static void validateVariable(Catalog catalog, String name, String value) {
         switch (name) {
             case "groupId" -> Identifiers.requireGroupId(value);
             case "packageName" -> Identifiers.requirePackageName(value);
             case "javaVersion" -> Identifiers.requireJavaVersion(value);
             default -> {
-                // Other variables are recipe-specific and validated by the recipe that declares
-                // them; the full hostile-input corpus is kitbash-20.
+                // Handled by the declared pattern below, or by the floor.
             }
+        }
+
+        catalog.variables().stream()
+                .filter(spec -> spec.id().equals(name))
+                .findFirst()
+                .ifPresent(spec -> requireDeclaredPattern(spec, value));
+
+        Identifiers.requireWritableValue(name, value);
+    }
+
+    private static void requireDeclaredPattern(VariableSpec spec, String value) {
+        if (spec.pattern() == null || spec.pattern().isBlank()) {
+            return;
+        }
+        if (value == null || !Pattern.compile(spec.pattern()).matcher(value).matches()) {
+            throw GenerationError.invalidIdentifier(
+                            spec.id(),
+                            "'" + value + "'",
+                            "must match " + spec.pattern(),
+                            spec.help() == null
+                                    ? "The catalog declares this rule; /api/v1/metadata serves it."
+                                    : spec.help())
+                    .asException();
         }
     }
 

@@ -3,6 +3,7 @@ package dev.kitbash.core.pack;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.kitbash.core.error.GenerationException;
 import dev.kitbash.core.workspace.GeneratedFile;
 import dev.kitbash.core.workspace.Workspace;
 import java.io.ByteArrayOutputStream;
@@ -105,11 +106,14 @@ class DeterministicZipWriterTest {
     @DisplayName("a path that would escape the project directory is refused")
     void refusesTraversal() {
         Workspace workspace = new Workspace();
+        // A typed PATH_ESCAPE rather than an IllegalArgumentException since kitbash-20: the §14
+        // envelope carries the code, the offending path and the reason, so a caller sees the same
+        // shape of error here as for every other refusal.
         assertThatThrownBy(() -> workspace.putText("../outside.txt", "no"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(GenerationException.class)
                 .hasMessageContaining("traverse");
         assertThatThrownBy(() -> workspace.putText("/etc/passwd", "no"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(GenerationException.class)
                 .hasMessageContaining("relative");
     }
 

@@ -26,6 +26,36 @@ public record Caps(int maxFiles, long maxTotalBytes, long maxFileBytes, Duration
         return new Caps(maxFiles, maxTotalBytes, maxFileBytes, Duration.ofSeconds(10));
     }
 
+    /**
+     * The wall-clock cap, as something a stage can carry between checks.
+     *
+     * <p>§13 caps generation at ten seconds. That one cannot be enforced by looking at the plan,
+     * because it is not a property of the selection — it is a property of the run, and the run is
+     * what might be pathological: a template with a runaway loop, a recipe tree on a filesystem
+     * that stalls. So the deadline is started when the request begins and checked at the stage
+     * boundaries, which are the points where a partially-finished project can still be abandoned
+     * cheaply.
+     */
+    public Deadline deadline() {
+        return new Deadline(System.nanoTime() + wallClock.toNanos(), wallClock);
+    }
+
+    /** A started clock. Checked between stages; never mid-file, where the answer would not help. */
+    public record Deadline(long expiresAtNanos, Duration budget) {
+
+        public void check(String stage) {
+            long overrunNanos = System.nanoTime() - expiresAtNanos;
+            if (overrunNanos > 0) {
+                throw GenerationError.limitExceeded(
+                                "wall clock (exceeded during " + stage + ")",
+                                budget.toMillis(),
+                                budget.toMillis()
+                                        + Duration.ofNanos(overrunNanos).toMillis())
+                        .asException();
+            }
+        }
+    }
+
     void checkFileCount(int observed) {
         if (observed > maxFiles) {
             throw GenerationError.limitExceeded("file count", maxFiles, observed)

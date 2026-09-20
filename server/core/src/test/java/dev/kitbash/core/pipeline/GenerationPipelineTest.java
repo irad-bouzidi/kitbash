@@ -115,9 +115,12 @@ class GenerationPipelineTest {
             SelectionEnvelope bad =
                     new SelectionEnvelope(1, "customer-management", Map.of(), Map.of("packageName", "com.new.thing"));
 
+            // A typed INVALID_IDENTIFIER since kitbash-20, carrying the rule and the offending
+            // value: a user who sent 'com.new.thing' is told which word is the problem.
             assertThatThrownBy(() -> pipeline().parse(bad))
-                    .isInstanceOf(dev.kitbash.core.selection.SelectionValidationException.class)
-                    .hasMessageContaining("keyword");
+                    .isInstanceOf(dev.kitbash.core.error.GenerationException.class)
+                    .hasMessageContaining("Java keyword 'new'")
+                    .hasMessageContaining("com.new.thing");
         }
     }
 

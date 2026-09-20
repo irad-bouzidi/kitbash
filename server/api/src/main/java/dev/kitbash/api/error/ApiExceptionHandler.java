@@ -41,6 +41,12 @@ public class ApiExceptionHandler {
         if (error.selectionHash() != null) {
             problem.setProperty("selectionHash", error.selectionHash());
         }
+        // Copied, not composed: the wizard highlights the field it was told about, and kitbash-39
+        // counts rejections by rule. Both want these as properties rather than as prose to parse.
+        if (error instanceof GenerationError.InvalidIdentifier invalid) {
+            problem.setProperty("field", invalid.field());
+            problem.setProperty("rule", invalid.rule());
+        }
         return problem;
     }
 
