@@ -3,40 +3,120 @@
 A generated project is verified by building it, in a container, on a machine that is not the
 API host (§12, §13). This directory holds the cell runner and one image per ecosystem.
 
-Right now there is **one cell**. [`kitbash-18`](../docs/tasks/phase-1-recipe-engine/kitbash-18-verification-runner.md)
-generalises the runner over a selection set; [`kitbash-35`](../docs/tasks/phase-3-catalog-breadth/kitbash-35-full-matrix-sharding.md)
-scales it to the full matrix with sharding.
+One runner, three triggers. §12 is explicit that the nightly matrix and per-generation build
+validation are the same machine with different inputs, so it is built once: the merge-request
+job and the nightly job differ only in which cells they select, and
+[`kitbash-37`](../docs/tasks/phase-4-validation-polish/kitbash-37-on-demand-verify-job.md) adds
+the third trigger by handing the same runner a selection that never came from a file.
+[`kitbash-35`](../docs/tasks/phase-3-catalog-breadth/kitbash-35-full-matrix-sharding.md) scales
+it to the full matrix with sharding.
 
-## Run a cell locally
-
-The same command CI runs, with the same image:
+## Run the matrix locally
 
 ```bash
-docker build -t kitbash/verify-jvm:latest -f verification/images/jvm/Dockerfile .
-./verification/run-cell.sh verification/selections/phase0-spring-java-gradle.json
+docker build -t kitbash/verify-jvm:latest  -f verification/images/jvm/Dockerfile  .
+docker build -t kitbash/verify-node:latest -f verification/images/node/Dockerfile .
+
+cd server
+./gradlew :verify:runMatrix                            # the merge-request cells
+./gradlew :verify:runMatrix -Pkitbash.trigger=nightly
 ```
 
-A failing cell prints the exact selection it generated from and that command, so reproducing
-a red pipeline is copy and paste rather than archaeology.
+Or one cell, the way a failure tells you to:
+
+```bash
+./verification/run-cell.sh full-stack
+```
+
+That script is a thin wrapper over the same runner — one cell instead of a trigger's worth. It
+owned its own `docker run` until the second ecosystem arrived and it would have built the
+frontend-only project with `./gradlew` in the JDK image; a reproduction command that runs
+something other than what CI ran is worse than none.
+
+A failing cell prints the exact selection it generated from and that command, so reproducing a
+red pipeline is copy and paste rather than archaeology. Every cell's log opens with both, so the
+artifact somebody downloads three days later is still self-contained.
+
+## Cells
+
+A cell is **data**: a selection, the triggers it runs on, and one step per ecosystem. A
+full-stack project has two builds, so it has two steps — merging them into one would mean one
+image carrying both toolchains, and an ecosystem image that accumulates tools stops resembling
+a user's machine.
+
+```json
+{
+  "id": "full-stack",
+  "selection": "selections/phase1-full-stack.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    { "ecosystem": "jvm",  "workingDirectory": ".",        "commands": ["./gradlew build --no-daemon"] },
+    { "ecosystem": "node", "workingDirectory": "frontend", "commands": ["pnpm install --frozen-lockfile", "pnpm test"] }
+  ]
+}
+```
+
+Data rather than code so that `kitbash-35` can enumerate ninety cells without generating ninety
+lines of Java, and so that adding one is a reviewable diff a maintainer can write without
+touching the runner.
+
+**A step is one container**, not one per command. The entrypoint copies the read-only project
+into a fresh workspace, so a container per command threw `node_modules` away between
+`pnpm install` and `pnpm lint` — the frontend cell failed with `eslint: not found` on a tree it
+had just installed into. The commands of one build share a filesystem; the script stops at the
+first failure and names it, so a four-command step still reports which of the four broke.
+
+The four cells today are the four §17 asks for: backend only, frontend only, both, and both
+with containers declined. The frontend-only case is the one most likely to break silently,
+which is why it is a cell rather than an assumption.
 
 ## What is here
 
 | Path | What it is |
 | --- | --- |
-| `images/jvm/Dockerfile` | The JVM ecosystem image: JDK 21, a warm Gradle cache, `unzip`, `git`. Nothing else. |
-| `images/jvm/entrypoint.sh` | Copies the read-only project into a writable workspace and runs the build. |
+| `cells/*.json` | One file per cell: a selection, its triggers, and one step per ecosystem. |
+| `selections/*.json` | The §7 envelopes the cells generate from. |
+| `images/jvm/**` | JDK 21, a warm Gradle cache, `unzip`, `git`. Nothing else. |
+| `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
-| `run-cell.sh` | Generate, unpack, build in the container, report. |
-| `selections/*.json` | One file per cell. A cell is a selection. |
+| `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
+| `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |
+
+The runner itself is `server/verify`, in Java, because `kitbash-37` has to construct a cell from
+a user's selection and serve its logs back — which wants a result model rather than a shell
+script's exit code.
 
 ## The one replaceable step
 
-`generate.sh` has a fixed contract — a selection file in, a zip out — and phase 0 implements
-it by booting the server and calling `POST /api/v1/generate`.
-[`kitbash-17`](../docs/tasks/phase-1-recipe-engine/kitbash-17-cli-module.md) adds the CLI and
-`kitbash-18` replaces the body of that script with a CLI invocation. Nothing else about the
-job changes, which is the point of putting it behind a script instead of inlining curl into
-two CI files.
+`generate.sh` has a fixed contract — a selection file in, a zip out. Phase 0 implemented it by
+booting the server and calling `POST /api/v1/generate`; `kitbash-17` replaced the body with a
+CLI invocation and nothing else about the job changed, which is exactly what putting it behind
+a script instead of inlining curl into two CI files was for.
+
+It calls the CLI rather than the API on purpose (§12): verification stays independent of the
+API, its auth and its persistence, so a red cell means the generator is broken rather than the
+deployment.
+
+## The images are warmed, on purpose and precisely
+
+Both images build the corresponding reference project at image-build time and keep the caches.
+That is a speed optimisation, not a correctness one: builds still resolve against the network, so
+a dependency that disappears upstream still breaks the cell. An offline cache would silently go
+stale and then hide real breakage.
+
+What is warmed matters as much as that it is. The JVM image warms with
+`build -x test compileTestJava` rather than `build -x test`: the latter never resolves the *test*
+classpath, so every cell re-downloaded JUnit, AssertJ and Testcontainers before it could compile
+a test — minutes per cell, straight off the ten-minute merge-request budget. Compiling the tests
+warms exactly those coordinates and still needs no Docker daemon at image-build time, which
+running them would.
+
+The Node image has the same shape of trap. Corepack downloads the pnpm version a project pins in
+`packageManager` and caches it under `$COREPACK_HOME`, which defaults to the *current user's*
+home — so warming as root and running the cell as `builder` left the cache unreadable and every
+cell re-downloaded pnpm before it could install anything. `COREPACK_HOME` is a shared directory
+handed to `builder`, and `COREPACK_ENABLE_DOWNLOAD_PROMPT=0` because a cell has no terminal to
+answer a prompt on.
 
 ## Isolation
 
@@ -51,7 +131,7 @@ Per §13, and from the first cell rather than retrofitted:
 | Processes | `--pids-limit=2048` | A fork bomb in a build script is a plausible accident. |
 | Privileges | `--security-opt=no-new-privileges`, non-root user | Standard, free. |
 | Timeout | 900 s hard kill (`KITBASH_CELL_TIMEOUT`) | A hung build is a failed build. |
-| Budget | 600 s, asserted (`KITBASH_CELL_BUDGET`) | Logged every run, not only when breached, so the trend is visible before it is a problem. |
+| Budget | 600 s for the whole run (`KITBASH_MATRIX_BUDGET`) | §12's ten minutes. Printed every run, not only when breached, so the trend is visible before it is a problem — it does not turn the matrix red, because a red cell should mean the generated project is broken rather than that the runner had a slow afternoon. |
 
 ### Two gaps, named rather than hidden
 
@@ -74,5 +154,5 @@ revisiting at matrix scale, not at one cell.
 
 ## Adding a cell
 
-Add a selection to `selections/`, and add one line to both CI files. That is the whole
-process until `kitbash-18` turns it into a matrix.
+Add a selection to `selections/` and a cell to `cells/`. That is the whole process: no CI file
+changes, because the triggers select by tag.

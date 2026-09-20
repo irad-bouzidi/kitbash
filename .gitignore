@@ -37,6 +37,11 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# --- Verification output ---
+# Logs and the status page are artifacts of a matrix run, not source. A checked-in
+# status page is one somebody forgets to regenerate, and then it lies.
+verification/build/
+
 # --- Test & coverage output ---
 coverage/
 .nyc_output/

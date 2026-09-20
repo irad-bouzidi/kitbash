@@ -1,0 +1,13 @@
+{
+  "id": "frontend-only",
+  "description": "The standalone frontend §18 settles: no backend, API origin configurable.",
+  "selection": "selections/phase1-frontend-only.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm test", "pnpm build"]
+    }
+  ]
+}

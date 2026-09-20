@@ -1,0 +1,18 @@
+{
+  "id": "full-stack-no-docker",
+  "description": "Both halves with containers declined — no compose file, no Dockerfiles, still builds.",
+  "selection": "selections/phase1-full-stack-no-docker.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm test", "pnpm build"]
+    }
+  ]
+}

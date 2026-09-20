@@ -1,0 +1,18 @@
+{
+  "id": "full-stack",
+  "description": "Both halves at once. Two steps, because a full-stack project has two builds.",
+  "selection": "selections/phase1-full-stack.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm test", "pnpm build"]
+    }
+  ]
+}
