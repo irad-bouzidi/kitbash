@@ -59,6 +59,42 @@ class SelectionCanonicalizationTest {
         assertThat(roundTripped.hash()).isEqualTo(original.hash());
     }
 
+    /**
+     * The same round trip, through JSON — which is the one that matters.
+     *
+     * <p>In memory the parser accepts either an {@link OptionValue} or its wire form, so the test
+     * above passed while {@code toEnvelope} was handing back domain objects wearing an envelope's
+     * name. Serialised, a {@code Text} record writes itself as {@code {"value":"…"}} and comes
+     * back as a map the parser refuses — which is what kitbash-24 found the moment a selection was
+     * stored in a row and read out again.
+     */
+    @Test
+    @DisplayName("and through JSON, because that is what storing or sending one does to it")
+    void roundTripsThroughJson() throws Exception {
+        Selection original = new Selection(
+                "customer-management",
+                Map.of(
+                        "backend",
+                        OptionValue.text("backend-spring-java"),
+                        "docker",
+                        OptionValue.flag(true),
+                        "features",
+                        OptionValue.multi(List.of("auth", "metrics"))),
+                Map.of("groupId", "com.acme"));
+
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        String wire = json.writeValueAsString(original.toEnvelope());
+
+        assertThat(wire)
+                .as("the envelope has to be the wire shape, not the domain one")
+                .contains("\"backend\":\"backend-spring-java\"")
+                .contains("\"docker\":true")
+                .doesNotContain("\"value\"");
+
+        Selection roundTripped = json.readValue(wire, SelectionEnvelope.class).parse();
+        assertThat(roundTripped.hash()).isEqualTo(original.hash());
+    }
+
     @Test
     @DisplayName("the hash is pinned, so a change to the canonical form cannot slip through")
     void hashIsPinned() {

@@ -23,6 +23,8 @@ export type RecipeSummary = components['schemas']['RecipeSummary'];
 
 export type GenerateRequest = components['schemas']['GenerateRequest'];
 export type Preset = components['schemas']['PresetResponse'];
+export type Generation = components['schemas']['GenerationResponse'];
+export type Replay = components['schemas']['ReplayResponse'];
 export type PresetRequest = components['schemas']['PresetRequest'];
 export type ValidationResponse = components['schemas']['ValidationResponse'];
 export type Diagnostic = components['schemas']['Diagnostic'];
@@ -186,4 +188,47 @@ export async function downloadFromPreset(preset: Preset): Promise<void> {
   }
 
   saveBlob(await response.blob(), `${preset.selection?.projectName ?? preset.name}.zip`);
+}
+
+/*
+ * History (§3, §7, §10, §24).
+ *
+ * A generation is a receipt. The lock on it is the valuable part: it is what makes a row
+ * replayable after its zip has expired, and what makes "this used to work" answerable by diffing
+ * two of them.
+ */
+
+export function fetchGenerations(): Promise<Generation[]> {
+  return request<Generation[]>('/api/v1/generations');
+}
+
+/**
+ * Replays a generation in one of the two modes §24 keeps apart.
+ *
+ * `exact` asks what you shipped and refuses if the catalog has moved past it; `current` asks what
+ * the same choice gives today and says what moved. The response states which ran, because a
+ * reproduction that quietly used different versions would be worse than none.
+ */
+export function replayGeneration(id: string, mode: 'exact' | 'current'): Promise<Replay> {
+  return request<Replay>(`/api/v1/generations/${id}/replay?mode=${mode}`, { method: 'POST' });
+}
+
+/** Exempts a row and its artifact from the 30-day sweep (§10). */
+export function keepGeneration(id: string): Promise<Generation> {
+  return request<Generation>(`/api/v1/generations/${id}/keep`, { method: 'POST' });
+}
+
+/** The zip again — re-rendered from the stored selection until kitbash-27 brings the object store. */
+export async function downloadGeneration(generation: Generation): Promise<void> {
+  const response = await fetch(`/api/v1/generations/${generation.id}/download`, {
+    method: 'POST',
+    headers: authorizationHeader(),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+
+  saveBlob(await response.blob(), `${generation.projectName ?? 'project'}.zip`);
 }

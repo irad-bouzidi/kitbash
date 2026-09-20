@@ -68,6 +68,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/generations/{id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["replay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/generate": {
         parameters: {
             query?: never;
@@ -92,6 +140,54 @@ export interface paths {
             cookie?: never;
         };
         get: operations["metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["read_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generations/{id}/diff/{otherId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["diff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -174,6 +270,41 @@ export interface components {
             conflicts?: components["schemas"]["Diagnostic"][];
             warnings?: components["schemas"]["Diagnostic"][];
         };
+        ReplayResponse: {
+            mode?: string;
+            originalCatalogDigest?: string;
+            currentCatalogDigest?: string;
+            catalogMoved?: boolean;
+            summary?: string;
+            changes?: components["schemas"]["VersionChange"][];
+        };
+        VersionChange: {
+            recipeId?: string;
+            before?: string;
+            after?: string;
+        };
+        GenerationResponse: {
+            /** Format: uuid */
+            id?: string;
+            projectName?: string;
+            selection?: components["schemas"]["GenerateRequest"];
+            lock?: {
+                [key: string]: string;
+            };
+            catalogDigest?: string;
+            selectionHash?: string;
+            status?: string;
+            /** Format: int32 */
+            durationMillis?: number;
+            /** Format: int32 */
+            sizeBytes?: number;
+            kept?: boolean;
+            exactlyReproducible?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
         Choice: {
             value?: string;
             label?: string;
@@ -232,6 +363,12 @@ export interface components {
             defaultValue?: string;
             scope?: string;
             requiredBy?: string[];
+        };
+        LockDiff: {
+            changed?: components["schemas"]["VersionChange"][];
+            added?: components["schemas"]["VersionChange"][];
+            removed?: components["schemas"]["VersionChange"][];
+            empty?: boolean;
         };
     };
     responses: never;
@@ -398,6 +535,72 @@ export interface operations {
             };
         };
     };
+    replay: {
+        parameters: {
+            query?: {
+                mode?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReplayResponse"];
+                };
+            };
+        };
+    };
+    keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenerationResponse"];
+                };
+            };
+        };
+    };
+    download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     generateFromForm: {
         parameters: {
             query?: never;
@@ -441,6 +644,71 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["MetadataDocument"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenerationResponse"][];
+                };
+            };
+        };
+    };
+    read_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenerationResponse"];
+                };
+            };
+        };
+    };
+    diff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                otherId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LockDiff"];
                 };
             };
         };

@@ -142,9 +142,27 @@ public record Selection(String projectName, Map<String, OptionValue> options, Ma
     }
 
     /** Back to the wire shape, at the current schema version. */
+    /**
+     * This selection as the §7 envelope a client would have sent.
+     *
+     * <p>The values are unwrapped back to the three shapes the wire has — a string, a boolean or a
+     * list of strings — rather than left as {@link OptionValue}s. The parser accepts either, so in
+     * memory it made no difference; serialised it made all of it, because a {@code Text} record
+     * writes itself as {@code {"value":"…"}} and comes back as a map the parser refuses. Anything
+     * that stores or sends an envelope needs this to be the wire shape, which is what the name
+     * says it is.
+     */
     public SelectionEnvelope toEnvelope() {
         Map<String, Object> wireOptions = new LinkedHashMap<>();
-        options.forEach((key, value) -> wireOptions.put(key, value));
+        options.forEach((key, value) -> wireOptions.put(key, wireValue(value)));
         return new SelectionEnvelope(SelectionEnvelope.CURRENT_SCHEMA_VERSION, projectName, wireOptions, variables);
+    }
+
+    private static Object wireValue(OptionValue value) {
+        return switch (value) {
+            case OptionValue.Text text -> text.value();
+            case OptionValue.Flag flag -> flag.value();
+            case OptionValue.Multi multi -> multi.values();
+        };
     }
 }

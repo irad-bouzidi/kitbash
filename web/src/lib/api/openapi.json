@@ -185,6 +185,87 @@
         }
       }
     },
+    "/api/v1/generations/{id}/replay" : {
+      "post" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "replay",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "mode",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReplayResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations/{id}/keep" : {
+      "post" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "keep",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GenerationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations/{id}/download" : {
+      "post" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "download",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/v1/generate" : {
       "post" : {
         "tags" : [ "generate-controller" ],
@@ -236,6 +317,89 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MetadataDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations" : {
+      "get" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/GenerationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations/{id}" : {
+      "get" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "read_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GenerationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations/{id}/diff/{otherId}" : {
+      "get" : {
+        "tags" : [ "generation-controller" ],
+        "operationId" : "diff",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "otherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LockDiff"
                 }
               }
             }
@@ -436,6 +600,98 @@
           }
         }
       },
+      "ReplayResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "originalCatalogDigest" : {
+            "type" : "string"
+          },
+          "currentCatalogDigest" : {
+            "type" : "string"
+          },
+          "catalogMoved" : {
+            "type" : "boolean"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionChange"
+            }
+          }
+        }
+      },
+      "VersionChange" : {
+        "type" : "object",
+        "properties" : {
+          "recipeId" : {
+            "type" : "string"
+          },
+          "before" : {
+            "type" : "string"
+          },
+          "after" : {
+            "type" : "string"
+          }
+        }
+      },
+      "GenerationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/GenerateRequest"
+          },
+          "lock" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "durationMillis" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kept" : {
+            "type" : "boolean"
+          },
+          "exactlyReproducible" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "Choice" : {
         "type" : "object",
         "properties" : {
@@ -632,6 +888,32 @@
             "items" : {
               "type" : "string"
             }
+          }
+        }
+      },
+      "LockDiff" : {
+        "type" : "object",
+        "properties" : {
+          "changed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionChange"
+            }
+          },
+          "added" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionChange"
+            }
+          },
+          "removed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionChange"
+            }
+          },
+          "empty" : {
+            "type" : "boolean"
           }
         }
       }
