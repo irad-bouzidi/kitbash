@@ -1,0 +1,17 @@
+{
+  "name": "customer-management-web",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "type": "module"
+}
