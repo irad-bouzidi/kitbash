@@ -10,9 +10,21 @@ import java.util.Objects;
  *
  * <p>{@code help} is not optional. An option whose meaning is not written down here becomes an
  * option somebody explains once in a wiki page nobody reads.
+ *
+ * <p>{@code demands} is how a toggle asks for a capability without its recipe having to require
+ * one unconditionally. The frontend recipe is the case that forced it: §18 settles that a
+ * standalone frontend is supported, so {@code requires: [rest-api]} would make the configuration
+ * the plan explicitly allows impossible to express — while the typed-client option genuinely does
+ * need a backend that publishes an OpenAPI document. Null for every option that demands nothing.
  */
 public record OptionSpec(
-        String id, OptionType type, List<String> values, OptionValue defaultValue, String label, String help) {
+        String id,
+        OptionType type,
+        List<String> values,
+        OptionValue defaultValue,
+        String label,
+        String help,
+        Capability demands) {
 
     public OptionSpec {
         Objects.requireNonNull(id, "id");
@@ -27,6 +39,17 @@ public record OptionSpec(
             throw new IllegalArgumentException(
                     "option '" + id + "' is a " + type.wireName() + " and must declare values");
         }
+        if (demands != null && type != OptionType.BOOLEAN) {
+            throw new IllegalArgumentException("option '" + id
+                    + "' declares `demands`, which only means something for a boolean: a toggle that is on "
+                    + "requires a capability, and an enum value cannot say which of its values does.");
+        }
+    }
+
+    /** The five-argument form, for the common option that demands nothing. */
+    public static OptionSpec of(
+            String id, OptionType type, List<String> values, OptionValue defaultValue, String label, String help) {
+        return new OptionSpec(id, type, values, defaultValue, label, help, null);
     }
 
     /** Whether this option can legally hold {@code value}: shape and domain checked in one place. */

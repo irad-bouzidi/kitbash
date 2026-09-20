@@ -57,7 +57,7 @@ final class TestCatalog {
                 provides("http-server", "rest-api", "openapi-spec", "jvm-project"),
                 provides("project-root", "build-tool", "database"),
                 Set.of(RecipeId.of(conflictsWith)),
-                List.of(new OptionSpec(
+                List.of(OptionSpec.of(
                         "architecture",
                         OptionType.ENUM,
                         List.of("layered", "hexagonal"),
@@ -86,7 +86,8 @@ final class TestCatalog {
                         List.of(),
                         OptionValue.flag(false),
                         "Typed API client",
-                        "Generate a TypeScript client from the backend's OpenAPI document.")),
+                        "Generate a TypeScript client from the backend's OpenAPI document.",
+                        Capability.of("openapi-spec"))),
                 Set.of(),
                 List.of(),
                 List.of(),

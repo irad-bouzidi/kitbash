@@ -1,6 +1,14 @@
 # yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# Owns compose.yaml and nothing else. Each recipe contributes its own service and its own
+# Dockerfile, because a container recipe that knew how to build a Spring Boot image would
+# know a technology's name, which is the one thing outside /recipes/<that technology> that
+# must never happen (§19). What this recipe provides is the file and the contract:
+#
+#   `containers` guarantees a compose.yaml with a `services` map.
+#   `http-server` guarantees that the application's service in it is called `app`.
 id: infra-docker
-version: 1.0.0
+version: 1.1.0
 kind: infra
 label: Docker and Compose
 # `docker` is what the wizard's toggle is named, and `containers` is what other recipes
@@ -9,9 +17,8 @@ label: Docker and Compose
 provides: [containers, docker]
 requires: [project-root]
 
-# `projectName` is an envelope field, not a variable — every template can read it.
-variables:
-  required: [javaVersion]
+# No required variables: compose.yaml needs only the project name, which is an envelope
+# field every template can read. The Java toolchain moved out with the Dockerfile.
 
 files:
   - from: files/**
@@ -21,7 +28,7 @@ patches:
     target: README.md
     marker: "<!-- kitbash:stack -->"
     lines:
-      - "- **Containers** — a multi-stage, non-root Dockerfile and a compose file with a database healthcheck"
+      - "- **Containers** — a compose file wiring the stack together, with healthchecks and non-root images"
 
   - op: insertAtMarker
     target: README.md

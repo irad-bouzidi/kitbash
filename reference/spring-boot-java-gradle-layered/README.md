@@ -5,7 +5,7 @@
 - **Build** — Gradle 8.14 with the Kotlin DSL, dependencies in a version catalog
 - **Backend** — Spring Boot 3.5.5 on Java 21, layered architecture
 - **Database** — Postgres, with Flyway migrations and JPA
-- **Containers** — a multi-stage, non-root Dockerfile and a compose file with a database healthcheck
+- **Containers** — a compose file wiring the stack together, with healthchecks and non-root images
 - **CI** — GitLab CI: build, test, format check, and a container image on the default branch
 <!-- kitbash:stack -->
 

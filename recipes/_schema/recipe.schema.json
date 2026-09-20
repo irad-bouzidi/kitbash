@@ -85,6 +85,11 @@
         "values": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "default": { "type": ["string", "boolean", "array"] },
         "label": { "type": "string" },
+        "demands": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+          "description": "For a boolean option: the capability the selection requires when this option is on. Lets a toggle ask for a capability without its recipe requiring one unconditionally."
+        },
         "help": {
           "type": "string",
           "minLength": 1,

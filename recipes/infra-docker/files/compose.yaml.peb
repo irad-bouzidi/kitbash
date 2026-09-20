@@ -1,7 +1,1 @@
 name: {{ projectName }}
-
-services:
-  app:
-    build: .
-    ports:
-      - "8080:8080"

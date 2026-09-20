@@ -73,6 +73,39 @@ jobs:
           path: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml
           if-no-files-found: ignore
 
+  frontend-reference-build:
+    name: frontend reference builds
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reference/react-vite-ts/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: reference/react-vite-ts/frontend/package.json
+
+      # The second reference project, and the standalone-frontend case (§18). If it stops
+      # building, `frontend-react-vite` is emitting a project nobody can run.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm lint
+        run: pnpm lint
+
+      - name: pnpm test
+        run: pnpm test
+
+      - name: pnpm build
+        run: pnpm build
+
   web:
     name: web
     runs-on: ubuntu-latest

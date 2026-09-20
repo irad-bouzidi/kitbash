@@ -90,7 +90,7 @@ class GenerationPipelineTest {
                                     java.util.Set.of(dev.kitbash.core.recipe.Capability.of("rest-api")),
                                     java.util.Set.of(),
                                     java.util.Set.of(),
-                                    java.util.List.of(new dev.kitbash.core.recipe.OptionSpec(
+                                    java.util.List.of(dev.kitbash.core.recipe.OptionSpec.of(
                                             "architecture",
                                             dev.kitbash.core.recipe.OptionType.ENUM,
                                             java.util.List.of("layered", "modular-monolith"),

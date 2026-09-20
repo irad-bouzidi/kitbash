@@ -1,0 +1,160 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# The second axis in the catalog, and the one that makes the engine falsifiable: until a
+# recipe of a different kind exists, a single backend would work just as well with a
+# checked-in tree.
+#
+# It lives under `frontend/` even when it is the only thing selected. §15's own layout puts
+# the generated typed client at `frontend/src/lib/api`, and a fixed home means adding a
+# backend later never moves a file.
+id: frontend-react-vite
+version: 1.0.0
+frameworkVersion: "19"
+kind: frontend
+label: React + TypeScript (Vite)
+
+provides: [spa]
+# Only `project-root`. §18 settles that a standalone frontend is supported, so requiring a
+# REST API here would make the case the plan explicitly allows impossible to express. What
+# the frontend does with a backend is conditional, not required.
+requires: [project-root]
+
+options:
+  - id: typedClient
+    type: boolean
+    default: false
+    label: Typed API client
+    # The wiring is kitbash-33; what exists now is the capability plumbing, so a selection
+    # that asks for it without a backend that can describe itself fails at validate time
+    # rather than at `pnpm build`.
+    demands: openapi-spec
+    help: >-
+      Generate the TypeScript API client from the backend's OpenAPI document instead of
+      hand-writing it. Requires a backend that publishes one.
+
+variables:
+  required: [entityName, entityTable]
+
+files:
+  - from: files/**
+  # The image that serves this app, and the reverse proxy inside it, exist only when
+  # containers were selected. Shipping an nginx.conf to a project with no container to
+  # run it is the same tell as a README describing a database nobody chose.
+  - from: container/**
+    when: "capability('containers')"
+
+patches:
+  # base sets a four-space default, which is right for the JVM half and wrong here. Prettier
+  # reads .editorconfig, so without this the generated project's own format check fails on
+  # the generated project's own files — the sort of thing that only shows up once two recipes
+  # really share a file.
+  #
+  # insertAtMarker rather than appendLines, because .editorconfig is sectioned: appendLines
+  # dedupes line by line across the whole file, which is right for a .gitignore and wrong
+  # here — `indent_size = 2` already appears under [*.{yaml,yml,json}] and the new section
+  # would arrive empty.
+  - op: insertAtMarker
+    target: .editorconfig
+    marker: "# kitbash:sections"
+    lines:
+      - "[*.{ts,tsx,js,jsx,mjs,cjs,css,html}]"
+      - "indent_size = 2"
+      - ""
+
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Node"
+      - "frontend/node_modules/"
+      - "frontend/dist/"
+      - "frontend/coverage/"
+      - "frontend/.vite/"
+      - "*.tsbuildinfo"
+
+  # Vite only exposes VITE_-prefixed variables to the bundle, and it reads them at build
+  # time — so this is a build input, not a compose environment entry. Writing it into the
+  # container's environment would look like it worked and change nothing.
+  - op: addEnvVar
+    target: .env.example
+    name: VITE_API_BASE_URL
+    value: ""
+    comment: >-
+      Origin of the API. Empty means same-origin, which is what the dev server proxy and the
+      container's nginx both arrange — set it only when the API lives elsewhere.
+
+  - op: addComposeService
+    target: compose.yaml
+    when: "capability('containers')"
+    service: web
+    definition:
+      build: ./frontend
+      ports:
+        - "3000:8080"
+
+  # Two conditional halves of the same idea: when something in this selection serves a REST
+  # API, the browser should reach it through this container rather than cross-origin.
+  - op: mergeYaml
+    target: compose.yaml
+    when: "capability('containers') && capability('rest-api')"
+    content:
+      services:
+        web:
+          depends_on:
+            - app
+  - op: insertAtMarker
+    target: frontend/nginx.conf
+    when: "capability('containers') && capability('rest-api')"
+    marker: "# kitbash:api-proxy"
+    lines:
+      - "    # Same-origin, so the browser needs no CORS and the API needs no allowlist."
+      - "    location /api/ {"
+      - "        proxy_pass http://app:8080;"
+      - "        proxy_set_header Host $host;"
+      - "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;"
+      - "        proxy_set_header X-Forwarded-Proto $scheme;"
+      - "        # Passed through so a request can be followed across both halves of the stack."
+      - "        proxy_set_header X-Correlation-Id $http_x_correlation_id;"
+      - "    }"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Frontend** — React {{ frameworkVersion }} with TypeScript and Vite, served by nginx in a non-root container"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "cd frontend"
+      - "pnpm install"
+      - "pnpm dev                      # http://localhost:5173, /api proxied to the backend"
+      - "pnpm build                    # typecheck and production bundle"
+      - "pnpm test                     # component tests, jsdom"
+      - "pnpm lint                     # ESLint and Prettier, both failing the build"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:layout -->"
+    lines:
+      - "```"
+      - "frontend/src/"
+      - "  api/      the only file that knows the shape of the API"
+      - "  pages/    one page per route, with its test beside it"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **The API lives behind `frontend/src/api/`.** A `fetch` in a component is a call the"
+      - "  generated typed client cannot replace, and replacing that one file is the whole point"
+      - "  of the option."
+      - "- **Requests are same-origin.** The dev server proxies `/api`, and so does the container's"
+      - "  nginx, so nothing needs CORS."

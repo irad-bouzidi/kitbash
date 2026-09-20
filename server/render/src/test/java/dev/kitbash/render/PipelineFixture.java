@@ -81,7 +81,7 @@ final class PipelineFixture {
                 Set.of(Capability.of("rest-api"), Capability.of("jvm-project")),
                 Set.of(Capability.of("project-root")),
                 Set.of(),
-                List.of(new OptionSpec(
+                List.of(OptionSpec.of(
                         "architecture",
                         OptionType.ENUM,
                         List.of("layered", "hexagonal"),

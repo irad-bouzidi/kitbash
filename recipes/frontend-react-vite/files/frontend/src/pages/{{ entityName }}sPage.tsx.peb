@@ -1,0 +1,127 @@
+import { useCallback, useEffect, useState } from 'react';
+import { ApiError, create{{ entityName }}, delete{{ entityName }}, list{{ entityName }}s, type {{ entityName }} } from '@/api/{{ entityTable }}';
+
+/**
+ * The vertical slice: list, create and delete one entity against the real API.
+ *
+ * One page is enough to prove the half of the stack that matters — a request, a response, an
+ * error path and a loading state. A second page would repeat all four.
+ */
+export function {{ entityName }}sPage() {
+  const [{{ entityTable }}, set{{ entityName }}s] = useState<{{ entityName }}[]>([]);
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      set{{ entityName }}s(await list{{ entityName }}s());
+      setError(null);
+    } catch (failure) {
+      setError(describe(failure));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await create{{ entityName }}({ name, quantity: Number(quantity) });
+      setName('');
+      setQuantity('1');
+      await refresh();
+    } catch (failure) {
+      setError(describe(failure));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: number) {
+    try {
+      await delete{{ entityName }}(id);
+      await refresh();
+    } catch (failure) {
+      setError(describe(failure));
+    }
+  }
+
+  return (
+    <section>
+      <h2>{{ entityName }}s</h2>
+
+      <form onSubmit={(event) => void submit(event)}>
+        <label>
+          Name
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            maxLength={120}
+          />
+        </label>
+        <label>
+          Quantity
+          <input
+            type="number"
+            min={0}
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            required
+          />
+        </label>
+        <button type="submit" disabled={saving || name.trim() === ''}>
+          {saving ? 'Adding…' : 'Add {{ entityName | camel }}'}
+        </button>
+      </form>
+
+      {error && <p role="alert">{error}</p>}
+
+      {loading ? (
+        <p>Loading…</p>
+      ) : {{ entityTable }}.length === 0 ? (
+        <p>No {{ entityTable }} yet.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Quantity</th>
+              <th scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ '{' }}{{ entityTable }}.map(({{ entityName | camel }}) => (
+              <tr key={{ '{' }}{{ entityName | camel }}.id}>
+                <td>{{ '{' }}{{ entityName | camel }}.name}</td>
+                <td>{{ '{' }}{{ entityName | camel }}.quantity}</td>
+                <td>
+                  <button type="button" onClick={() => void remove({{ entityName | camel }}.id)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+/** The server's own words where there are any: it explains the failure better than we can. */
+function describe(failure: unknown): string {
+  if (failure instanceof ApiError) return failure.message;
+  return 'The API is not reachable. Is it running?';
+}

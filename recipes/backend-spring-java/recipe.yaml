@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/recipe.schema.json
 id: backend-spring-java
-version: 1.0.0
+version: 1.1.0
 frameworkVersion: "3.5.5"
 kind: backend
 label: Spring Boot (Java)
@@ -28,8 +28,20 @@ variables:
 
 files:
   - from: files/**
+  # The image that runs this backend belongs to this recipe, not to the container recipe.
+  - from: container/**
+    when: "capability('containers')"
 
 patches:
+  - op: addComposeService
+    target: compose.yaml
+    when: "capability('containers')"
+    service: app
+    definition:
+      build: "."
+      ports:
+        - "8080:8080"
+
   # Spring's plugins, not Gradle's: the build-tool recipe knows how to build a JVM
   # project and nothing about frameworks, so the two plugin aliases and their versions
   # are inserted here at the markers it placed (§19).
