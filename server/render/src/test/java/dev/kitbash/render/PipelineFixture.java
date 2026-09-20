@@ -6,6 +6,7 @@ import dev.kitbash.core.plan.RecipeContent;
 import dev.kitbash.core.recipe.Capability;
 import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.core.recipe.FileRule;
+import dev.kitbash.core.recipe.OptionGroup;
 import dev.kitbash.core.recipe.OptionSpec;
 import dev.kitbash.core.recipe.OptionType;
 import dev.kitbash.core.recipe.PatchRule;
@@ -13,6 +14,8 @@ import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.recipe.RecipeKind;
 import dev.kitbash.core.recipe.RecipeVersion;
+import dev.kitbash.core.recipe.Slot;
+import dev.kitbash.core.recipe.SlotType;
 import dev.kitbash.core.selection.OptionValue;
 import dev.kitbash.core.selection.SelectionEnvelope;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +54,17 @@ final class PipelineFixture {
     }
 
     static Catalog catalog() {
-        return Catalog.of(List.of(base(), backend()), "sha256:fixture");
+        return Catalog.of(
+                List.of(base(), backend()),
+                "sha256:fixture",
+                List.of(new OptionGroup(
+                        "stack",
+                        "Stack",
+                        "What the project is made of.",
+                        1,
+                        List.of(new Slot(
+                                "backend", SlotType.ENUM, "Backend", "The service half.", false, false, "stack")))),
+                List.of());
     }
 
     private static Recipe base() {
@@ -68,7 +81,8 @@ final class PipelineFixture {
                 Set.of(),
                 List.of(FileRule.always("files/**")),
                 List.of(),
-                false);
+                false,
+                null);
     }
 
     private static Recipe backend() {
@@ -96,7 +110,8 @@ final class PipelineFixture {
                                 BACKEND,
                                 "src/main/resources/application.yaml",
                                 Map.of("spring", Map.of("application", Map.of("name", "generated")))))),
-                false);
+                false,
+                "backend");
     }
 
     static RecipeContent content() {

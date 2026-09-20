@@ -63,7 +63,8 @@ final class ManifestReader {
                 stringSet(manifest.path("variables").path("required")),
                 readFiles(manifest),
                 readPatches(manifest, id, displayPath),
-                manifest.path("hook").asBoolean(false));
+                manifest.path("hook").asBoolean(false),
+                text(manifest, "slot", null));
     }
 
     private JsonNode parse(Path manifestPath, String displayPath) {

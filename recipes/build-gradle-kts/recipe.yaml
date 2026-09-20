@@ -4,6 +4,7 @@ version: 1.0.0
 frameworkVersion: "8.14"
 kind: base
 label: Gradle (Kotlin DSL)
+slot: buildTool
 provides: [build-tool]
 requires: [project-root]
 

@@ -26,6 +26,11 @@
       "description": "The slot this recipe fills, which is also its position in the apply order."
     },
     "label": { "type": "string", "minLength": 1 },
+    "slot": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9]*$",
+      "description": "The option that offers this recipe as a choice, declared in _catalog.yaml. Omit it for a recipe nothing chooses directly — `base` arrives because something requires `project-root`."
+    },
     "provides": { "$ref": "#/$defs/capabilityList" },
     "requires": { "$ref": "#/$defs/capabilityList" },
     "conflictsWith": {

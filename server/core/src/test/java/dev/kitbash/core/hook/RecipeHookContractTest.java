@@ -96,7 +96,7 @@ class RecipeHookContractTest {
     @Test
     @DisplayName("a recipe declaring hook: true with nothing registered is caught at plan time")
     void refusesAMissingHook() {
-        Recipe claimsAHook = new Recipe(
+        Recipe claimsAHook = Recipe.implied(
                 RecipeId.of("feature-invented"),
                 RecipeVersion.parse("1.0.0"),
                 null,

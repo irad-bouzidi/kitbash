@@ -45,6 +45,7 @@ public final class CatalogLoader {
     private static final String MANIFEST = "recipe.yaml";
 
     private final ManifestReader reader;
+    private final CatalogManifestReader catalogReader;
 
     public CatalogLoader() {
         this(new ManifestReader(ManifestSchema.load()));
@@ -52,20 +53,44 @@ public final class CatalogLoader {
 
     CatalogLoader(ManifestReader reader) {
         this.reader = reader;
+        this.catalogReader = new CatalogManifestReader();
     }
 
-    /** Loads and validates every recipe directly under {@code root}. */
+    /** Loads and validates every recipe under {@code root}, and the catalog metadata beside them. */
     public Catalog load(Path root) {
-        List<LoadedRecipe> loaded = readAll(root);
-        validate(loaded);
-        return Catalog.of(loaded.stream().map(LoadedRecipe::recipe).toList(), digestOfRecipes(loaded));
+        return loadAll(root).catalog();
     }
 
-    /** The same load, but keeping the directories the plan stage will read templates from. */
-    public List<LoadedRecipe> loadDetailed(Path root) {
+    /**
+     * The catalog and the directories its templates live in, from one read.
+     *
+     * <p>One method rather than two because the two have to agree: a caller that loaded recipes
+     * here and built a {@link Catalog} there would get a catalog with no slots in it, which
+     * resolves every selection to nothing. That happened once; this is the fix.
+     */
+    public LoadedCatalog loadAll(Path root) {
         List<LoadedRecipe> loaded = readAll(root);
+        CatalogManifestReader.CatalogManifest manifest = catalogReader.read(root);
         validate(loaded);
-        return loaded;
+        validateSlots(loaded, manifest);
+        Catalog catalog = Catalog.of(
+                loaded.stream().map(LoadedRecipe::recipe).toList(),
+                digestOfRecipes(loaded),
+                manifest.groups(),
+                manifest.variables());
+        return new LoadedCatalog(catalog, loaded);
+    }
+
+    /** A catalog together with where each of its recipes came from. */
+    public record LoadedCatalog(Catalog catalog, List<LoadedRecipe> recipes) {
+
+        public LoadedCatalog {
+            recipes = List.copyOf(recipes);
+        }
+
+        public LoadedRecipeContent content() {
+            return LoadedRecipeContent.of(recipes);
+        }
     }
 
     private List<LoadedRecipe> readAll(Path root) {
@@ -237,6 +262,75 @@ public final class CatalogLoader {
                         "matches no file under " + entry.recipe().id() + "/.",
                         "Fix the glob or remove the entry. A rule that matches nothing is a file set "
                                 + "somebody meant to ship and silently is not shipping.");
+            }
+        }
+    }
+
+    /**
+     * Recipes and slots have to agree in both directions.
+     *
+     * <p>A recipe naming a slot nobody declared is unreachable — no option would ever select it —
+     * and a slot nobody fills renders as an empty dropdown. Both are silent at runtime and obvious
+     * at boot, which is where this catches them.
+     */
+    static void validateSlots(List<LoadedRecipe> loaded, CatalogManifestReader.CatalogManifest manifest) {
+        Set<String> declared = manifest.groups().stream()
+                .flatMap(group -> group.slots().stream())
+                .map(dev.kitbash.core.recipe.Slot::id)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (declared.isEmpty() && manifest.groups().isEmpty()) {
+            // No _catalog.yaml: a recipe tree under development, loaded for generation only.
+            return;
+        }
+
+        for (LoadedRecipe entry : loaded) {
+            String slot = entry.recipe().slot();
+            if (slot != null && !declared.contains(slot)) {
+                throw new RecipeLoadException(
+                        entry.recipe().id() + "/" + MANIFEST,
+                        "slot",
+                        "names '" + slot + "', which " + CatalogManifestReader.FILE + " does not declare.",
+                        declared.isEmpty()
+                                ? "Declare the slot under a group in " + CatalogManifestReader.FILE + "."
+                                : "Declare it, or use one of: " + String.join(", ", declared));
+            }
+        }
+
+        // A slot holds one recipe, so two recipes in the same slot already exclude each other.
+        // Declaring it again is dead configuration that looks like protection.
+        java.util.Map<dev.kitbash.core.recipe.RecipeId, String> slotOf = new LinkedHashMap<>();
+        loaded.forEach(entry -> {
+            if (entry.recipe().slot() != null) {
+                slotOf.put(entry.recipe().id(), entry.recipe().slot());
+            }
+        });
+        for (LoadedRecipe entry : loaded) {
+            String slot = slotOf.get(entry.recipe().id());
+            for (dev.kitbash.core.recipe.RecipeId other : entry.recipe().conflictsWith()) {
+                if (slot != null && slot.equals(slotOf.get(other))) {
+                    throw new RecipeLoadException(
+                            entry.recipe().id() + "/" + MANIFEST,
+                            "conflictsWith",
+                            "names '" + other + "', which fills the same slot ('" + slot + "').",
+                            "Two recipes in one slot already exclude each other: the slot holds one. "
+                                    + "Remove the entry — conflictsWith is for recipes in different slots, "
+                                    + "where a selection really can name both.");
+                }
+            }
+        }
+
+        Set<String> filled = loaded.stream()
+                .map(entry -> entry.recipe().slot())
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        for (String slot : declared) {
+            if (!filled.contains(slot)) {
+                throw new RecipeLoadException(
+                        CatalogManifestReader.FILE,
+                        "slots[" + slot + "]",
+                        "is declared but no recipe fills it.",
+                        "Add a recipe with `slot: " + slot + "`, or remove the slot. An empty slot "
+                                + "renders as an empty dropdown, which looks like a bug in the wizard.");
             }
         }
     }

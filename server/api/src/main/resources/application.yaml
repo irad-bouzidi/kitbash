@@ -20,3 +20,15 @@ management:
     web:
       exposure:
         include: health,info
+  info:
+    env:
+      enabled: true
+
+# The OpenAPI document is the contract the web client's types are generated from (§9), so it
+# is served in every environment rather than only in development — a spec that exists only on
+# a developer's machine is a spec that drifts from what is deployed.
+springdoc:
+  api-docs:
+    path: /api/v1/openapi
+  swagger-ui:
+    path: /swagger-ui.html

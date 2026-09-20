@@ -76,6 +76,7 @@ final class TestRecipes {
                 Set.of(),
                 List.of(FileRule.always("files/**")),
                 patches,
-                hasHook);
+                hasHook,
+                null);
     }
 }

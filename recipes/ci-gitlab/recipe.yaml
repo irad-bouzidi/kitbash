@@ -3,6 +3,7 @@ id: ci-gitlab
 version: 1.0.0
 kind: ci
 label: GitLab CI
+slot: ci
 provides: [ci]
 requires: [project-root]
 

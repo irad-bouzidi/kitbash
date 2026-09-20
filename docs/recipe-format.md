@@ -109,19 +109,83 @@ of that list is meaningful and worth reviewing.
 
 ---
 
+## The catalog manifest
+
+A recipe describes itself. What the catalog *offers* — the wizard's sections, the slots a recipe
+can fill, the free-text inputs — is described once, in
+[`/recipes/_catalog.yaml`](../recipes/_catalog.yaml), validated against
+[`_schema/catalog.schema.json`](../recipes/_schema/catalog.schema.json).
+
+```yaml
+schemaVersion: 1
+
+variables:
+  - id: packageName
+    label: Package name
+    help: Root package of the generated sources.
+    pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    default: com.example.demo
+
+groups:
+  - id: stack
+    label: Stack
+    order: 1
+    slots:
+      - id: backend
+        type: enum          # enum | boolean
+        label: Backend
+        help: The service that owns the data and serves the API.
+      - id: docker
+        type: boolean
+        label: Containers
+        help: A compose file wiring the stack together.
+        defaultOn: true
+```
+
+Each recipe then names the slot it fills:
+
+```yaml
+slot: backend
+```
+
+**Why this is a separate file.** The resolver could work without it — an option whose value names a
+recipe id selects that recipe, and that is enough to resolve a selection somebody has already made.
+It is not enough to *render* one: a wizard needs the slot's id, label, help, type and position
+before any value exists, and no amount of looking at recipes will produce them. §8 asks for exactly
+this ("option groups carry display order and labels"), and declaring it removes the last piece of
+guesswork from the engine.
+
+A recipe with **no** `slot` can only be reached by implication. `base` is the case: nothing offers
+it as a choice, and it arrives because something else requires `project-root`.
+
+Two rules the loader enforces in both directions, because both failures are silent at runtime and
+obvious at boot:
+
+- a recipe naming a slot nobody declared is unreachable — no option would ever select it;
+- a slot nobody fills renders as an empty dropdown, which looks like a bug in the wizard.
+
+And one consequence worth knowing: **a slot holds one recipe, so two recipes in the same slot
+already exclude each other.** A `conflictsWith` between them is dead configuration that looks like
+protection, and the loader refuses it. `conflictsWith` is for recipes in *different* slots, where a
+selection really can name both.
+
+---
+
 ## How a recipe gets selected
 
 The selection envelope (§7) is flat: option id → value. Three rules turn that into a set of
 recipes, and there is nothing else:
 
-1. **An option whose value names a recipe id selects that recipe.** `"backend":
-   "backend-spring-java"` selects it; a multi-select selects each of its values. An option value
-   that is *not* a recipe id — `"architecture": "layered"` — is configuration, not a selection.
-2. **A boolean option set to `true` whose id names a capability demands that capability**, which
-   implied expansion then satisfies. This is how `"docker": true` reaches the container recipe
-   without the envelope, the wizard or the resolver ever naming `infra-docker`. A recipe meant to be
-   reachable this way should therefore provide a capability named after the option that toggles it.
-3. **Everything else is configuration**, read by templates and by `when` expressions.
+1. **An enum slot's value names a recipe assigned to that slot**, and selects it. `"backend":
+   "backend-spring-java"` selects it; a value naming nothing in that slot selects nothing.
+2. **A boolean slot set to `true` selects the recipes assigned to it.** This is how
+   `"docker": true` reaches the container recipe without the envelope, the wizard or the resolver
+   ever naming `infra-docker`.
+3. **A recipe's own boolean option that declares `demands`** adds that capability as a requirement
+   when it is on. §18 needs this: a standalone frontend is supported, so `frontend-react-vite`
+   cannot require a REST API — while its typed-client option genuinely does need a backend that
+   publishes an OpenAPI document.
+4. **Everything else is configuration**, read by templates and by `when` expressions.
 
 The resolver then expands what the selection implies: a `requires` capability with exactly one
 provider in the catalog is selected automatically, and one with several comes back as a *choice*

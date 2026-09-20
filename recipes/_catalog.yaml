@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=_schema/catalog.schema.json
+#
+# The catalog's own metadata: the wizard's sections, the slots a recipe can fill, and the
+# free-text inputs. Everything a client needs to render itself before anybody has chosen
+# anything, which is the half no amount of looking at recipes can supply (§8).
+#
+# Adding a recipe means adding a directory and, if it is a new axis, a slot here. It never
+# means a frontend commit — that is the property this file exists to keep true.
+schemaVersion: 1
+
+variables:
+  - id: projectName
+    label: Project name
+    help: Becomes the directory, the zip and the compose project. Lowercase, hyphens allowed.
+    pattern: "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+    default: demo
+  - id: groupId
+    label: Group ID
+    help: Maven coordinate, reverse domain.
+    pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    default: com.example
+  - id: packageName
+    label: Package name
+    help: Root package of the generated sources.
+    pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    default: com.example.demo
+  - id: javaVersion
+    label: Java version
+    help: The toolchain the generated build pins.
+    pattern: "^(17|21|25)$"
+    default: "21"
+  - id: entityName
+    label: Example entity
+    help: >-
+      The one entity the vertical slice is built around, in PascalCase. It becomes a table, a
+      REST resource and a page — an empty skeleton teaches nothing, so there is always one.
+    pattern: "^[A-Z][A-Za-z0-9]*$"
+    default: Widget
+  - id: entityTable
+    label: Example entity table
+    help: The table and URL path for that entity, plural and lowercase.
+    pattern: "^[a-z][a-z0-9_]*$"
+    default: widgets
+  - id: envPrefix
+    label: Environment variable prefix
+    help: Prefix for every variable the service reads, so two of these can share a shell.
+    pattern: "^[A-Z][A-Z0-9_]*$"
+    default: DEMO
+
+groups:
+  - id: stack
+    label: Stack
+    help: What the project is made of. Leave a slot empty to leave that half out.
+    order: 1
+    slots:
+      - id: backend
+        type: enum
+        label: Backend
+        help: The service that owns the data and serves the API.
+      - id: frontend
+        type: enum
+        label: Frontend
+        help: The browser half. Supported on its own, with the API origin configurable.
+      - id: buildTool
+        type: enum
+        label: Build tool
+        help: How the JVM half is built. Required when there is a backend.
+      - id: database
+        type: enum
+        label: Database
+        help: Schema migrations and the persistence layer.
+
+  - id: delivery
+    label: Delivery
+    help: How the project is packaged and built on the way to somewhere else.
+    order: 2
+    slots:
+      - id: docker
+        type: boolean
+        label: Containers
+        help: A compose file wiring the stack together, and a non-root image per service.
+        defaultOn: true
+      - id: ci
+        type: enum
+        label: CI provider
+        help: A pipeline that builds, tests, lints and produces a container image.

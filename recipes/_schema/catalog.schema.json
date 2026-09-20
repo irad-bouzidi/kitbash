@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kitbash.dev/schema/catalog.schema.json",
+  "title": "Kitbash catalog metadata",
+  "description": "The wizard's sections, the slots recipes fill, and the free-text inputs. Loaded from /recipes/_catalog.yaml alongside the recipes themselves.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "groups"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    }
+  },
+  "$defs": {
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "help"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "help": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required. A field nobody documented is a field somebody guesses at."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "The same rule the server enforces. A convenience for the client, never the check (\u00a713)."
+        },
+        "default": {
+          "type": "string"
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "order",
+        "slots"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "help": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/slot"
+          }
+        }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "label",
+        "help"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+        },
+        "type": {
+          "enum": [
+            "enum",
+            "boolean"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "help": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean",
+          "description": "An enum slot that must be filled. A toggle cannot be required: false is an answer."
+        },
+        "defaultOn": {
+          "type": "boolean",
+          "description": "For a boolean slot: whether it starts switched on."
+        }
+      }
+    }
+  }
+}

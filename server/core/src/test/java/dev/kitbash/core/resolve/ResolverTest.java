@@ -132,17 +132,15 @@ class ResolverTest {
     static Stream<Arguments> invalidCombinations() {
         return Stream.of(
                 Arguments.of(
-                        "two backends that declare each other a conflict",
+                        "two recipes in different slots that declare each other a conflict",
                         new Selection(
                                 "svc",
                                 Map.of(
-                                        "backend",
-                                                OptionValue.multi(
-                                                        List.of("backend-spring-java", "backend-spring-kotlin")),
-                                        "buildTool", OptionValue.text("build-gradle-kts")),
+                                        "frontend", OptionValue.text("frontend-react-vite"),
+                                        "mobile", OptionValue.text("mobile-expo")),
                                 VARIABLES),
                         ErrorCode.CONFLICT,
-                        "backend"),
+                        "mobile"),
                 Arguments.of(
                         "a backend with no build tool chosen, and two to choose from",
                         selection("backend", "backend-spring-java"),
@@ -225,13 +223,15 @@ class ResolverTest {
         }
 
         @Test
-        @DisplayName("a true boolean naming a capability pulls in its provider")
-        void booleanOptionDemandsACapability() {
+        @DisplayName("a boolean slot selects the recipe assigned to it")
+        void booleanSlotSelects() {
+            // Rule 2. Not an implication: the toggle *is* the selection, and reporting it as
+            // implied would tell the right rail the resolver added something the user did not.
             Resolution resolution =
                     Resolver.resolve(CATALOG, selection("frontend", "frontend-react-vite", "docker", true));
 
             assertThat(ids(resolution)).contains("infra-docker");
-            assertThat(resolution.implied()).extracting(RecipeId::value).contains("infra-docker");
+            assertThat(resolution.implied()).extracting(RecipeId::value).doesNotContain("infra-docker");
         }
 
         @Test
@@ -333,24 +333,41 @@ class ResolverTest {
         @Test
         @DisplayName("names the members of a cycle, because 'cycle detected' is not a diagnosis")
         void detectsAndNamesCycles() {
+            // Two features of the same kind, each requiring what the other provides. Kind order
+            // cannot separate them, so this is the one shape that really is a cycle.
             Catalog knot = Catalog.of(
                     List.of(
                             TestCatalog.recipe(
                                     "feature-a",
                                     RecipeKind.FEATURE,
                                     TestCatalog.provides("a"),
-                                    TestCatalog.requires("b")),
+                                    TestCatalog.requires("b"),
+                                    "featureA"),
                             TestCatalog.recipe(
                                     "feature-b",
                                     RecipeKind.FEATURE,
                                     TestCatalog.provides("b"),
-                                    TestCatalog.requires("a"))),
-                    "sha256:knot");
+                                    TestCatalog.requires("a"),
+                                    "featureB")),
+                    "sha256:knot",
+                    List.of(new dev.kitbash.core.recipe.OptionGroup(
+                            "stack",
+                            "Stack",
+                            null,
+                            1,
+                            List.of(
+                                    TestCatalog.slot("featureA", dev.kitbash.core.recipe.SlotType.ENUM),
+                                    TestCatalog.slot("featureB", dev.kitbash.core.recipe.SlotType.ENUM)))),
+                    List.of());
 
             Resolution resolution = Resolver.resolve(
                     knot,
                     new Selection(
-                            "svc", Map.of("features", OptionValue.multi(List.of("feature-a", "feature-b"))), Map.of()));
+                            "svc",
+                            Map.of(
+                                    "featureA", OptionValue.text("feature-a"),
+                                    "featureB", OptionValue.text("feature-b")),
+                            Map.of()));
 
             assertThat(resolution.conflicts()).hasSize(1);
             assertThat(resolution.firstConflict().code()).isEqualTo(ErrorCode.CYCLE);
