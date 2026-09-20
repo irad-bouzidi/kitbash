@@ -19,15 +19,23 @@ pnpm test:e2e       # playwright; needs the API running
 pnpm build          # typecheck + production build
 ```
 
-## What is here, and what is temporary
+## How it is laid out
 
-`Phase0Form.tsx` is named so its disposability is obvious: it is one hardcoded form and
-[`kitbash-16`](../docs/tasks/phase-1-recipe-engine/kitbash-16-metadata-driven-wizard.md)
-deletes it. What survives is the toolchain — Vite, Tailwind, the shadcn/ui tokens, the test
-runners, the dev proxy and the compose services. Setting those up against one page is much
-cheaper than doing it under a real wizard.
+```
+src/
+  catalog/   fetch and typed access to /api/v1/metadata (TanStack Query)
+  wizard/
+    fields/          one component per option type
+    FieldRenderer    option type -> component; the only switch in the application
+    useSelection     the selection, and its reflection in the URL (Zustand)
+    useValidation    debounced POST /validate
+    useFieldErrors   a Zod schema built at runtime from the catalog's own patterns
+  lib/api/   the typed client; schema.d.ts is generated, not edited
+```
 
-Do not build shared abstractions out of that form.
+`schema.d.ts` comes from the server's OpenAPI document. Regenerate it after an API change with
+`./gradlew :api:test -Dkitbash.openapi.update=true` from `server/`, then `pnpm gen:api` here. A
+test fails when the checked-in spec and the server disagree.
 
 ## Two things to get right and keep right
 
@@ -40,8 +48,16 @@ A browser cannot post JSON through a real form, so the envelope travels as one
 
 **Nothing here may know a technology's name.** The wizard renders whatever
 `/api/v1/metadata` describes, so adding a recipe is a backend-only change (§9, §19). A
-hardcoded `"Spring Boot"` in this directory is a bug. The phase-0 form is the one exception
-and it is on its way out.
+hardcoded `"Spring Boot"` in this directory is a bug, and
+`src/catalog/noHardcodedCatalog.test.ts` fails on one: no option id and no label the catalog
+declares may appear in `src/` outside the generated client. There are no exemptions, and the
+test fails if somebody adds one that outlives the file it excuses.
+
+The `e2e/` specs are the exception, and deliberately so: they drive the rendered page through a
+real browser, so naming what is on it is the job.
+
+If an option needs particular behaviour, that behaviour belongs to its **type**, declared in the
+catalog. "Just for the package name field" is the exact failure this design exists to prevent.
 
 ## Design language
 
