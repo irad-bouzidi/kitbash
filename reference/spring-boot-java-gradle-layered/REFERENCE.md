@@ -9,6 +9,9 @@ it has to describe only the stack that was selected. Anything that is true of th
 it is a reference project — including this file — lives here instead, and is listed under
 `excludeFromExtraction` in [`reference-variables.json`](reference-variables.json).
 
+The full workflow, and the justification for every path the equality test ignores, are in
+[`docs/reference-projects.md`](../../docs/reference-projects.md).
+
 ## The contract
 
 A CI test renders the recipes with the selection in `reference-variables.json` and asserts the
