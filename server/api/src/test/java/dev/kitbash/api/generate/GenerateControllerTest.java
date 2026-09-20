@@ -26,8 +26,20 @@ class GenerateControllerTest {
             {
               "schemaVersion": 1,
               "projectName": "customer-management",
-              "options": { "backend": "backend-spring-boot-java", "docker": true },
-              "variables": { "groupId": "com.acme", "packageName": "com.acme.customer", "javaVersion": "21" }
+              "options": {
+                "buildTool": "build-gradle-kts",
+                "backend": "backend-spring-java",
+                "database": "db-postgres-flyway",
+                "docker": true
+              },
+              "variables": {
+                "groupId": "com.acme",
+                "packageName": "com.acme.customer",
+                "javaVersion": "21",
+                "entityName": "Widget",
+                "entityTable": "widgets",
+                "envPrefix": "CUSTOMER"
+              }
             }""";
 
     @Autowired
@@ -38,7 +50,7 @@ class GenerateControllerTest {
     void respondsWithADownloadableZip() throws Exception {
         MockHttpServletResponse response = generate(VALID);
 
-        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getStatus()).as("%s", response.getContentAsString()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("application/zip");
         assertThat(response.getHeader("Content-Disposition"))
                 .isEqualTo("attachment; filename=\"customer-management.zip\"");
@@ -56,18 +68,69 @@ class GenerateControllerTest {
                         "customer-management/gradlew",
                         "customer-management/build.gradle.kts",
                         "customer-management/src/main/java/com/acme/customer/CustomerManagementApplication.java",
+                        "customer-management/src/main/resources/db/migration/V1__create_widgets.sql",
+                        "customer-management/compose.yaml",
                         "customer-management/.git/HEAD")
                 .allSatisfy(name -> assertThat(name).startsWith("customer-management/"));
     }
 
     @Test
-    @DisplayName("an unknown option key is accepted and ignored in this phase")
-    void ignoresUnknownOptions() throws Exception {
+    @DisplayName("a selection that names nothing is a 400, not an empty zip")
+    void refusesToGenerateNothing() throws Exception {
+        // An unknown option key is carried rather than rejected — the envelope is forward
+        // compatible by design (§7) — but a selection with nothing in it selects no recipes, and
+        // an empty zip looks like the generator worked.
         String body =
                 """
                 {"schemaVersion":1,"projectName":"my-service","options":{"somethingNew":"yes"},"variables":{}}""";
 
-        assertThat(generate(body).getStatus()).isEqualTo(200);
+        MockHttpServletResponse response = generate(body);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString())
+                .contains("does not name anything to generate")
+                .contains("/api/v1/metadata");
+    }
+
+    @Test
+    @DisplayName("a mistyped recipe id is a 400 that suggests the one that was meant")
+    void rejectsUnknownRecipes() throws Exception {
+        String body =
+                """
+                {"schemaVersion":1,"projectName":"my-service","options":{"backend":"backend-spring-jva"},"variables":{}}""";
+
+        MockHttpServletResponse response = generate(body);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("backend-spring-java");
+    }
+
+    @Test
+    @DisplayName("a missing required variable is a 400 naming the variable and the recipe that needs it")
+    void rejectsMissingVariables() throws Exception {
+        String body =
+                """
+                {"schemaVersion":1,"projectName":"my-service",
+                 "options":{"buildTool":"build-gradle-kts","backend":"backend-spring-java",
+                            "database":"db-postgres-flyway"},
+                 "variables":{"groupId":"com.acme"}}""";
+
+        MockHttpServletResponse response = generate(body);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString())
+                .contains("\"error\":\"INVALID_IDENTIFIER\"")
+                .contains("not supplied")
+                .contains("entityName");
+    }
+
+    @Test
+    @DisplayName("the response carries the catalog digest, which is what makes a bug report actionable")
+    void reportsTheCatalogDigest() throws Exception {
+        MockHttpServletResponse response = generate(VALID);
+
+        assertThat(response.getHeader("X-Kitbash-Catalog-Digest")).startsWith("sha256:");
+        assertThat(response.getHeader("X-Kitbash-Selection-Hash")).hasSize(64);
     }
 
     @Test

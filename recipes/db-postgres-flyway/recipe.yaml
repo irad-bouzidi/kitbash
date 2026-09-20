@@ -1,0 +1,165 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: db-postgres-flyway
+version: 1.0.0
+frameworkVersion: "16"
+kind: feature
+label: Postgres with Flyway
+provides: [database]
+requires: [jvm-project]
+
+variables:
+  required: [packageName, entityName, entityTable, envPrefix]
+
+files:
+  - from: files/**
+
+patches:
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-data-jpa
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.flywaydb:flyway-core:11.10.5
+    versionRef: flyway-core
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: runtimeOnly
+    coordinate: org.flywaydb:flyway-database-postgresql:11.10.5
+    versionRef: flyway-postgresql
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: runtimeOnly
+    coordinate: org.postgresql:postgresql
+    versionRef: postgresql
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: testImplementation
+    coordinate: org.springframework.boot:spring-boot-testcontainers
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: testImplementation
+    coordinate: org.testcontainers:junit-jupiter
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: testImplementation
+    coordinate: org.testcontainers:postgresql
+
+  # Flyway owns the schema and Hibernate validates against it. Declared here rather than
+  # in the backend's application.yaml because a backend with a different database would
+  # need different keys, and the backend has no business knowing which one it got.
+  - op: mergeYaml
+    target: src/main/resources/application.yaml
+    content:
+      spring:
+        datasource:
+          url: "{{ '${' }}{{ envPrefix }}_DB_URL}"
+          username: "{{ '${' }}{{ envPrefix }}_DB_USERNAME}"
+          password: "{{ '${' }}{{ envPrefix }}_DB_PASSWORD}"
+        jpa:
+          open-in-view: false
+          hibernate:
+            ddl-auto: validate
+        flyway:
+          enabled: true
+          locations: classpath:db/migration
+
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_DB_URL"
+    value: jdbc:postgresql://localhost:5432/{{ projectName }}
+    # Inside the compose network the database is at its service name, not at localhost.
+    # One value for both reads tidier and produces a compose file that cannot connect.
+    composeValue: jdbc:postgresql://db:5432/{{ projectName }}
+    comment: JDBC URL of the Postgres database.
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_DB_USERNAME"
+    value: "{{ projectName }}"
+    comment: The database username.
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_DB_PASSWORD"
+    value: "{{ projectName }}"
+    comment: The database password.
+
+  # Only when containers were selected. `app` is the service name the `containers`
+  # capability guarantees — see docs/recipe-format.md — so this coordinates through a
+  # contract rather than through knowledge of which recipe provides it.
+  - op: addComposeService
+    target: compose.yaml
+    when: "capability('containers')"
+    service: db
+    definition:
+      image: postgres:16-alpine
+      environment:
+        POSTGRES_DB: "{{ projectName }}"
+        POSTGRES_USER: "{{ projectName }}"
+        POSTGRES_PASSWORD: "{{ projectName }}"
+      ports:
+        - "5432:5432"
+      volumes:
+        - db-data:/var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U {{ projectName }} -d {{ projectName }}"]
+        interval: 5s
+        timeout: 5s
+        retries: 10
+
+  # Not `depends_on: [db]`. Postgres accepts TCP connections seconds before it accepts
+  # queries, and the application would race it on a cold start.
+  - op: mergeYaml
+    target: compose.yaml
+    when: "capability('containers')"
+    content:
+      services:
+        app:
+          depends_on:
+            db:
+              condition: service_healthy
+      volumes:
+        db-data: {}
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Database** — Postgres, with Flyway migrations and JPA"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "The integration tests start their own Postgres through Testcontainers, so they need a working"
+      - "Docker daemon and nothing else. There is no in-memory database anywhere in the suite: the"
+      - "schema, the unique index and the JPA mappings are exactly the things worth testing against the"
+      - "real engine."
+      - ""
+      - "### If the integration tests cannot find Docker"
+      - ""
+      - "On a very new Docker daemon, Testcontainers' client library defaults to an API version the"
+      - "daemon no longer serves, and the suite fails with *\"Could not find a valid Docker"
+      - "environment\"*. Pin the version for your machine, once:"
+      - ""
+      - "```bash"
+      - "docker version --format \x27{{ \x27{{\x27 }}.Server.APIVersion{{ \x27}}\x27 }}\x27   # e.g. 1.44"
+      - "echo \"api.version=1.44\" >> ~/.docker-java.properties"
+      - "```"
+      - ""
+      - "Deliberately not pinned in the build: hardcoding a version breaks the opposite case, a"
+      - "developer on an older daemon that does not serve it yet."
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Flyway owns the schema.** `ddl-auto: validate` — Hibernate checks the entity against the"
+      - "  migration and refuses to start if they disagree. To change a table, add a `V<n>__*.sql`."

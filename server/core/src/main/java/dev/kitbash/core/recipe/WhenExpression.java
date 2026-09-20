@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
  *   expression := term (('&amp;&amp;' | '||') term)*     // one operator per expression, no mixing
  *   term       := 'always'
  *               | option                            // true when the option reads as true
- *               | '!' option
+ *               | '!' term
  *               | option '==' 'literal'
  *               | option '!=' 'literal'
  *               | "capability('name')"
@@ -94,6 +94,24 @@ public sealed interface WhenExpression {
 
         @Override
         public void collectCapabilities(Set<String> into) {}
+    }
+
+    /** {@code !term} — the one place the grammar composes rather than enumerates. */
+    record Not(WhenExpression term) implements WhenExpression {
+        @Override
+        public boolean evaluate(WhenContext context) {
+            return !term.evaluate(context);
+        }
+
+        @Override
+        public void collectOptions(Set<String> into) {
+            term.collectOptions(into);
+        }
+
+        @Override
+        public void collectCapabilities(Set<String> into) {
+            term.collectCapabilities(into);
+        }
     }
 
     record HasCapability(String capability) implements WhenExpression {
@@ -191,6 +209,12 @@ public sealed interface WhenExpression {
         String identifier = negated ? term.substring(1).trim() : term;
         if (WhenGrammar.IDENTIFIER.matcher(identifier).matches()) {
             return new Truthy(identifier, negated);
+        }
+        if (negated) {
+            // `!capability('docker')` is the case that forced this: a recipe has to be able to
+            // describe the stack it is part of both when the container recipe is selected and when
+            // it is not, and enumerating a negated form of every term would double the grammar.
+            return new Not(parseTerm(identifier, source));
         }
         throw new IllegalArgumentException("cannot parse when expression term '" + term + "' (in '" + source
                 + "'). Supported forms: always, option, !option, option == 'value', "

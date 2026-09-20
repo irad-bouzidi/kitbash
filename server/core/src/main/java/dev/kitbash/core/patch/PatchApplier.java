@@ -200,30 +200,40 @@ public final class PatchApplier {
         Map<String, Object> service = Documents.child(Documents.child(compose, "services"), op.composeService());
         Map<String, Object> environment = Documents.child(service, "environment");
         // ${NAME:-default} so the compose file works with an empty .env and still defers to one.
-        environment.put(op.name(), "${" + op.name() + ":-" + op.value() + "}");
+        environment.put(op.name(), "${" + op.name() + ":-" + op.effectiveComposeValue() + "}");
         write(workspace, op.composeTarget(), Documents.writeYaml(compose));
     }
 
     // --- text formats --------------------------------------------------------
 
+    /**
+     * Idempotency is judged on the op's <i>non-blank</i> lines: if every one of them is already in
+     * the file, the op has been applied and nothing happens. Otherwise the op's lines are appended
+     * verbatim, blank lines included, minus any non-blank line already present.
+     *
+     * <p>Treating a blank line as "already present" was the obvious first implementation and it is
+     * wrong: a recipe appending a titled block — a blank line, {@code # Gradle}, then the entries —
+     * would lose its separator and the sections would run together.
+     */
     private static void appendLines(Workspace workspace, PatchOp.AppendLines op) {
         String source = read(workspace, op.target());
         List<String> lines = new ArrayList<>(source.lines().toList());
-        List<String> missing = op.lines().stream()
-                .filter(line ->
-                        lines.stream().noneMatch(existing -> existing.strip().equals(line.strip())))
-                .toList();
-        if (missing.isEmpty()) {
+        boolean allPresent = op.lines().stream().filter(line -> !line.isBlank()).allMatch(line -> lines.stream()
+                .anyMatch(existing -> existing.strip().equals(line.strip())));
+        if (allPresent) {
             return;
         }
-        lines.addAll(missing);
+        op.lines().stream()
+                .filter(line -> line.isBlank()
+                        || lines.stream().noneMatch(existing -> existing.strip().equals(line.strip())))
+                .forEach(lines::add);
         write(workspace, op.target(), String.join("\n", lines) + "\n");
     }
 
     /**
      * Markers are a contract between recipes: one places {@code // kitbash:imports}, another writes
-     * into it. A missing marker is therefore a broken contract, and quietly appending at the end of
-     * the file instead would put an import statement below the class it belongs to.
+     * into it. Lines go <b>above</b> the marker, so several recipes sharing one anchor stack in
+     * resolved recipe order rather than in reverse.
      */
     private static void insertAtMarker(Workspace workspace, PatchOp.InsertAtMarker op) {
         List<String> lines =
@@ -242,21 +252,38 @@ public final class PatchApplier {
                                     op.owner().value(),
                                     op.target(),
                                     "The marker '" + op.marker() + "' is not in " + op.target() + ".",
-                                    "Markers are a contract between recipes: whichever recipe owns "
-                                            + op.target() + " has to place '" + op.marker()
-                                            + "' for " + op.owner() + " to insert at.",
+                                    "Markers are a contract between recipes: whichever recipe owns " + op.target()
+                                            + " has to place '" + op.marker() + "' for " + op.owner()
+                                            + " to insert at.",
                                     null),
                             op.operation())
                     .asException();
         }
-
-        List<String> following = lines.subList(
-                marker + 1, Math.min(lines.size(), marker + 1 + op.lines().size()));
-        if (following.equals(op.lines())) {
+        if (containsBlock(lines, op.lines())) {
             return;
         }
-        lines.addAll(marker + 1, op.lines());
+        lines.addAll(marker, op.lines());
         write(workspace, op.target(), String.join("\n", lines) + "\n");
+    }
+
+    /**
+     * Whether the file already contains this exact run of lines, anywhere.
+     *
+     * <p>The obvious check — "are these the lines right at the marker?" — stops being idempotent as
+     * soon as a second recipe inserts at the same marker, because the first recipe's block is no
+     * longer adjacent to it. Looking for the block anywhere holds however many recipes share an
+     * anchor.
+     */
+    private static boolean containsBlock(List<String> lines, List<String> block) {
+        if (block.isEmpty()) {
+            return true;
+        }
+        for (int start = 0; start + block.size() <= lines.size(); start++) {
+            if (lines.subList(start, start + block.size()).equals(block)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --- plumbing ------------------------------------------------------------

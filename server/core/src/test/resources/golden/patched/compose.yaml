@@ -4,7 +4,7 @@ services:
     ports:
     - 8080:8080
     environment:
-      JWT_ISSUER: "${JWT_ISSUER:-http://localhost:8081/realms/kitbash}"
+      JWT_ISSUER: "${JWT_ISSUER:-http://keycloak:8080/realms/kitbash}"
   db:
     image: postgres:16-alpine
   web:

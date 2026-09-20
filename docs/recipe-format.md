@@ -273,9 +273,30 @@ byte-identical across runs. A patch against a file **no selected recipe produced
 time with `PATCH_TARGET_MISSING` and a hint naming the recipe that wanted it — never silently (§4,
 §14).
 
-`insertAtMarker` targets a `// kitbash:…` marker placed by whichever recipe owns the file. Markers
-are a contract between recipes: place them deliberately, and document each one in the owning
-recipe's README, because another recipe will target it later.
+`insertAtMarker` targets a `// kitbash:…` marker placed by whichever recipe owns the file, and
+inserts **above** it. Above rather than below, so that when several recipes share one anchor their
+blocks stack in resolved recipe order instead of in reverse — which puts the marker at the foot of
+the section it anchors, and that is where the owning recipe should place it.
+
+Markers ship in generated projects on purpose. A maintainer who later adds a dependency by hand
+wants to know where the generated block ends and theirs begins, and a marker is a far better answer
+than a convention nobody wrote down. Place them deliberately and document each one in the owning
+recipe's manifest, because another recipe will target it later.
+
+### Conventions a capability carries
+
+A capability is not only a name — it is a small contract, and some of them promise more than
+existence:
+
+| Capability | Also guarantees |
+| --- | --- |
+| `project-root` | A `README.md` carrying the five `<!-- kitbash:… -->` section markers, a `.gitignore` and a `.env.example` |
+| `build-tool` | A build file with a `dependencies` block, and a version catalog carrying `# kitbash:versions`, `# kitbash:libraries` and `# kitbash:plugins` |
+| `containers` | A `compose.yaml` whose application service is named `app` |
+
+That last one is what lets the database recipe wire `depends_on` without naming the container
+recipe. Recipes still never name each other (§4); they agree on a contract that the capability
+stands for.
 
 ---
 

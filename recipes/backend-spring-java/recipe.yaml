@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: backend-spring-java
+version: 1.0.0
+frameworkVersion: "3.5.5"
+kind: backend
+label: Spring Boot (Java)
+
+provides: [http-server, rest-api, openapi-spec, jvm-project]
+requires: [project-root, build-tool, database]
+# No conflictsWith yet. The Kotlin backend arrives in kitbash-29 and the two are mutually
+# exclusive, but declaring a conflict against a recipe that does not exist is dead
+# configuration — the loader refuses it for that reason, and adding the entry is part of
+# adding the recipe it names.
+
+options:
+  - id: architecture
+    type: enum
+    values: [layered]
+    default: layered
+    label: Architecture
+    help: >-
+      Determines the package layout and the direction dependencies are allowed to point.
+      Hexagonal and modular-monolith arrive in phase 3; the option exists now so the value
+      is recorded in every selection and lock from the start.
+
+variables:
+  required: [groupId, packageName, javaVersion, entityName, entityTable, envPrefix]
+
+files:
+  - from: files/**
+
+patches:
+  # Spring's plugins, not Gradle's: the build-tool recipe knows how to build a JVM
+  # project and nothing about frameworks, so the two plugin aliases and their versions
+  # are inserted here at the markers it placed (§19).
+  - op: insertAtMarker
+    target: build.gradle.kts
+    marker: "// kitbash:plugins"
+    lines:
+      - "    alias(libs.plugins.spring.boot)"
+      - "    alias(libs.plugins.spring.dependency.management)"
+
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    marker: "# kitbash:versions"
+    lines:
+      - 'spring-boot = "3.5.5"'
+      - 'spring-dependency-management = "1.1.7"'
+
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    marker: "# kitbash:plugins"
+    lines:
+      - 'spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }'
+      - 'spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }'
+
+  # Versionless coordinates on purpose: the Spring Boot BOM manages them, and pinning
+  # one here would freeze it while the BOM moved (see docs/hooks.md).
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-web
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-validation
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-actuator
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: implementation
+    coordinate: org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9
+    versionRef: springdoc-openapi-webmvc
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: testImplementation
+    coordinate: org.springframework.boot:spring-boot-starter-test
+  - op: addDependency
+    target: build.gradle.kts
+    configuration: testRuntimeOnly
+    coordinate: org.junit.platform:junit-platform-launcher
+
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Java"
+      - "*.class"
+      - "hs_err_pid*"
+      - "replay_pid*"
+
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_ENVIRONMENT_NAME"
+    value: local
+    comment: Free-text environment label, reported by /actuator/info and the OpenAPI description.
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Backend** — Spring Boot {{ frameworkVersion }} on Java {{ javaVersion }}, {{ architecture }} architecture"
+
+  # Only when there is no container recipe to give a shorter first command. §15 wants
+  # the README's first screen to name the one command that starts the project.
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:start -->"
+    when: "!capability('containers')"
+    lines:
+      - "```bash"
+      - "cp .env.example .env          # then export it, or let your IDE load it"
+      - "./gradlew bootRun"
+      - "```"
+      - ""
+      - "The service listens on **http://localhost:8080**. The API is at `/api/{{ entityTable }}`,"
+      - "documented at `/swagger-ui.html`, health at `/actuator/health`."
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:layout -->"
+    lines:
+      - "```"
+      - "src/main/java/{{ packageName | packagePath }}/"
+      - "  controller/   HTTP: request and response records, the REST controller, the error handler"
+      - "  service/      business rules and transaction boundaries"
+      - "  repository/   Spring Data interfaces"
+      - "  domain/       entities"
+      - "  config/       properties, startup validation, cross-cutting filters"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Configuration is validated at startup.** Every variable in `.env.example` is required;"
+      - "  missing ones are reported together, by name, before the context loads."
+      - "- **Logs are JSON**, one object per line, with the correlation id as a field. Every request"
+      - "  gets an `X-Correlation-Id` (the caller's, if supplied) and it is echoed in the response."
+      - "- **Errors are RFC 9457 problem documents**, never stack traces."

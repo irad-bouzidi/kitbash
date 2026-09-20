@@ -1,0 +1,53 @@
+package {{ packageName }}.service;
+
+import {{ packageName }}.domain.{{ entityName }};
+import {{ packageName }}.repository.{{ entityName }}Repository;
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Business rules live here, not in the controller and not in the entity. The controller maps
+ * HTTP to method calls; this class decides what is allowed.
+ */
+@Service
+@Transactional(readOnly = true)
+public class {{ entityName }}Service {
+
+    private final {{ entityName }}Repository {{ entityTable }};
+
+    public {{ entityName }}Service({{ entityName }}Repository {{ entityTable }}) {
+        this.{{ entityTable }} = {{ entityTable }};
+    }
+
+    public List<{{ entityName }}> findAll() {
+        return {{ entityTable }}.findAll();
+    }
+
+    public {{ entityName }} findById(long id) {
+        return {{ entityTable }}.findById(id).orElseThrow(() -> new {{ entityName }}NotFoundException(id));
+    }
+
+    @Transactional
+    public {{ entityName }} create(String name, int quantity) {
+        if ({{ entityTable }}.existsByName(name)) {
+            throw new Duplicate{{ entityName }}NameException(name);
+        }
+        return {{ entityTable }}.save({{ entityName }}.of(name, quantity));
+    }
+
+    @Transactional
+    public {{ entityName }} restock(long id, int amount) {
+        {{ entityName }} {{ entityName | camel }} = findById(id);
+        {{ entityName | camel }}.restock(amount);
+        return {{ entityName | camel }};
+    }
+
+    @Transactional
+    public void delete(long id) {
+        if (!{{ entityTable }}.existsById(id)) {
+            throw new {{ entityName }}NotFoundException(id);
+        }
+        {{ entityTable }}.deleteById(id);
+    }
+}

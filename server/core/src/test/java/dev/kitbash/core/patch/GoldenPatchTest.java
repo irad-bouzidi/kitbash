@@ -90,6 +90,7 @@ class GoldenPatchTest {
                         "api",
                         "JWT_ISSUER",
                         "http://localhost:8081/realms/kitbash",
+                        "http://keycloak:8080/realms/kitbash",
                         "Issuer the resource server validates tokens against"),
                 new PatchOp.AddComposeService(
                         WEB,

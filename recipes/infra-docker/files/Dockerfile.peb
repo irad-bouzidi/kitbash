@@ -1,0 +1,39 @@
+# Multi-stage: the JDK, Gradle caches and source never reach the runtime image.
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /build
+
+# Copied first so a source-only change does not re-resolve dependencies.
+COPY gradlew ./
+COPY gradle ./gradle
+RUN ./gradlew --version --no-daemon
+
+COPY settings.gradle.kts build.gradle.kts ./
+COPY src ./src
+# Extracted into layers so a dependency change and a code change do not invalidate
+# the same image layer: `lib/` is rebuilt only when the dependency set moves.
+# The jar is renamed so the runtime stage does not carry a version in its ENTRYPOINT.
+RUN ./gradlew bootJar --no-daemon && \
+    java -Djarmode=tools -jar build/libs/*.jar extract --layers --destination /build/extracted && \
+    mv /build/extracted/application/*.jar /build/extracted/application/app.jar
+
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+# Non-root, with no login shell and no home directory to write into.
+RUN addgroup -S {{ projectName }} && adduser -S -G {{ projectName }} -H -s /sbin/nologin {{ projectName }}
+
+WORKDIR /app
+COPY --from=build --chown={{ projectName }}:{{ projectName }} /build/extracted/dependencies/ ./
+COPY --from=build --chown={{ projectName }}:{{ projectName }} /build/extracted/spring-boot-loader/ ./
+COPY --from=build --chown={{ projectName }}:{{ projectName }} /build/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown={{ projectName }}:{{ projectName }} /build/extracted/application/ ./
+
+USER {{ projectName }}
+EXPOSE 8080
+
+# Container-aware defaults; the JVM reads the cgroup limit rather than the host's memory.
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=40s --retries=5 \
+    CMD wget -q -O- http://localhost:8080/actuator/health/readiness | grep -q UP || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

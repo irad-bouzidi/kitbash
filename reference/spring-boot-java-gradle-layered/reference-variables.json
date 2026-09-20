@@ -1,46 +1,57 @@
 {
   "$comment": [
     "The names in this reference project that become generator variables.",
-    "kitbash-13 extracts recipes by replacing these literals with placeholders;",
-    "kitbash-19 generates with exactly these values and asserts the result equals",
-    "this directory. That test is only meaningful if this file stays accurate, so",
+    "kitbash-13 extracted the recipes by replacing these literals with placeholders;",
+    "the equality test generates with exactly the selection below and asserts the result",
+    "equals this directory. That test is only meaningful if this file stays accurate, so",
     "renaming anything below is a change to this file in the same commit.",
-    "This file is reference metadata and is excluded from extraction."
+    "This file and REFERENCE.md are reference metadata and are excluded from extraction."
   ],
   "referenceProject": "spring-boot-java-gradle-layered",
-  "recipeIds": ["base", "backend-spring-java", "db-postgres-flyway", "infra-docker"],
+  "recipeIds": [
+    "base",
+    "build-gradle-kts",
+    "backend-spring-java",
+    "db-postgres-flyway",
+    "infra-docker",
+    "ci-gitlab"
+  ],
   "selection": {
     "schemaVersion": 1,
     "projectName": "demo",
     "options": {
-      "build-tool": "gradle-kotlin",
-      "backend": "spring-boot-java",
+      "buildTool": "build-gradle-kts",
+      "backend": "backend-spring-java",
       "architecture": "layered",
-      "database": "postgres-flyway"
+      "database": "db-postgres-flyway",
+      "ci": "ci-gitlab",
+      "docker": true
     },
     "variables": {
       "groupId": "com.example",
-      "artifactId": "demo",
       "packageName": "com.example.demo",
       "javaVersion": "21",
-      "applicationClass": "DemoApplication",
       "entityName": "Widget",
       "entityTable": "widgets",
       "envPrefix": "DEMO"
     }
   },
   "literals": {
-    "com.example": "${groupId}",
-    "com/example": "${groupId | replace('.', '/')}",
-    "com.example.demo": "${packageName}",
-    "com/example/demo": "${packageName | replace('.', '/')}",
-    "demo": "${artifactId}",
-    "DemoApplication": "${applicationClass}",
-    "DemoProperties": "${applicationClass | replace('Application', 'Properties')}",
-    "Widget": "${entityName}",
-    "widget": "${entityName | lower}",
-    "widgets": "${entityTable}",
-    "DEMO_": "${envPrefix}_"
+    "com/example/demo": "{{ packageName | packagePath }}",
+    "com.example.demo": "{{ packageName }}",
+    "com.example": "{{ groupId }}",
+    "DemoApplication": "{{ projectName | pascal }}Application",
+    "DemoProperties": "{{ projectName | pascal }}Properties",
+    "DEMO_": "{{ envPrefix }}_",
+    "Widget": "{{ entityName }}",
+    "widgets": "{{ entityTable }}",
+    "widget": "{{ entityName | camel }}",
+    "demo": "{{ projectName }}"
   },
-  "excludeFromExtraction": ["reference-variables.json", ".gradle/", "build/"]
+  "excludeFromExtraction": [
+    "reference-variables.json",
+    "REFERENCE.md",
+    ".gradle/",
+    "build/"
+  ]
 }

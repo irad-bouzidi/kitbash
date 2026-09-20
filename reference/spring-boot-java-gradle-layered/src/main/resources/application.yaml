@@ -5,36 +5,28 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: ${DEMO_DB_URL}
-    username: ${DEMO_DB_USERNAME}
-    password: ${DEMO_DB_PASSWORD}
+    url: "${DEMO_DB_URL}"
+    username: "${DEMO_DB_USERNAME}"
+    password: "${DEMO_DB_PASSWORD}"
   jpa:
     open-in-view: false
     hibernate:
-      # Flyway owns the schema. Hibernate validates against it and never writes to it,
-      # so a drift between entity and migration is a startup failure rather than a
-      # silently altered production table.
       ddl-auto: validate
   flyway:
     enabled: true
     locations: classpath:db/migration
-
 demo:
-  environment-name: ${DEMO_ENVIRONMENT_NAME}
+  environment-name: "${DEMO_ENVIRONMENT_NAME}"
   max-widgets-per-page: 50
-
 logging:
   structured:
     format:
-      # One JSON object per line, with the MDC (and therefore the correlation id)
-      # as top-level fields. Built into Boot 3.4+; no logging dependency needed.
       console: ecs
-
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: "health,info,metrics"
   endpoint:
     health:
       probes:
@@ -43,12 +35,10 @@ management:
   info:
     env:
       enabled: true
-
 info:
   app:
     name: demo
-    environment: ${DEMO_ENVIRONMENT_NAME}
-
+    environment: "${DEMO_ENVIRONMENT_NAME}"
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

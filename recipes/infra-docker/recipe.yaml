@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: infra-docker
+version: 1.0.0
+kind: infra
+label: Docker and Compose
+# `docker` is what the wizard's toggle is named, and `containers` is what other recipes
+# test for. Two names for one thing looks redundant until a second container runtime
+# exists: the toggle is a product decision, the capability is a contract.
+provides: [containers, docker]
+requires: [project-root]
+
+# `projectName` is an envelope field, not a variable — every template can read it.
+variables:
+  required: [javaVersion]
+
+files:
+  - from: files/**
+
+patches:
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Containers** — a multi-stage, non-root Dockerfile and a compose file with a database healthcheck"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:start -->"
+    lines:
+      - "```bash"
+      - "docker compose up --build"
+      - "```"
+      - ""
+      - "That brings everything up, waits for the database to be healthy, and starts the service on"
+      - "**http://localhost:8080** — documented at `/swagger-ui.html`, health at `/actuator/health`."
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "docker compose up -d db       # just the database, to run the app from your IDE"
+      - "```"
+      - ""

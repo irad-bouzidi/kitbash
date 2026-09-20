@@ -1,6 +1,13 @@
 # demo
 
-A Spring Boot service: Java 21, Gradle Kotlin DSL, Postgres with Flyway, layered architecture.
+## The stack
+
+- **Build** — Gradle 8.14 with the Kotlin DSL, dependencies in a version catalog
+- **Backend** — Spring Boot 3.5.5 on Java 21, layered architecture
+- **Database** — Postgres, with Flyway migrations and JPA
+- **Containers** — a multi-stage, non-root Dockerfile and a compose file with a database healthcheck
+- **CI** — GitLab CI: build, test, format check, and a container image on the default branch
+<!-- kitbash:stack -->
 
 ## Start it
 
@@ -8,16 +15,15 @@ A Spring Boot service: Java 21, Gradle Kotlin DSL, Postgres with Flyway, layered
 docker compose up --build
 ```
 
-That brings up Postgres, waits for it to be healthy, and starts the service on
-**http://localhost:8080**. The API is at `/api/widgets`, documented at
-[`/swagger-ui.html`](http://localhost:8080/swagger-ui.html), health at `/actuator/health`.
+That brings everything up, waits for the database to be healthy, and starts the service on
+**http://localhost:8080** — documented at `/swagger-ui.html`, health at `/actuator/health`.
+
+<!-- kitbash:start -->
 
 ## Work on it
 
 ```bash
 cp .env.example .env          # then export it, or let your IDE load it
-docker compose up -d db       # just the database
-./gradlew bootRun
 ```
 
 ```bash
@@ -31,16 +37,23 @@ real engine.
 
 ### If the integration tests cannot find Docker
 
-On a very new Docker daemon (29+), Testcontainers' client library defaults to an API version
-the daemon no longer serves, and the suite fails with *"Could not find a valid Docker
+On a very new Docker daemon, Testcontainers' client library defaults to an API version the
+daemon no longer serves, and the suite fails with *"Could not find a valid Docker
 environment"*. Pin the version for your machine, once:
 
 ```bash
+docker version --format '{{.Server.APIVersion}}'   # e.g. 1.44
 echo "api.version=1.44" >> ~/.docker-java.properties
 ```
 
-This is not pinned in the build on purpose: hardcoding a version breaks the opposite case, a
+Deliberately not pinned in the build: hardcoding a version breaks the opposite case, a
 developer on an older daemon that does not serve it yet.
+
+```bash
+docker compose up -d db       # just the database, to run the app from your IDE
+```
+
+<!-- kitbash:work -->
 
 ## How it is laid out
 
@@ -53,24 +66,16 @@ src/main/java/com/example/demo/
   config/       properties, startup validation, cross-cutting filters
 ```
 
-Rules worth knowing before editing:
+<!-- kitbash:layout -->
 
-- **Flyway owns the schema.** `ddl-auto: validate` — Hibernate checks the entity against the
-  migration and refuses to start if they disagree. To change a table, add a `V<n>__*.sql`.
+## Rules worth knowing before editing
+
+- **Formatting is a build failure**, not a review comment — `./gradlew spotlessApply`.
 - **Configuration is validated at startup.** Every variable in `.env.example` is required;
   missing ones are reported together, by name, before the context loads.
 - **Logs are JSON**, one object per line, with the correlation id as a field. Every request
-  gets an `X-Correlation-Id` (the caller's, if supplied) and it is echoed in the response and
-  attached to error bodies.
+  gets an `X-Correlation-Id` (the caller's, if supplied) and it is echoed in the response.
 - **Errors are RFC 9457 problem documents**, never stack traces.
-- **Formatting is a build failure**, not a review comment — `./gradlew spotlessApply`.
-
-## Why this project exists
-
-It is a *reference project* for the kitbash generator: recipe content is extracted from here,
-and a CI test asserts that generating this stack reproduces this directory byte for byte. It is
-not a template — there are no placeholders in it, and it builds and runs on its own.
-
-The names that become generator variables are recorded in
-[`reference-variables.json`](reference-variables.json). If you rename the package, the group or
-the example entity, update that file in the same commit.
+- **Flyway owns the schema.** `ddl-auto: validate` — Hibernate checks the entity against the
+  migration and refuses to start if they disagree. To change a table, add a `V<n>__*.sql`.
+<!-- kitbash:rules -->

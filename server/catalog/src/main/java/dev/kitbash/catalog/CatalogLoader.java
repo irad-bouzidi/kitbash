@@ -58,7 +58,7 @@ public final class CatalogLoader {
     public Catalog load(Path root) {
         List<LoadedRecipe> loaded = readAll(root);
         validate(loaded);
-        return Catalog.of(loaded.stream().map(LoadedRecipe::recipe).toList(), digestOf(loaded));
+        return Catalog.of(loaded.stream().map(LoadedRecipe::recipe).toList(), digestOfRecipes(loaded));
     }
 
     /** The same load, but keeping the directories the plan stage will read templates from. */
@@ -283,7 +283,7 @@ public final class CatalogLoader {
     }
 
     /** sha256 over the sorted set of (recipeId, version, contentHash) — §7. */
-    static String digestOf(List<LoadedRecipe> loaded) {
+    public static String digestOfRecipes(List<LoadedRecipe> loaded) {
         Map<String, String> lines = new LinkedHashMap<>();
         loaded.stream()
                 .sorted(Comparator.comparing(entry -> entry.recipe().id()))

@@ -44,7 +44,8 @@ class PatchOpTest {
                 new PatchOp.AddScript(OWNER, "package.json", "dev", "vite"),
                 new PatchOp.InsertAtMarker(OWNER, "Application.java", "// kitbash:imports", List.of("import a.B;")),
                 new PatchOp.AppendLines(OWNER, ".gitignore", List.of("build/")),
-                new PatchOp.AddEnvVar(OWNER, ".env.example", "compose.yaml", "app", "PORT", "8080", "the http port"),
+                new PatchOp.AddEnvVar(
+                        OWNER, ".env.example", "compose.yaml", "app", "PORT", "8080", null, "the http port"),
                 new PatchOp.AddComposeService(OWNER, "compose.yaml", "db", Map.of("image", "postgres:16"), List.of()));
     }
 

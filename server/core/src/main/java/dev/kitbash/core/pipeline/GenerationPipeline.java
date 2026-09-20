@@ -117,8 +117,8 @@ public final class GenerationPipeline {
 
     private Workspace renderAndPatch(Resolution resolution, Selection selection) {
         FilePlan plan = plan(resolution);
-        Workspace workspace = renderStage.render(plan, selection, resolution.effectiveOptions());
-        PatchApplier.apply(workspace, plan.patches());
+        Workspace workspace = renderStage.render(plan, selection, resolution);
+        PatchApplier.apply(workspace, renderStage.renderPatches(plan.patches(), selection, resolution));
         return workspace;
     }
 
@@ -130,6 +130,10 @@ public final class GenerationPipeline {
     private static Resolution requireResolvable(Resolution resolution) {
         if (!resolution.valid()) {
             throw new GenerationException(resolution.firstConflict());
+        }
+        if (resolution.recipes().isEmpty()) {
+            // An empty zip is worse than an error: it looks like the generator worked.
+            throw dev.kitbash.core.error.GenerationError.emptySelection().asException();
         }
         return resolution;
     }

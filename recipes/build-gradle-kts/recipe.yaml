@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: build-gradle-kts
+version: 1.0.0
+frameworkVersion: "8.14"
+kind: base
+label: Gradle (Kotlin DSL)
+provides: [build-tool]
+requires: [project-root]
+
+# The version catalog is assembled from the union of the selected recipes rather than
+# written out here, which is a computation no manifest field could express — see
+# docs/hooks.md for why that earns a hook and what the alternative would have been.
+hook: true
+
+variables:
+  required: [groupId, javaVersion]
+
+files:
+  - from: files/**
+
+patches:
+  # Appended rather than owned by `base`: a project without Gradle has no reason to
+  # ignore .gradle/, and a .gitignore listing directories that never appear is the
+  # same tell as a README describing a database nobody selected.
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Gradle"
+      - ".gradle/"
+      - "build/"
+      - "!gradle/wrapper/gradle-wrapper.jar"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Build** — Gradle {{ frameworkVersion }} with the Kotlin DSL, dependencies in a version catalog"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "./gradlew build               # compile, format check, unit and integration tests"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Formatting is a build failure**, not a review comment — `./gradlew spotlessApply`."

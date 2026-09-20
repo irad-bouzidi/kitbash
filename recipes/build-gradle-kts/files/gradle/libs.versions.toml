@@ -1,0 +1,17 @@
+# Single source of truth for every dependency coordinate in this project.
+#
+# The [versions] and [libraries] entries below the markers are assembled by kitbash from
+# the dependencies each selected recipe declares — see docs/hooks.md. Everything above a
+# marker is this project's own and is safe to edit.
+
+[versions]
+spotless = "7.0.4"
+palantir-java-format = "2.57.0"
+# kitbash:versions
+
+[libraries]
+# kitbash:libraries
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+# kitbash:plugins

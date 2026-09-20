@@ -232,6 +232,7 @@ final class ManifestReader {
                         node.path("composeService").asText(null),
                         node.path("name").asText(),
                         node.path("value").asText(),
+                        node.path("composeValue").asText(null),
                         node.path("comment").asText(null));
             case "addComposeService" ->
                 new PatchOp.AddComposeService(
