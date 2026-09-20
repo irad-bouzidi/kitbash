@@ -3,9 +3,16 @@
 One directory per recipe, each a manifest plus the files and patch operations it contributes.
 Recipes are the *only* place in this repository allowed to know a technology's name (§19).
 
-Empty until [`kitbash-7-recipe-manifest-and-loader`](../docs/tasks/phase-1-recipe-engine/kitbash-7-recipe-manifest-and-loader.md)
-defines the manifest, and [`kitbash-13`](../docs/tasks/phase-1-recipe-engine/kitbash-13-recipes-extract-phase0-stack.md)
-extracts the first recipes from `/reference`.
+The manifest format is specified in [`docs/recipe-format.md`](../docs/recipe-format.md) and
+enforced by [`_schema/recipe.schema.json`](_schema/recipe.schema.json), which the loader validates
+against at boot and which editors can be pointed at directly:
+
+```yaml
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+```
+
+No recipes yet — [`kitbash-13`](../docs/tasks/phase-1-recipe-engine/kitbash-13-recipes-extract-phase0-stack.md)
+extracts the first ones from `/reference`.
 
 Planned shape (§16):
 
