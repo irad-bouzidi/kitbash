@@ -397,6 +397,9 @@
           "defaultValue" : {
             "type" : "string"
           },
+          "scope" : {
+            "type" : "string"
+          },
           "requiredBy" : {
             "type" : "array",
             "items" : {

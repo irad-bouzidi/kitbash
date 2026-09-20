@@ -151,6 +151,7 @@ export interface components {
             help?: string;
             pattern?: string;
             defaultValue?: string;
+            scope?: string;
             requiredBy?: string[];
         };
     };

@@ -14,6 +14,9 @@ variables:
     help: Becomes the directory, the zip and the compose project. Lowercase, hyphens allowed.
     pattern: "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
     default: demo
+    # The one variable with its own field in the §7 envelope. Declared rather than left for a
+    # client to special-case by id, which is the failure §9 warns about.
+    scope: envelope
   - id: groupId
     label: Group ID
     help: Maven coordinate, reverse domain.

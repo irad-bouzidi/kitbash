@@ -87,7 +87,13 @@ public record MetadataDocument(
 
     /** A free-text input, with the rule the server will check it against anyway (§13). */
     public record Variable(
-            String id, String label, String help, String pattern, String defaultValue, List<String> requiredBy) {
+            String id,
+            String label,
+            String help,
+            String pattern,
+            String defaultValue,
+            String scope,
+            List<String> requiredBy) {
         public Variable {
             requiredBy = List.copyOf(requiredBy);
         }

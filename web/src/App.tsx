@@ -1,20 +1,28 @@
-import { Phase0Form } from '@/components/Phase0Form';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Wizard } from '@/wizard/Wizard';
+
+// The catalog is immutable per digest and the server sends an ETag that is that digest, so
+// refetching on focus would be a request that always answers 304.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: Infinity } },
+});
 
 export function App() {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-        <div>
-          <p className="text-lg font-semibold tracking-tight">kitbash</p>
-          <p className="text-sm text-muted-foreground">Projects that already build.</p>
-        </div>
-        <ThemeToggle />
-      </header>
-
-      <main className="mx-auto flex max-w-5xl justify-center px-6 pb-20 pt-6">
-        <Phase0Form />
-      </main>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-svh flex-col items-center gap-8 px-6 py-10">
+        <header className="flex w-full max-w-5xl items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">kitbash</h1>
+            <p className="text-sm text-muted-foreground">
+              Pick a stack. Get a project that already builds.
+            </p>
+          </div>
+          <ThemeToggle />
+        </header>
+        <Wizard />
+      </div>
+    </QueryClientProvider>
   );
 }

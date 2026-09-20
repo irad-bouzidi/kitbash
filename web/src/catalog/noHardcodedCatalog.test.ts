@@ -18,11 +18,11 @@ const CATALOG = resolve(WEB_SRC, '../../recipes/_catalog.yaml');
 /**
  * Files exempt from the rule, each with the task that removes it.
  *
- * `Phase0Form.tsx` is the hardcoded one-stack form from phase 0; `kitbash-16` deletes it and this
- * list with it. An exemption that outlives its file would silently re-open the hole, so the test
- * below asserts every exempt file still exists.
+ * Empty, and meant to stay that way. It held the phase-0 form until `kitbash-16` replaced it with
+ * the metadata-driven wizard; the assertion at the bottom fails if an exemption ever outlives the
+ * file it excuses, which is the only way a temporary allowance stays temporary.
  */
-const EXEMPT = ['components/Phase0Form.tsx', 'components/Phase0Form.test.tsx'];
+const EXEMPT: string[] = [];
 
 /** Generated from the server's OpenAPI document; it is allowed to name what the server names. */
 const GENERATED = 'lib/api/';
@@ -83,8 +83,12 @@ describe('the wizard renders itself from /metadata', () => {
       if (EXEMPT.includes(file)) continue;
       const source = readFileSync(join(WEB_SRC, file), 'utf8');
       for (const label of labels) {
+        // Word boundaries, not substrings. A label is a whole word: the query library's name
+        // contains one of them as a fragment, and a check that cannot tell the difference is a
+        // check somebody eventually disables.
+        const boundary = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
         expect(
-          source.includes(label),
+          boundary.test(source),
           `${file} spells out the label '${label}'. Every human-readable string comes from the server (§8).`,
         ).toBe(false);
       }

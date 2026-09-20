@@ -114,6 +114,7 @@ public final class MetadataAssembler {
                     spec.help(),
                     spec.pattern(),
                     spec.defaultValue(),
+                    spec.scope().wireName(),
                     List.copyOf(requiredBy)));
         }
         return variables;

@@ -11,6 +11,7 @@ import com.networknt.schema.SpecificationVersion;
 import dev.kitbash.core.recipe.OptionGroup;
 import dev.kitbash.core.recipe.Slot;
 import dev.kitbash.core.recipe.SlotType;
+import dev.kitbash.core.recipe.VariableScope;
 import dev.kitbash.core.recipe.VariableSpec;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,12 +89,21 @@ final class CatalogManifestReader {
     private static VariableSpec readVariable(JsonNode node) {
         String id = node.path("id").asText();
         try {
+            String scope = node.path("scope").asText(null);
             return new VariableSpec(
                     id,
                     node.path("label").asText(null),
                     node.path("help").asText(null),
                     node.path("pattern").asText(null),
-                    node.path("default").asText(null));
+                    node.path("default").asText(null),
+                    scope == null
+                            ? VariableScope.VARIABLE
+                            : VariableScope.fromWireName(scope)
+                                    .orElseThrow(() -> new RecipeLoadException(
+                                            FILE,
+                                            "variables[" + id + "].scope",
+                                            "'" + scope + "' is not a variable scope.",
+                                            "Use `envelope` for a top-level field of the selection, or omit it.")));
         } catch (IllegalArgumentException e) {
             throw new RecipeLoadException(
                     FILE, "variables[" + id + "]", e.getMessage(), "See docs/recipe-format.md.", e);

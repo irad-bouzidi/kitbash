@@ -57,6 +57,13 @@
         },
         "default": {
           "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "envelope",
+            "variable"
+          ],
+          "description": "Where the value lands in the selection envelope. `envelope` is a top-level field \u2014 only projectName today. Omit for the usual case."
         }
       }
     },
