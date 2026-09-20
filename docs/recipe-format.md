@@ -109,6 +109,41 @@ of that list is meaningful and worth reviewing.
 
 ---
 
+## How a recipe gets selected
+
+The selection envelope (§7) is flat: option id → value. Three rules turn that into a set of
+recipes, and there is nothing else:
+
+1. **An option whose value names a recipe id selects that recipe.** `"backend":
+   "backend-spring-java"` selects it; a multi-select selects each of its values. An option value
+   that is *not* a recipe id — `"architecture": "layered"` — is configuration, not a selection.
+2. **A boolean option set to `true` whose id names a capability demands that capability**, which
+   implied expansion then satisfies. This is how `"docker": true` reaches the container recipe
+   without the envelope, the wizard or the resolver ever naming `infra-docker`. A recipe meant to be
+   reachable this way should therefore provide a capability named after the option that toggles it.
+3. **Everything else is configuration**, read by templates and by `when` expressions.
+
+The resolver then expands what the selection implies: a `requires` capability with exactly one
+provider in the catalog is selected automatically, and one with several comes back as a *choice*
+rather than a guess — picking for the user is how somebody ends up with jOOQ because it sorted
+before JPA. Implied recipes are reported separately so the wizard's right rail can show what was
+added rather than leaving it to be discovered in the zip (§9).
+
+### `requires` is a selection constraint, not an ordering one
+
+Worth stating plainly, because reading it the other way produces a cycle in the real catalog:
+`backend-spring-java` requires `database`, and `db-postgres-flyway` requires `jvm-project`, which
+the backend provides. As ordering edges those two are a loop. They are not one: `requires` says
+*this capability must be present in the selection*, while what comes first is fixed by `kind`.
+The database recipe patches a project the backend has already laid down.
+
+So the apply order is kind order, ties broken by recipe id, and the dependency graph is consulted
+only *within* a kind — where kind gives no order and one feature genuinely can build on another. A
+cycle can therefore only be two recipes of the same kind each requiring what the other provides,
+which is a manifest bug worth reporting by name.
+
+---
+
 ## The `when` expression language
 
 `when` is the entire conditional surface of the format, and it is deliberately tiny (§7). The
