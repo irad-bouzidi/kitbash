@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #
-# Produce a zip for one selection. THIS IS THE ONE REPLACEABLE STEP.
+# Produce a zip for one selection.
 #
-# kitbash-18 swaps the body of this script for a `cli` invocation and nothing else
-# about the verification job changes. Keeping it behind a script with a fixed
-# contract — selection in, zip out — is what makes that a one-file change.
+# §12 requires every cell to call the generator through `cli` rather than over HTTP. That is
+# not a convenience: it keeps verification independent of the API, its auth and its
+# persistence, so a red cell means the generator is broken rather than the deployment. It is
+# also the cheapest check that the §6 module boundary holds — `cli` depends on core, catalog
+# and render, and a Spring dependency there is a build failure.
 #
 #   usage: generate.sh <selection.json> <output.zip>
 set -euo pipefail
@@ -15,33 +17,19 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 log() { printf '[generate] %s\n' "$*" >&2; }
 
-# Phase 0 has no CLI, so the server is booted and asked over HTTP. §8's generation
-# endpoint is synchronous, so a single curl is the whole interaction.
-log "building the api jar"
-(cd "$repo_root/server" && ./gradlew :api:bootJar --quiet)
+log "building the cli"
+(cd "$repo_root/server" && ./gradlew :cli:installDist --quiet)
 
-jar="$(find "$repo_root/server/api/build/libs" -name 'api-*.jar' ! -name '*-plain.jar' | head -1)"
-[ -n "$jar" ] || { log "no api jar was produced"; exit 1; }
-
-log "starting the api"
-java -jar "$jar" --server.port=18080 >"$repo_root/verification/.generate-server.log" 2>&1 &
-server_pid=$!
-trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-
-for _ in $(seq 1 60); do
-  if curl -sf -o /dev/null "http://localhost:18080/actuator/health"; then break; fi
-  sleep 1
-done
-curl -sf -o /dev/null "http://localhost:18080/actuator/health" || {
-  log "the api did not become healthy"
-  tail -40 "$repo_root/verification/.generate-server.log" >&2
-  exit 1
-}
+kitbash="$repo_root/server/cli/build/install/kitbash/bin/kitbash"
+[ -x "$kitbash" ] || { log "no cli was produced at $kitbash"; exit 1; }
 
 log "generating $(basename "$output")"
-curl -sf -X POST "http://localhost:18080/api/v1/generate" \
-  -H 'Content-Type: application/json' \
-  --data-binary "@$selection" \
-  -o "$output"
+# Non-zero exits carry the §14 envelope as JSON on stderr, so a job can report the code, the
+# stage and the recipe rather than a line somebody has to grep.
+"$kitbash" generate \
+  --selection "$selection" \
+  --out "$output" \
+  --zip \
+  --catalog "$repo_root/recipes"
 
 log "$(wc -c <"$output") bytes"

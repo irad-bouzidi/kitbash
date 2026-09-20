@@ -59,6 +59,3 @@ logs/
 # --- OS ---
 .DS_Store
 Thumbs.db
-
-# Transient log from verification/generate.sh
-verification/.generate-server.log
