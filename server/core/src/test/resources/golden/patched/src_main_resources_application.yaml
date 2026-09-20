@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: customer-management
+  datasource:
+    url: "${DATABASE_URL}"
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "${JWT_ISSUER}"
+server:
+  port: 8080

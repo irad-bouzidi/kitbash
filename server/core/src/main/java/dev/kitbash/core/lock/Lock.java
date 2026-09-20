@@ -3,6 +3,7 @@ package dev.kitbash.core.lock;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.recipe.RecipeVersion;
+import dev.kitbash.core.util.Ordered;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -26,9 +27,9 @@ public record Lock(Map<RecipeId, RecipeVersion> recipeVersions, String catalogDi
 
     public Lock {
         Objects.requireNonNull(catalogDigest, "catalogDigest");
-        // A sorted copy, because a lock is compared, diffed and hashed, and map iteration order is
-        // not a thing any of those should depend on.
-        recipeVersions = Map.copyOf(new TreeMap<>(recipeVersions));
+        // Sorted, and kept sorted: a lock is compared, diffed, hashed and written to a database
+        // column, and `Map.copyOf` would throw the sort away again — it is unordered and salted.
+        recipeVersions = Ordered.copyOf(new TreeMap<>(recipeVersions));
     }
 
     public static Lock of(Collection<Recipe> recipes, String catalogDigest) {

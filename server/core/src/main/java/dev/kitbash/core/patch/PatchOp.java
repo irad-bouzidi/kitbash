@@ -1,6 +1,7 @@
 package dev.kitbash.core.patch;
 
 import dev.kitbash.core.recipe.RecipeId;
+import dev.kitbash.core.util.Ordered;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,7 +64,7 @@ public sealed interface PatchOp {
 
         public MergeYaml {
             requireOwnerAndTarget(owner, target);
-            content = Map.copyOf(content);
+            content = Ordered.copyOf(content);
         }
 
         @Override
@@ -77,7 +78,7 @@ public sealed interface PatchOp {
 
         public MergeJson {
             requireOwnerAndTarget(owner, target);
-            content = Map.copyOf(content);
+            content = Ordered.copyOf(content);
         }
 
         @Override
@@ -172,7 +173,7 @@ public sealed interface PatchOp {
         public AddComposeService {
             requireOwnerAndTarget(owner, target);
             Objects.requireNonNull(serviceName, "serviceName");
-            definition = Map.copyOf(definition);
+            definition = Ordered.copyOf(definition);
             dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
         }
 

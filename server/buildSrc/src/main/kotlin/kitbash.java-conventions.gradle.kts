@@ -34,6 +34,9 @@ spotless {
 
     java {
         target("src/**/*.java")
+        // Golden files under src/test/resources are data, not source. A formatter rewriting the
+        // expected output of a formatting-sensitive test is a test that can never fail.
+        targetExclude("src/test/resources/**")
         palantirJavaFormat("2.57.0")
         removeUnusedImports()
         trimTrailingWhitespace()
