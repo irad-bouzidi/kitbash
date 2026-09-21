@@ -48,8 +48,25 @@ jobs:
           if-no-files-found: ignore
 
   reference-build:
-    name: reference project builds
+    # One job per JVM reference project. A reference project is the source of truth recipe
+    # content is extracted from (§4), so if one stops building, every recipe derived from it
+    # is wrong — and until §29 this job built only the first of them, which meant the Maven
+    # reference added in §28 was checked by the equality test and by nothing that compiles it.
+    name: reference builds (${{ matrix.project }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: spring-boot-java-gradle-layered
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
+          - project: spring-boot-java-maven-layered
+            build: ./mvnw -B verify
+            results: target/surefire-reports/TEST-*.xml
+          - project: spring-boot-kotlin-gradle-layered
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
     steps:
       - uses: actions/checkout@v4
 
@@ -62,19 +79,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # The reference project is the source of truth recipe content is extracted
-      # from (§4). If it stops building, every recipe derived from it is wrong.
       # Includes the Testcontainers suite, which uses the runner's Docker daemon.
-      - name: ./gradlew build
-        working-directory: reference/spring-boot-java-gradle-layered
-        run: ./gradlew build
+      - name: ${{ matrix.build }}
+        working-directory: reference/${{ matrix.project }}
+        run: ${{ matrix.build }}
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reference-test-results
-          path: reference/spring-boot-java-gradle-layered/build/test-results/test/TEST-*.xml
+          name: reference-test-results-${{ matrix.project }}
+          path: reference/${{ matrix.project }}/${{ matrix.results }}
           if-no-files-found: ignore
 
   frontend-reference-build:
