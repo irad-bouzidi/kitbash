@@ -1,0 +1,64 @@
+package {{ packageName }}.{{ entityName | camel }}.internal
+
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+import java.net.URI
+
+/**
+ * The module's HTTP surface. A module owns its endpoints the same way it owns its tables — there
+ * is no shared `controller` package to put this in, which is the layout difference that makes a
+ * modular monolith a modular monolith.
+ */
+@RestController
+@RequestMapping("/api/{{ entityTable }}")
+@Tag(name = "{{ entityName }}s", description = "The example resource this reference project is built around")
+internal class {{ entityName }}Controller(
+    private val {{ entityTable }}: {{ entityName }}Service,
+) {
+    @GetMapping
+    @Operation(summary = "List every {{ entityName | camel }}")
+    fun list(): List<{{ entityName }}Response> = {{ entityTable }}.findAll().map({{ entityName }}Response::from)
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Fetch one {{ entityName | camel }}")
+    @ApiResponse(responseCode = "404", description = "No {{ entityName | camel }} with that id")
+    fun get(
+        @PathVariable id: Long,
+    ): {{ entityName }}Response = {{ entityName }}Response.from({{ entityTable }}.findById(id))
+
+    @PostMapping
+    @Operation(summary = "Create a {{ entityName | camel }}")
+    @ApiResponse(responseCode = "409", description = "A {{ entityName | camel }} with that name already exists")
+    fun create(
+        @Valid @RequestBody request: Create{{ entityName }}Request,
+    ): ResponseEntity<{{ entityName }}Response> {
+        val created = {{ entityName }}Response.from({{ entityTable }}.create(request.name, request.quantity))
+        return ResponseEntity.created(URI.create("/api/{{ entityTable }}/${created.id}")).body(created)
+    }
+
+    @PostMapping("/{id}/restock")
+    @Operation(summary = "Add to a {{ entityName | camel }}'s quantity")
+    fun restock(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: RestockRequest,
+    ): {{ entityName }}Response = {{ entityName }}Response.from({{ entityTable }}.restock(id, request.amount))
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a {{ entityName | camel }}")
+    fun delete(
+        @PathVariable id: Long,
+    ): ResponseEntity<Void> {
+        {{ entityTable }}.delete(id)
+        return ResponseEntity.noContent().build()
+    }
+}

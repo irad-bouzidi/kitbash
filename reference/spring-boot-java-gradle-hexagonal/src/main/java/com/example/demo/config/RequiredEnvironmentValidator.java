@@ -1,0 +1,46 @@
+package com.example.demo.config;
+
+import java.util.List;
+import java.util.Map;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.core.env.ConfigurableEnvironment;
+
+/**
+ * Fails startup naming every missing variable at once.
+ *
+ * <p>Spring's own placeholder resolution would also fail, but it reports one variable at a time
+ * inside a stack trace, so a developer with three unset variables restarts three times. The output
+ * here is a single Description/Action block, produced by {@link MissingEnvironmentFailureAnalyzer}.
+ *
+ * <p>This list is the same list as {@code .env.example}; adding a variable means adding it to both.
+ */
+public class RequiredEnvironmentValidator implements EnvironmentPostProcessor {
+
+    private static final Map<String, String> REQUIRED = Map.of(
+            "DEMO_DB_URL", "JDBC URL, e.g. jdbc:postgresql://localhost:5432/demo",
+            "DEMO_DB_USERNAME", "Database user",
+            "DEMO_DB_PASSWORD", "Database password",
+            "DEMO_ENVIRONMENT_NAME", "Environment label for /actuator/info, e.g. local");
+
+    static String describe(String name) {
+        return REQUIRED.getOrDefault(name, "");
+    }
+
+    @Override
+    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        // Tests supply configuration directly rather than through the process environment.
+        if (environment.matchesProfiles("test")) {
+            return;
+        }
+
+        List<String> missing = REQUIRED.keySet().stream()
+                .filter(name -> !environment.containsProperty(name))
+                .sorted()
+                .toList();
+
+        if (!missing.isEmpty()) {
+            throw new MissingEnvironmentVariablesException(missing);
+        }
+    }
+}

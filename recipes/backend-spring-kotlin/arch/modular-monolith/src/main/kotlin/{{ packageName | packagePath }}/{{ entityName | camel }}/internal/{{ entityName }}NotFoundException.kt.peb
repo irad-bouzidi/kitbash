@@ -1,0 +1,5 @@
+package {{ packageName }}.{{ entityName | camel }}.internal
+
+internal class {{ entityName }}NotFoundException(
+    id: Long,
+) : RuntimeException("No {{ entityName | camel }} with id $id")

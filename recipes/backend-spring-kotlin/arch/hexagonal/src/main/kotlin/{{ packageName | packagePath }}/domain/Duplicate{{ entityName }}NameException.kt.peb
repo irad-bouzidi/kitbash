@@ -1,0 +1,5 @@
+package {{ packageName }}.domain
+
+class Duplicate{{ entityName }}NameException(
+    name: String,
+) : RuntimeException("A {{ entityName | camel }} named '$name' already exists")

@@ -1,0 +1,13 @@
+{
+  "id": "backend-hexagonal-kotlin-maven",
+  "description": "Hexagonal on Kotlin and Maven: the far corner of the three axes, and the cell that proves the architecture test runs under Surefire and not only under Gradle.",
+  "selection": "selections/phase3-spring-kotlin-hexagonal-maven.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./mvnw -B verify"]
+    }
+  ]
+}

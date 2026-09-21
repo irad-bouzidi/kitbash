@@ -1039,7 +1039,10 @@
           },
           "defaultValue" : { },
           "availableWhen" : {
-            "type" : "string"
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "choices" : {
             "type" : "array",

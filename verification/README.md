@@ -66,15 +66,19 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-Four of the seven cells today are the four §17 asks for: backend only, frontend only, both, and
+Four of the eleven cells today are the four §17 asks for: backend only, frontend only, both, and
 both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
 
-The other three are one per axis the catalog has grown, because an axis is only proven by building
-along it: `backend-maven` (§28's second build tool), `backend-kotlin` (§29's second language), and
-`backend-kotlin-maven`, the diagonal where both differ from the phase 0 stack at once. The diagonal
-is not redundant — it is the only cell that would catch a recipe fragment that is correct for
-Kotlin-on-Gradle and for Java-on-Maven and wrong for their combination.
+The other seven cover the three axes the catalog has grown — build tool (§28), language (§29) and
+architecture (§30) — **pairwise**. The full cross-product is 2 x 2 x 3 = twelve; these eight
+contain every pair of values drawn from any two axes, which is where the defects that matter live.
+A fragment that is correct for Kotlin-on-Gradle and for Java-on-Maven and wrong for their
+combination is caught. A three-way interaction with no two-way symptom is not, and that is the
+trade being made on purpose.
+
+`CellTest.coversEveryPair` asserts it rather than trusting the list: deleting a cell to make the
+matrix faster fails with the name of the pair that stopped being built.
 
 ## What is here
 

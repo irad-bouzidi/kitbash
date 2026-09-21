@@ -9,7 +9,9 @@ import dev.kitbash.core.recipe.RecipeId;
 import dev.kitbash.core.recipe.Slot;
 import dev.kitbash.core.recipe.VariableSpec;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -42,8 +44,21 @@ public final class MetadataAssembler {
                 options.add(slotOption(catalog, slot));
                 // The options a recipe declares live in the same group as the slot that offers the
                 // recipe: `architecture` belongs beside `backend`, not in a section of its own.
-                catalog.recipesInSlot(slot.id()).forEach(recipe -> recipe.options()
-                        .forEach(option -> options.add(recipeOption(recipe, option))));
+                //
+                // Grouped by option id, because two recipes in one slot can declare the same
+                // option — both JVM backends declare `architecture` (§29, §30). One control, and
+                // `availableWhen` lists everything that brings it.
+                Map<String, List<RecipeId>> owners = new LinkedHashMap<>();
+                Map<String, OptionSpec> specs = new LinkedHashMap<>();
+                for (Recipe recipe : catalog.recipesInSlot(slot.id())) {
+                    for (OptionSpec option : recipe.options()) {
+                        owners.computeIfAbsent(option.id(), id -> new ArrayList<>())
+                                .add(recipe.id());
+                        OptionSpec existing = specs.putIfAbsent(option.id(), option);
+                        requireSameShape(slot, option, existing);
+                    }
+                }
+                owners.forEach((id, declaring) -> options.add(recipeOption(specs.get(id), declaring)));
             }
             groups.add(new MetadataDocument.Group(group.id(), group.label(), group.help(), group.order(), options));
         }
@@ -61,11 +76,11 @@ public final class MetadataAssembler {
                 slot.help(),
                 slot.required(),
                 slot.isEnum() ? null : slot.defaultOn(),
-                null,
+                List.of(),
                 choices);
     }
 
-    private static MetadataDocument.Option recipeOption(Recipe recipe, OptionSpec option) {
+    private static MetadataDocument.Option recipeOption(OptionSpec option, List<RecipeId> declaredBy) {
         return new MetadataDocument.Option(
                 option.id(),
                 option.type().wireName(),
@@ -73,11 +88,29 @@ public final class MetadataAssembler {
                 option.help(),
                 false,
                 option.defaultValue().templateValue(),
-                recipe.id().value(),
+                declaredBy.stream().map(RecipeId::value).sorted().toList(),
                 option.values().stream()
                         .map(value -> new MetadataDocument.Choice(
                                 value, value, null, null, null, List.of(), List.of(), List.of(), null))
                         .toList());
+    }
+
+    /**
+     * Two recipes may share an option id only by agreeing about it completely.
+     *
+     * <p>One control is served for the pair, so a disagreement is not a merge conflict to resolve
+     * at runtime — it is a catalog whose two backends mean different things by `architecture`, and
+     * the wizard would silently show one of them. Failing here means it is found when the catalog
+     * loads rather than by a user who picked the other backend.
+     */
+    private static void requireSameShape(Slot slot, OptionSpec option, OptionSpec existing) {
+        if (existing == null || existing.equals(option)) {
+            return;
+        }
+        throw new IllegalStateException(
+                "Two recipes in the '%s' slot declare option '%s' differently. ".formatted(slot.id(), option.id())
+                        + "They share one control in the wizard, so they have to agree on its type, values, "
+                        + "default, label and help.");
     }
 
     private static MetadataDocument.Choice choice(Recipe recipe) {

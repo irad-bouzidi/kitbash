@@ -1,0 +1,13 @@
+{
+  "id": "backend-modular",
+  "description": "The modular monolith on Kotlin and Gradle, including the rule that fails the build when one module reaches past another's public API.",
+  "selection": "selections/phase3-spring-kotlin-modular.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    }
+  ]
+}

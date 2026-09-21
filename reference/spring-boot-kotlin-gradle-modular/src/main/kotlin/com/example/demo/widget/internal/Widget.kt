@@ -1,0 +1,59 @@
+package com.example.demo.widget.internal
+
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+import java.time.Instant
+
+/**
+ * The example entity. `internal` on purpose: it is this module's model of its own data, and
+ * nothing outside the module has any business naming it.
+ *
+ * Kotlin's `internal` is module-wide in the *compilation* sense, so it stops nothing inside this
+ * project on its own — which is exactly why `ArchitectureTest` exists. Java's package-private does
+ * more here, and neither is enough by itself.
+ */
+@Entity
+@Table(name = "widgets")
+internal class Widget private constructor(
+    @Column(nullable = false)
+    var name: String,
+    @Column(name = "quantity", nullable = false)
+    var quantity: Int,
+    @Column(name = "created_at", nullable = false, updatable = false)
+    val createdAt: Instant,
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null
+        protected set
+
+    fun rename(newName: String) {
+        name = newName
+    }
+
+    fun restock(amount: Int) {
+        require(amount >= 0) { "restock amount must not be negative: $amount" }
+        quantity += amount
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        // Identity is the database id; two unsaved widgets are never equal.
+        return other is Widget && id != null && id == other.id
+    }
+
+    override fun hashCode(): Int = id?.hashCode() ?: 0
+
+    companion object {
+        fun of(
+            name: String,
+            quantity: Int,
+        ): Widget = Widget(name, quantity, Instant.now())
+    }
+}

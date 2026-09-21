@@ -450,7 +450,7 @@ export interface components {
             help?: string;
             required?: boolean;
             defaultValue?: unknown;
-            availableWhen?: string;
+            availableWhen?: string[];
             choices?: components["schemas"]["Choice"][];
         };
         RecipeSummary: {

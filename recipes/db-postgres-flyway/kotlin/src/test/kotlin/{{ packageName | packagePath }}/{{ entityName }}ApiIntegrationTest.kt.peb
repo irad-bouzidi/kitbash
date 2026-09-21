@@ -1,9 +1,6 @@
 package {{ packageName }}
 
-import {{ packageName }}.config.CorrelationIdFilter
-import {{ packageName }}.controller.Create{{ entityName }}Request
-import {{ packageName }}.controller.{{ entityName }}Response
-import {{ packageName }}.repository.{{ entityName }}Repository
+import com.fasterxml.jackson.databind.JsonNode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -16,12 +13,19 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.context.ActiveProfiles
 
 /**
- * The whole slice against a real Postgres: Flyway migration, JPA mapping, the unique index, the
- * problem-detail error shape and the correlation id. An in-memory database would make this test
- * cheaper and would stop proving the thing it exists to prove.
+ * The whole slice against a real Postgres: Flyway migration, the persistence mapping, the unique
+ * index, the problem-detail error shape and the correlation id. An in-memory database would make
+ * this test cheaper and would stop proving the thing it exists to prove.
+ *
+ * It names no type from the application — only JSON, HTTP status codes and a table. That is why
+ * it is the same file in all three architectures: an integration test written against
+ * `Create{{ entityName }}Request` has to be rewritten when that class moves package, which would make the
+ * architecture option a change to the database recipe. Written against the contract a client
+ * actually sees, it is also a better test.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -30,11 +34,11 @@ class {{ entityName }}ApiIntegrationTest : PostgresTestBase() {
     private lateinit var http: TestRestTemplate
 
     @Autowired
-    private lateinit var {{ entityTable }}: {{ entityName }}Repository
+    private lateinit var database: JdbcClient
 
     @BeforeEach
     fun clean() {
-        {{ entityTable }}.deleteAll()
+        database.sql("truncate table {{ entityTable }} restart identity").update()
     }
 
     @Test
@@ -43,36 +47,36 @@ class {{ entityName }}ApiIntegrationTest : PostgresTestBase() {
         val created =
             http.postForEntity(
                 "/api/{{ entityTable }}",
-                Create{{ entityName }}Request("flux capacitor", 2),
-                {{ entityName }}Response::class.java,
+                mapOf("name" to "flux capacitor", "quantity" to 2),
+                JsonNode::class.java,
             )
 
         assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
         assertThat(created.body).isNotNull
-        assertThat(created.body!!.id).isNotNull
-        assertThat(created.body!!.createdAt).isNotNull
+        assertThat(created.body!!.path("id").isNumber).isTrue
+        assertThat(created.body!!.path("createdAt").asText()).isNotBlank
 
-        val id = created.body!!.id
+        val id = created.body!!.path("id").asLong()
         assertThat(created.headers.location).hasToString("/api/{{ entityTable }}/$id")
 
         val restocked =
-            http.postForEntity("/api/{{ entityTable }}/{id}/restock", RestockBody(5), {{ entityName }}Response::class.java, id)
+            http.postForEntity("/api/{{ entityTable }}/{id}/restock", mapOf("amount" to 5), JsonNode::class.java, id)
         assertThat(restocked.body).isNotNull
-        assertThat(restocked.body!!.quantity).isEqualTo(7)
+        assertThat(restocked.body!!.path("quantity").asInt()).isEqualTo(7)
 
-        assertThat(http.getForObject("/api/{{ entityTable }}/{id}", {{ entityName }}Response::class.java, id).name)
+        assertThat(http.getForObject("/api/{{ entityTable }}/{id}", JsonNode::class.java, id).path("name").asText())
             .isEqualTo("flux capacitor")
     }
 
     @Test
     @DisplayName("a duplicate name is a 409 problem document, not a constraint-violation stack trace")
     fun duplicateNameIsConflict() {
-        http.postForEntity("/api/{{ entityTable }}", Create{{ entityName }}Request("flux capacitor", 1), {{ entityName }}Response::class.java)
+        http.postForEntity("/api/{{ entityTable }}", mapOf("name" to "flux capacitor", "quantity" to 1), JsonNode::class.java)
 
         val conflict =
             http.postForEntity(
                 "/api/{{ entityTable }}",
-                Create{{ entityName }}Request("flux capacitor", 1),
+                mapOf("name" to "flux capacitor", "quantity" to 1),
                 ProblemDetail::class.java,
             )
 
@@ -96,12 +100,12 @@ class {{ entityName }}ApiIntegrationTest : PostgresTestBase() {
     @DisplayName("a caller-supplied correlation id is echoed back")
     fun echoesCorrelationId() {
         val headers = HttpHeaders()
-        headers.set(CorrelationIdFilter.HEADER, "trace-from-caller")
+        headers.set("X-Correlation-Id", "trace-from-caller")
 
         val response =
             http.exchange("/api/{{ entityTable }}", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
 
-        assertThat(response.headers.getFirst(CorrelationIdFilter.HEADER)).isEqualTo("trace-from-caller")
+        assertThat(response.headers.getFirst("X-Correlation-Id")).isEqualTo("trace-from-caller")
     }
 
     @Test
@@ -109,8 +113,4 @@ class {{ entityName }}ApiIntegrationTest : PostgresTestBase() {
     fun healthIsUp() {
         assertThat(http.getForObject("/actuator/health", String::class.java)).contains("\"status\":\"UP\"")
     }
-
-    private data class RestockBody(
-        val amount: Int,
-    )
 }

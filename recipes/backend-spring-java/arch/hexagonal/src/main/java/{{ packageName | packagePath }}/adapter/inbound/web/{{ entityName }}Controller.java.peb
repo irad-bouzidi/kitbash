@@ -1,0 +1,68 @@
+package {{ packageName }}.adapter.inbound.web;
+
+import {{ packageName }}.application.port.inbound.Manage{{ entityName }}s;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * A driving adapter. It depends on {@link Manage{{ entityName }}s} — the port — and has no idea that a class
+ * called {@code {{ entityName }}Service} exists.
+ */
+@RestController
+@RequestMapping("/api/{{ entityTable }}")
+@Tag(name = "{{ entityName }}s", description = "The example resource this reference project is built around")
+public class {{ entityName }}Controller {
+
+    private final Manage{{ entityName }}s {{ entityTable }};
+
+    public {{ entityName }}Controller(Manage{{ entityName }}s {{ entityTable }}) {
+        this.{{ entityTable }} = {{ entityTable }};
+    }
+
+    @GetMapping
+    @Operation(summary = "List every {{ entityName | camel }}")
+    public List<{{ entityName }}Response> list() {
+        return {{ entityTable }}.findAll().stream().map({{ entityName }}Response::from).toList();
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Fetch one {{ entityName | camel }}")
+    @ApiResponse(responseCode = "404", description = "No {{ entityName | camel }} with that id")
+    public {{ entityName }}Response get(@PathVariable long id) {
+        return {{ entityName }}Response.from({{ entityTable }}.findById(id));
+    }
+
+    @PostMapping
+    @Operation(summary = "Create a {{ entityName | camel }}")
+    @ApiResponse(responseCode = "409", description = "A {{ entityName | camel }} with that name already exists")
+    public ResponseEntity<{{ entityName }}Response> create(@Valid @RequestBody Create{{ entityName }}Request request) {
+        {{ entityName }}Response created = {{ entityName }}Response.from({{ entityTable }}.create(request.name(), request.quantity()));
+        return ResponseEntity.created(URI.create("/api/{{ entityTable }}/" + created.id()))
+                .body(created);
+    }
+
+    @PostMapping("/{id}/restock")
+    @Operation(summary = "Add to a {{ entityName | camel }}'s quantity")
+    public {{ entityName }}Response restock(@PathVariable long id, @Valid @RequestBody RestockRequest request) {
+        return {{ entityName }}Response.from({{ entityTable }}.restock(id, request.amount()));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a {{ entityName | camel }}")
+    public ResponseEntity<Void> delete(@PathVariable long id) {
+        {{ entityTable }}.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}

@@ -42,10 +42,16 @@ public record MetadataDocument(
     /**
      * One control.
      *
-     * <p>{@code availableWhen} names the recipe that declares this option, or is null for a slot.
-     * §9 wants an option that does not currently apply to stay <b>visible and disabled</b> with the
-     * reason on hover — hiding it makes the catalog feel arbitrary — and this is what lets a client
-     * do that without knowing what any of the options mean.
+     * <p>{@code availableWhen} names every recipe that declares this option, and is empty for a
+     * slot. §9 wants an option that does not currently apply to stay <b>visible and disabled</b>
+     * with the reason on hover — hiding it makes the catalog feel arbitrary — and this is what
+     * lets a client do that without knowing what any of the options mean.
+     *
+     * <p>A list rather than one recipe id since §30, because {@code architecture} is declared by
+     * both JVM backends. Emitting one control per declaring recipe put two identical
+     * <i>Architecture</i> dropdowns in the wizard, one of them permanently disabled, and gave them
+     * the same id — so a client keying controls by id had two with the same key. One control whose
+     * availability is "any of these recipes" is the shape the UI actually needs.
      */
     public record Option(
             String id,
@@ -54,9 +60,10 @@ public record MetadataDocument(
             String help,
             boolean required,
             Object defaultValue,
-            String availableWhen,
+            List<String> availableWhen,
             List<Choice> choices) {
         public Option {
+            availableWhen = List.copyOf(availableWhen);
             choices = List.copyOf(choices);
         }
     }

@@ -40,7 +40,7 @@ options:
   - id: architecture
     type: enum
     values: [layered, hexagonal, modular-monolith]
-    default: hexagonal
+    default: layered
     label: Architecture
     help: Determines the package layout and dependency direction.
 
@@ -99,8 +99,8 @@ degenerates into within a quarter.
 options:
   - id: architecture     # camelCase, unique within the recipe
     type: enum           # enum | boolean | string | multi-select
-    values: [layered, hexagonal]
-    default: hexagonal   # must be a value this option can hold
+    values: [layered, hexagonal, modular-monolith]
+    default: layered     # must be a value this option can hold
     label: Architecture
     help: Determines the package layout and dependency direction.   # required
 ```
@@ -109,6 +109,13 @@ options:
 (§9). `help` is required: an option nobody documented is an option somebody explains once in a wiki
 page nobody reads. An `enum` with no declared `default` takes its first `values` entry, so the order
 of that list is meaningful and worth reviewing.
+
+**Two recipes in the same slot may declare the same option**, and both JVM backends declare
+`architecture`. They get *one* control in the wizard whose `availableWhen` lists both of them —
+because two controls would share an id, and one of them would always be the disabled duplicate.
+The price is that the two declarations have to be identical: type, values, default, label and help.
+A disagreement fails when the catalog loads, naming the slot and the option, rather than showing a
+user whichever of the two the assembler happened to reach first.
 
 ---
 

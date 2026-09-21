@@ -1,0 +1,13 @@
+{
+  "id": "backend-modular-java-maven",
+  "description": "The modular monolith on Java and Maven, completing pairwise coverage of architecture x language x build tool.",
+  "selection": "selections/phase3-spring-java-modular-maven.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./mvnw -B verify"]
+    }
+  ]
+}

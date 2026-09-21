@@ -78,6 +78,9 @@ src/main/kotlin/com/example/demo/
 - **Errors are RFC 9457 problem documents**, never stack traces.
 - **Validation annotations need `@field:`.** A constructor parameter can annotate the
   parameter, the property or the field, and Jakarta Validation only reads the field.
+- **The layers are enforced.** `ArchitectureTest` fails the build if a repository imports a
+  controller, or the web layer queries directly. Layered is the architecture people assume
+  they have and most often do not.
 - **Flyway owns the schema.** `ddl-auto: validate` — Hibernate checks the entity against the
   migration and refuses to start if they disagree. To change a table, add a `V<n>__*.sql`.
 <!-- kitbash:rules -->

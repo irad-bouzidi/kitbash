@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -69,10 +70,13 @@ class CellTest {
             // frontend-only case is the one most likely to break silently, which is why it is a
             // cell rather than an assumption.
             //
-            // The other three are the catalog's axes, each proven only by building with it: the
-            // second build tool (§28), the second language (§29), and the diagonal where both
-            // differ from the phase 0 stack at once. An assertion that the others still pass says
-            // nothing about any of them.
+            // The other seven are the three axes the catalog has grown — build tool (§28),
+            // language (§29) and architecture (§30) — covered pairwise. Pairwise rather than
+            // exhaustively: 2 x 2 x 3 is twelve combinations and eight cells already contain
+            // every pair drawn from any two axes, which is where the defects that matter live.
+            // A fragment correct for Kotlin-on-Gradle and for Java-on-Maven and wrong for their
+            // combination is caught; a three-way interaction with no two-way symptom is not,
+            // and that is the trade being made.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
@@ -80,9 +84,79 @@ class CellTest {
                             "backend-maven",
                             "backend-kotlin",
                             "backend-kotlin-maven",
+                            "backend-hexagonal",
+                            "backend-hexagonal-kotlin-maven",
+                            "backend-modular",
+                            "backend-modular-java-maven",
                             "frontend-only",
                             "full-stack",
                             "full-stack-no-docker");
+        }
+
+        /**
+         * The pairwise claim above, asserted rather than asserted-in-a-comment.
+         *
+         * <p>A list of eleven cell ids is not evidence of coverage; it is evidence that somebody
+         * wrote eleven files. This reads the selections and checks that every pair of values drawn
+         * from two different axes appears together in some cell — so deleting a cell to make the
+         * matrix faster fails here with the pair it stopped covering.
+         */
+        @Test
+        @DisplayName("every pair of values from two axes appears in some cell")
+        void coversEveryPair() {
+            Repository repository = Repository.locate();
+            List<Map<String, String>> selections = CellLoader.load(repository.cells()).stream()
+                    .map(cell -> axesOf(repository.selectionFor(cell)))
+                    .filter(axes -> axes.containsKey("backend"))
+                    .toList();
+
+            List<String> axes = List.of("buildTool", "backend", "architecture");
+            List<String> uncovered = new java.util.ArrayList<>();
+            for (int first = 0; first < axes.size(); first++) {
+                for (int second = first + 1; second < axes.size(); second++) {
+                    for (String left : valuesOf(selections, axes.get(first))) {
+                        for (String right : valuesOf(selections, axes.get(second))) {
+                            int one = first;
+                            int two = second;
+                            boolean covered = selections.stream()
+                                    .anyMatch(selection -> left.equals(selection.get(axes.get(one)))
+                                            && right.equals(selection.get(axes.get(two))));
+                            if (!covered) {
+                                uncovered.add(left + " + " + right);
+                            }
+                        }
+                    }
+                }
+            }
+
+            assertThat(uncovered)
+                    .as("these combinations are not built by any cell, so nothing would notice a "
+                            + "recipe fragment that is wrong for exactly that pair")
+                    .isEmpty();
+        }
+
+        private static Map<String, String> axesOf(java.nio.file.Path selection) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode options = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(java.nio.file.Files.readAllBytes(selection))
+                        .path("options");
+                Map<String, String> axes = new java.util.LinkedHashMap<>();
+                for (String axis : List.of("buildTool", "backend", "architecture")) {
+                    if (options.hasNonNull(axis)) {
+                        axes.put(axis, options.path(axis).asText());
+                    }
+                }
+                return axes;
+            } catch (java.io.IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        }
+
+        private static java.util.Set<String> valuesOf(List<Map<String, String>> selections, String axis) {
+            return selections.stream()
+                    .map(selection -> selection.get(axis))
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
         }
 
         @Test

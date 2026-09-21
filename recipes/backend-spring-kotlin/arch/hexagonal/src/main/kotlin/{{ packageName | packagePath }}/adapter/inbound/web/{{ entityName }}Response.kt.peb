@@ -1,0 +1,25 @@
+package {{ packageName }}.adapter.inbound.web
+
+import {{ packageName }}.domain.{{ entityName }}
+import io.swagger.v3.oas.annotations.media.Schema
+import java.time.Instant
+
+/**
+ * The wire shape, which is the adapter's business and not the domain's. It happens to have the
+ * same fields today; the reason it is a separate type is that an HTTP contract and a domain model
+ * change for different reasons and on different schedules.
+ */
+@Schema(description = "A {{ entityName | camel }} as returned by the API")
+data class {{ entityName }}Response(
+    @field:Schema(example = "1")
+    val id: Long?,
+    @field:Schema(example = "flux capacitor")
+    val name: String,
+    @field:Schema(example = "3")
+    val quantity: Int,
+    val createdAt: Instant,
+) {
+    companion object {
+        fun from({{ entityName | camel }}: {{ entityName }}): {{ entityName }}Response = {{ entityName }}Response({{ entityName | camel }}.id, {{ entityName | camel }}.name, {{ entityName | camel }}.quantity, {{ entityName | camel }}.createdAt)
+    }
+}
