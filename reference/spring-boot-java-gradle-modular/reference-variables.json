@@ -15,7 +15,8 @@
     "db-postgres-flyway",
     "infra-docker",
     "ci-gitlab",
-    "feature-auth-jwt"
+    "feature-auth-jwt",
+    "feature-observability"
   ],
   "selection": {
     "schemaVersion": 1,
@@ -27,7 +28,9 @@
       "database": "db-postgres-flyway",
       "ci": "ci-gitlab",
       "docker": true,
-      "auth": true
+      "auth": true,
+      "observability": true,
+      "tracing": false
     },
     "variables": {
       "groupId": "com.example",

@@ -1,0 +1,13 @@
+# Test-only configuration, loaded because the suite runs under the `test` profile.
+#
+# The application's own OTLP endpoint comes from the environment, and a test JVM has no
+# DEMO_OTLP_ENDPOINT — so without this every @SpringBootTest in the project fails while
+# resolving the placeholder, including the ones that have nothing to do with tracing.
+#
+# A localhost endpoint rather than a disabled exporter, on purpose: the exporter is then really
+# constructed and really configured, and only the delivery fails. Turning tracing off here would
+# make the tests pass on a project whose tracing was misconfigured.
+management:
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces

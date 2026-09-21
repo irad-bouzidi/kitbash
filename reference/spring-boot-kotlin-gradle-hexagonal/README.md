@@ -6,6 +6,7 @@
 - **Backend** — Spring Boot 3.5.5 on Kotlin, JVM 21, hexagonal architecture
 - **Database** — Postgres, with Flyway migrations and JPA
 - **Auth** — JWT bearer tokens, validated as an OAuth2 resource server
+- **Observability** — Actuator, Micrometer and a Prometheus endpoint{% if tracing %}, with OpenTelemetry tracing over OTLP{% endif %}
 - **Containers** — a compose file wiring the stack together, with healthchecks and non-root images
 - **CI** — GitLab CI: build, test, format check, and a container image on the default branch
 <!-- kitbash:stack -->
@@ -94,4 +95,11 @@ src/main/kotlin/com/example/demo/
   authorization-code flow it has no provider for. Point `DEMO_AUTH_ISSUER_URI` at
   a real issuer and replace `frontend/src/auth/session.ts` when you have chosen one —
   everything behind it, including the tests, already assumes real tokens.
+- **One metric is about the application**, not the JVM: `widgets_created_total` moves when
+  somebody uses the API. JVM gauges say the process is alive; this says it is being used.
+- **Every request writes one structured line** with its correlation id, method, path, status
+  and duration — which is what makes "what happened to request X" a question with an answer.
+- **No monitoring stack is generated.** `/actuator/prometheus` is a scrape target for the
+  Prometheus you already run, and §11 is explicit that four more containers would be a
+  different product.
 <!-- kitbash:rules -->

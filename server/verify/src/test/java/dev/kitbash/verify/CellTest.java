@@ -78,10 +78,11 @@ class CellTest {
             // combination is caught; a three-way interaction with no two-way symptom is not,
             // and that is the trade being made.
             //
-            // Auth (§31) is not a fourth axis here. It adds the same files whichever architecture,
-            // language or build tool is chosen — the whole point of it landing in `config/` — so it
-            // is covered by two reference projects and by the one cell that has a browser half,
-            // rather than by six more cells that would each build the same two files.
+            // Auth (§31) and observability (§32) are not further axes here. Both add the same
+            // files whichever architecture, language or build tool is chosen — the whole point of
+            // them landing in `config/` — so each is carried by reference projects plus the one
+            // cell covering the combination no reference has: a browser half for auth, and
+            // metrics without auth for observability.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
@@ -93,6 +94,7 @@ class CellTest {
                             "backend-hexagonal-kotlin-maven",
                             "backend-modular",
                             "backend-modular-java-maven",
+                            "backend-observability",
                             "frontend-only",
                             "full-stack",
                             "full-stack-auth",

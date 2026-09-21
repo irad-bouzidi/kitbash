@@ -18,7 +18,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        # A list rather than the comma-separated string Spring also accepts, so a feature recipe
+        # can add an endpoint by merging one entry. mergeYaml unions lists and refuses to overwrite
+        # a scalar another recipe set — which is the right rule, and the reason for the shape.
+        include:
+          - health
+          - info
+          - metrics
   endpoint:
     health:
       probes:

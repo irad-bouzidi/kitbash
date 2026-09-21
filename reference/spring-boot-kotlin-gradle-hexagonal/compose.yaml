@@ -11,6 +11,7 @@ services:
       DEMO_DB_PASSWORD: "${DEMO_DB_PASSWORD:-demo}"
       DEMO_AUTH_ISSUER_URI: "${DEMO_AUTH_ISSUER_URI:-https://issuer.example.com/realms/demo}"
       DEMO_AUTH_AUDIENCE: "${DEMO_AUTH_AUDIENCE:-demo-api}"
+      DEMO_OTLP_ENDPOINT: "${DEMO_OTLP_ENDPOINT:-http://localhost:4318/v1/traces}"
     depends_on:
       db:
         condition: service_healthy

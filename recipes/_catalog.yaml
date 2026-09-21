@@ -77,6 +77,12 @@ groups:
         type: enum
         label: Database
         help: Schema migrations and the persistence layer.
+      - id: observability
+        type: boolean
+        label: Metrics
+        help: >-
+          A Prometheus endpoint, one metric about the application rather than the JVM, and an
+          access line per request. No monitoring stack is generated; this is a scrape target.
       - id: auth
         type: boolean
         label: Authentication

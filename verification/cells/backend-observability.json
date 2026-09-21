@@ -1,0 +1,13 @@
+{
+  "id": "backend-observability",
+  "description": "Metrics and OpenTelemetry tracing with auth off — the combination no reference project covers, since both auth-on references carry observability too.",
+  "selection": "selections/phase3-observability.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    }
+  ]
+}
