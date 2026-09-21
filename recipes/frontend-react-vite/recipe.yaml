@@ -33,6 +33,11 @@ options:
       hand-writing it. Requires a backend that publishes one.
 
 variables:
+  # Not javaVersion, although the typed client's CI job renders it: a standalone frontend has no
+  # JVM and requiring it would make the case §18 explicitly allows impossible to express. The line
+  # that reads it is only reachable when `typedClient` is on, and `typedClient` demands
+  # `openapi-spec`, which only a JVM backend provides — so the variable is there when it is needed,
+  # guaranteed by a capability rather than by a list.
   required: [entityName, entityTable]
 
 files:
@@ -153,7 +158,7 @@ patches:
   # which made "the frontend compiles" a thing nobody checked.
   - op: insertAtMarker
     target: .gitlab-ci.yml
-    when: "capability('ci')"
+    when: "capability('gitlab-ci')"
     marker: "# kitbash:jobs"
     lines:
       - "frontend:"
@@ -180,7 +185,7 @@ patches:
   # itself — so the pipeline does what a developer does, in the order a developer does it.
   - op: insertAtMarker
     target: .gitlab-ci.yml
-    when: "capability('ci') && typedClient"
+    when: "capability('gitlab-ci') && typedClient"
     marker: "# kitbash:jobs"
     lines:
       - "client:"
@@ -200,6 +205,82 @@ patches:
       - "      - frontend/openapi.json"
       - "      - frontend/src/lib/api"
       - "    expire_in: 1 day"
+      - ""
+
+  # The same two jobs for the other provider. Honest duplication: the steps are the same steps and
+  # the syntax shares nothing, so one templated block rendering both would be unreadable in both.
+  #
+  # Three patches rather than one, because a patch line is rendered as its own template: a
+  # `{% if %}` cannot span lines, so a conditional step is a conditional *block*. They stack at the
+  # marker in the order declared here.
+  - op: insertAtMarker
+    target: .github/workflows/ci.yml
+    when: "capability('github-ci')"
+    marker: "# kitbash:jobs"
+    lines:
+      - "  frontend:"
+      - "    runs-on: ubuntu-latest"
+      - "{% if typedClient %}    needs: [client]{% endif %}"
+      - "    defaults:"
+      - "      run:"
+      - "        working-directory: frontend"
+      - "    steps:"
+      - "      - uses: actions/checkout@v4"
+
+  - op: insertAtMarker
+    target: .github/workflows/ci.yml
+    when: "capability('github-ci') && typedClient"
+    marker: "# kitbash:jobs"
+    lines:
+      - "      - uses: actions/download-artifact@v4"
+      - "        with:"
+      - "          name: api-client"
+      - "          path: frontend"
+
+  - op: insertAtMarker
+    target: .github/workflows/ci.yml
+    when: "capability('github-ci')"
+    marker: "# kitbash:jobs"
+    lines:
+      - "      - uses: actions/setup-node@v4"
+      - "        with:"
+      - '          node-version: "24"'
+      - "      - uses: pnpm/action-setup@v4"
+      - "        with:"
+      - "          package_json_file: frontend/package.json"
+      - "      - run: pnpm install --frozen-lockfile"
+      - "      - run: pnpm lint"
+      - "      - run: pnpm typecheck"
+      - "      - run: pnpm test"
+      - "      - run: pnpm build"
+      - ""
+
+  - op: insertAtMarker
+    target: .github/workflows/ci.yml
+    when: "capability('github-ci') && typedClient"
+    marker: "# kitbash:jobs"
+    lines:
+      - "  # The frontend cannot typecheck until the JVM half has described itself, so the pipeline"
+      - "  # does what a developer does, in the order a developer does it. Docker is on the runner"
+      - "  # already, which is what generating the client needs: it starts the application against a"
+      - "  # real database to ask what its API looks like."
+      - "  client:"
+      - "    runs-on: ubuntu-latest"
+      - "    steps:"
+      - "      - uses: actions/checkout@v4"
+      - "      - uses: actions/setup-java@v4"
+      - "        with:"
+      - "          distribution: temurin"
+      - '          java-version: "{{ javaVersion }}"'
+      - "          cache: gradle"
+      - "      - run: ./gradlew --no-daemon generateApiClient"
+      - "      - uses: actions/upload-artifact@v4"
+      - "        with:"
+      - "          name: api-client"
+      - "          path: |"
+      - "            frontend/openapi.json"
+      - "            frontend/src/lib/api"
+      - "          retention-days: 1"
       - ""
 
   - op: insertAtMarker

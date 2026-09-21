@@ -14,7 +14,7 @@
     "backend-spring-kotlin",
     "db-postgres-flyway",
     "infra-docker",
-    "ci-gitlab"
+    "ci-github"
   ],
   "selection": {
     "schemaVersion": 1,
@@ -24,7 +24,7 @@
       "backend": "backend-spring-kotlin",
       "architecture": "modular-monolith",
       "database": "db-postgres-flyway",
-      "ci": "ci-gitlab",
+      "ci": "ci-github",
       "docker": true
     },
     "variables": {

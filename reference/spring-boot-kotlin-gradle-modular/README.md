@@ -6,7 +6,7 @@
 - **Backend** — Spring Boot 3.5.5 on Kotlin, JVM 21, modular-monolith architecture
 - **Database** — Postgres, with Flyway migrations and JPA
 - **Containers** — a compose file wiring the stack together, with healthchecks and non-root images
-- **CI** — GitLab CI: build, test, format check, and a container image on the default branch
+- **CI** — GitHub Actions: build, test, format check, and a container image on the default branch
 <!-- kitbash:stack -->
 
 ## Start it

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# The second CI provider, which is what stops the CI recipe from quietly being "the GitLab file
+# with a flag" (§15). The two emit the same pipeline — build, test, format check, and an image on
+# the default branch — in syntaxes that share nothing, so they are two files and not one file with
+# a conditional per line.
+id: ci-github
+version: 1.0.0
+kind: ci
+label: GitHub Actions
+slot: ci
+# See `gitlab-ci` in the sibling recipe: the second name is how a recipe contributing a job knows
+# which syntax to write without naming a provider.
+provides: [ci, github-ci]
+requires: [project-root]
+# No conflictsWith with `ci-gitlab`: both are in the `ci` slot, a slot holds one recipe, and the
+# loader refuses a conflict that only restates that. See docs/recipe-format.md.
+
+variables:
+  required: [javaVersion]
+
+files:
+  - from: files/**
+
+patches:
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **CI** — GitHub Actions: build, test, format check, and a container image on the default branch"

@@ -95,6 +95,8 @@ class CellTest {
                             "backend-modular",
                             "backend-modular-java-maven",
                             "backend-observability",
+                            "ci-github",
+                            "ci-gitlab",
                             "frontend-only",
                             "full-stack",
                             "full-stack-auth",

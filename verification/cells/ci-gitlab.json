@@ -1,0 +1,13 @@
+{
+  "id": "ci-gitlab",
+  "description": "The same check for the other provider: GitLab's published schema, applied offline. This is the cell that found a job named `image` — a reserved keyword — in a file shipped since phase 1.",
+  "selection": "selections/phase1-full-stack.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "ci",
+      "workingDirectory": ".",
+      "commands": ["check-jsonschema --builtin-schema vendor.gitlab-ci .gitlab-ci.yml"]
+    }
+  ]
+}

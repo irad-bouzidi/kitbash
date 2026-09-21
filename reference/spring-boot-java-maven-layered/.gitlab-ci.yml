@@ -27,7 +27,10 @@ build:
       - target/*.jar
     expire_in: 1 week
 
-image:
+# `container-image`, not `image`: GitLab reserves `image` as a top-level keyword, so a job by that
+# name makes the whole file invalid — and GitLab reports it only when a pipeline tries to run. This
+# file had that bug from phase 1 until §34 pointed a linter at it.
+container-image:
   stage: image
   image: docker:27
   services:

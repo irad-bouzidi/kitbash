@@ -66,7 +66,7 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-Four of the fifteen cells today are the four §17 asks for: backend only, frontend only, both, and
+Four of the seventeen cells today are the four §17 asks for: backend only, frontend only, both, and
 both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
 
@@ -92,6 +92,13 @@ something fail**: it renames a field on a backend DTO, regenerates the client, a
 `pnpm typecheck` to stop compiling — `! pnpm typecheck`, so a green cell means the binding is real.
 Removing the rename turns it red, which is how we know it is not vacuous.
 
+The two CI cells (§34) are the ones that check a file instead of building one, and they exist
+because a CI recipe fails silently: a rendered pipeline is valid YAML, gets committed, and nobody
+notices it never ran. `ci-github` runs `actionlint`, which also shellchecks every `run:` block;
+`ci-gitlab` runs GitLab's published schema offline, because GitLab's own lint is an API on an
+instance a cell has no token for and no business calling. `ci-gitlab` earned its place immediately:
+it found a job named `image` — a reserved keyword — in a pipeline shipped since phase 1.
+
 Auth (§31) and observability (§32) are not further axes. Both add the same files whichever
 architecture, language or build tool is chosen, so each is covered by the two reference projects
 that carry it plus one cell for the combination no reference has: `full-stack-auth` for auth's
@@ -105,6 +112,7 @@ browser half, and `backend-observability` for metrics with auth off.
 | `selections/*.json` | The §7 envelopes the cells generate from. |
 | `images/jvm/**` | JDK 21, warm Gradle, Kotlin and Maven caches, `unzip`, `git`. Nothing else. |
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
+| `images/ci/**` | `actionlint` and `check-jsonschema`. The only image that lints rather than builds. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
 | `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |

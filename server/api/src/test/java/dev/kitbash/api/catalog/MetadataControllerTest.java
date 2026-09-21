@@ -50,8 +50,8 @@ class MetadataControllerTest {
         JsonNode document = metadata();
 
         assertThat(document.path("catalogDigest").asText()).startsWith("sha256:");
-        // Eleven since kitbash-32 added the observability feature.
-        assertThat(document.path("recipeCount").asInt()).isEqualTo(11);
+        // Twelve since kitbash-34 added the second CI provider.
+        assertThat(document.path("recipeCount").asInt()).isEqualTo(12);
         assertThat(texts(document.path("groups"), "id")).containsExactly("stack", "delivery");
 
         List<String> slots = new ArrayList<>();
@@ -162,7 +162,7 @@ class MetadataControllerTest {
 
         assertThat(info.path("catalog").path("digest").asText())
                 .isEqualTo(metadata().path("catalogDigest").asText());
-        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(11);
+        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(12);
     }
 
     @Test
