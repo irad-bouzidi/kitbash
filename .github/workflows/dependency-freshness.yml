@@ -1,0 +1,243 @@
+# The job that stops the catalog rotting.
+#
+# §12 is unambiguous about why it exists: scaffolding rots by default, this is the only thing that
+# stops it, and it is what makes a six-month-old preset still produce a modern project. §13 attaches
+# a second duty to the same job — scan the generated dependency trees — so that kitbash does not
+# become an efficient distributor of known-vulnerable dependencies.
+#
+# It never merges anything. A human reviews; this job's job is to make that review take a minute.
+name: Dependency freshness
+
+on:
+  schedule:
+    # Monday morning, so a red result has a working week in front of it rather than a weekend.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  bump:
+    name: bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      branch: ${{ steps.push.outputs.branch }}
+      moved: ${{ steps.bump.outputs.moved }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Exit 3 is "every tracked version is already the latest release", which is the answer on
+      # most Mondays. A red job every Monday is a job nobody reads.
+      - name: ./gradlew :verify:bumpVersions
+        id: bump
+        working-directory: server
+        run: |
+          set +e
+          ./gradlew --quiet :verify:bumpVersions
+          status=$?
+          set -e
+          if [ "$status" = "3" ]; then
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+          elif [ "$status" = "0" ]; then
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+
+      - name: Push the bumped catalog to a branch
+        id: push
+        if: steps.bump.outputs.moved == 'true'
+        run: |
+          branch="dependency-freshness/$(date -u +%Y-%m-%d)"
+          git config user.name "kitbash freshness"
+          git config user.email "noreply@kitbash.dev"
+          git checkout -b "$branch"
+          git add recipes
+          git commit --file - <<'MESSAGE'
+          chore: weekly dependency bump
+
+          Opened by .github/workflows/dependency-freshness.yml. Every version below is
+          declared in a recipe's `tracks:` block and moved to the latest release within
+          its current major; the body of the pull request lists the deltas.
+          MESSAGE
+          git push --force origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the summary for the pull request body
+        if: steps.bump.outputs.moved == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bump-summary
+          path: verification/build/bump-summary.md
+
+  # §13's half. Separate from the matrix because a finding is worth reporting whether or not the
+  # build is green, and because it needs no ecosystem images.
+  scan:
+    name: vulnerability scan
+    runs-on: ubuntu-latest
+    needs: [bump]
+    if: needs.bump.outputs.moved == 'true'
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.branch }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate a project to scan
+        working-directory: server
+        run: |
+          ./gradlew --quiet :cli:installDist
+          ./cli/build/install/kitbash/bin/kitbash generate \
+            --selection ../verification/selections/phase3-full-stack-typed.json \
+            --out "$RUNNER_TEMP/scanned" \
+            --catalog ../recipes
+
+      - name: Build the linting image
+        run: docker build -t kitbash/verify-ci:latest -f verification/images/ci/Dockerfile .
+
+      # Findings do not fail the job: a known vulnerability in a transitive test dependency is
+      # something a reviewer weighs, not something that should block a security *fix* landing in
+      # the same bump.
+      - name: osv-scanner
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          docker run --rm -v "$RUNNER_TEMP/scanned:/input:ro" kitbash/verify-ci:latest \
+            sh -c 'osv-scanner scan source --lockfile=pom.xml --lockfile=frontend/pnpm-lock.yaml \
+              --format markdown . 2>/dev/null | grep -v "^Fetching"' \
+            > "$RUNNER_TEMP/out/scan.md" || true
+          tail -40 "$RUNNER_TEMP/out/scan.md"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-scan
+          path: ${{ runner.temp }}/out/scan.md
+
+  matrix:
+    name: full matrix ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    needs: [bump]
+    if: needs.bump.outputs.moved == 'true'
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/12", "2/12", "3/12", "4/12", "5/12", "6/12", "7/12", "8/12", "9/12", "10/12", "11/12", "12/12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.branch }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the ecosystem images
+        run: |
+          docker build -t kitbash/verify-jvm:latest  -f verification/images/jvm/Dockerfile  .
+          docker build -t kitbash/verify-node:latest -f verification/images/node/Dockerfile .
+          docker build -t kitbash/verify-ci:latest   -f verification/images/ci/Dockerfile   .
+
+      # The whole point: a bump is only proposed if every combination in the catalog still builds.
+      - name: ./gradlew :verify:runMatrix
+        working-directory: server
+        run: ./gradlew :verify:runMatrix -Pkitbash.enumerate=true -Pkitbash.shard=${{ matrix.shard }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: freshness-matrix-${{ strategy.job-index }}
+          path: verification/build
+          if-no-files-found: ignore
+
+  propose:
+    name: propose
+    runs-on: ubuntu-latest
+    needs: [bump, scan, matrix]
+    if: always() && needs.bump.outputs.moved == 'true'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{bump-summary,vulnerability-scan,freshness-matrix-*}"
+          path: artifacts
+          merge-multiple: false
+
+      - name: Assemble the report
+        id: report
+        run: |
+          {
+            cat artifacts/bump-summary/bump-summary.md 2>/dev/null || echo "No summary was produced."
+            echo
+            echo "## Vulnerability scan"
+            echo
+            echo '```'
+            tail -30 artifacts/vulnerability-scan/scan.md 2>/dev/null || echo "The scan did not run."
+            echo '```'
+            echo
+            echo "[Matrix run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > report.md
+          cat report.md
+
+      # Green means the whole catalog still builds with the new versions, which is the only
+      # condition under which a bump is worth a human's attention.
+      - name: Open the pull request
+        if: needs.matrix.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --head "${{ needs.bump.outputs.branch }}" \
+            --base "${{ github.event.repository.default_branch }}" \
+            --title "chore: weekly dependency bump" \
+            --body-file report.md
+
+      # Red means a version moved and something stopped building. An issue naming it beats a red
+      # pull request nobody wants to merge, and beats silently skipping the bump entirely.
+      - name: Open an issue instead
+        if: needs.matrix.result != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "The weekly bump produced a catalog that does not build. The branch is"
+            echo "\`${{ needs.bump.outputs.branch }}\`; nothing has been merged."
+            echo
+            echo "### Failing cells"
+            echo
+            grep -ho '"id"[^,]*' artifacts/freshness-matrix-*/status.json 2>/dev/null | sort -u | head -20 \
+              || echo "See the matrix run for the shard that failed."
+            echo
+            cat report.md
+          } > issue.md
+          gh issue create \
+            --title "Weekly dependency bump is red ($(date -u +%Y-%m-%d))" \
+            --body-file issue.md

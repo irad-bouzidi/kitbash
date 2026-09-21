@@ -1,0 +1,82 @@
+# Dependency freshness
+
+A generator's output is only as current as its recipes. §12 puts it plainly:
+
+> Scaffolding rots by default; this is the only thing that stops it, and it is what makes a
+> six-month-old preset still produce a modern project.
+
+So there is a job. It runs every Monday, bumps the versions the recipes pin, builds the whole
+catalog with them, and opens a pull request **only if all ninety-eight combinations still build**.
+
+`.github/workflows/dependency-freshness.yml`. It can also be run by hand from the Actions tab,
+which is how it was first proved.
+
+## What it bumps, and how it knows
+
+Every version is **declared**, in the manifest of the recipe that writes it:
+
+```yaml
+tracks:
+  - version: "3.5.5"
+    artifact: org.springframework.boot:spring-boot-starter-parent
+    label: Spring Boot
+```
+
+Declared rather than discovered, because a job that guesses which literals in a repository are
+versions eventually rewrites a port number — in a pull request that looks exactly like the twenty
+good ones before it.
+
+`version` is the exact string the recipe writes, and the bump replaces **every occurrence of it
+inside that recipe's directory** at once. That is what makes a Spring Boot bump land as one
+coherent change: `frameworkVersion`, the Gradle version catalog entry and the Maven parent all move
+together, instead of three edits somebody has to remember to keep in step. It is bounded three
+ways — only inside the declaring recipe, only for a declared literal, and only where the literal is
+a whole version rather than part of a longer number, so bumping `1.4.1` cannot corrupt `11.4.10`.
+
+A recipe whose `tracks` entry names a literal it never writes fails a test, because a declaration
+nothing matches is a bump that would silently do nothing.
+
+## What it does not bump
+
+**Major versions.** The job proposes the newest release *within the current major* and reports the
+rest:
+
+> **A major version is available, and this job does not take them**
+> - Spring Boot in `backend-spring-java`: `3.5.16` → `4.1.1`
+
+A major upgrade moves packages and changes defaults. A job that proposed one every Monday would be
+red every Monday, which is the same as being switched off — and the whole value here is a job people
+leave on. Majors are a decision; the job offers them and takes none.
+
+**Pre-releases.** `-RC1`, `-M2`, `-alpha`, `-SNAPSHOT` are somebody still deciding. `.Final` is the
+exception the JVM ecosystem insists on, and it means the opposite.
+
+**npm dependencies**, for now. The frontend's `package.json` and its lockfile are not in `tracks`,
+so `pnpm` versions move when a person moves them. Adding them means driving `pnpm update` and
+committing a regenerated lockfile, which is a different shape of change from a literal replacement
+and deserves its own pass.
+
+## When it fails
+
+A bump that breaks the catalog opens an **issue**, not a red pull request, naming the branch and
+the failing cells. The alternative — skipping the offending bump silently — is how a catalog ends
+up permanently pinned to something nobody chose.
+
+Bumps are independent: one artifact that has moved host, or one library whose lookup fails, is
+reported and skipped while every other recipe is still updated.
+
+## The vulnerability scan
+
+§13 attaches a second duty to the same job:
+
+> so this does not become an efficient distributor of known-vulnerable dependencies.
+
+Every run generates a full-stack project and scans its dependency trees with `osv-scanner` — the
+Maven side from `pom.xml`, the browser side from `pnpm-lock.yaml` — and attaches the findings to
+whatever it opens. Findings do not fail the job: a known issue in a transitive test dependency is
+something a reviewer weighs, and failing on it would block the very bump that fixes it.
+
+## What it never does
+
+**Merge.** A human reviews and merges. The job's job is to make that review take a minute, which is
+why the diff is version literals and nothing else.

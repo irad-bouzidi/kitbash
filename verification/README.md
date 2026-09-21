@@ -164,7 +164,7 @@ others finished in seconds.
 | `selections/*.json` | The §7 envelopes the cells generate from. |
 | `images/jvm/**` | JDK 21, warm Gradle, Kotlin and Maven caches, `unzip`, `git`. Nothing else. |
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
-| `images/ci/**` | `actionlint` and `check-jsonschema`. The only image that lints rather than builds. |
+| `images/ci/**` | `actionlint`, `check-jsonschema` and `osv-scanner`. The only image that inspects rather than builds. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `build/enumerated/` | The nightly's selections, written by the enumeration at run time. Output, not source. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |

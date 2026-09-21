@@ -73,3 +73,16 @@ val runMatrix by tasks.registering(JavaExec::class) {
     // way the API and the CLI do.
     workingDir = file("${rootDir}/..")
 }
+
+// The weekly freshness job's first half (§36): rewrite the versions the recipes pin, and write a
+// summary the pull request body is made of. Judging the result is the workflow's job.
+//
+//   ./gradlew :verify:bumpVersions
+val bumpVersions by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Bumps the versions recipes pin to the latest releases (§36)."
+    mainClass = "dev.kitbash.verify.bump.BumpMain"
+    classpath = sourceSets.main.get().runtimeClasspath
+    // 3 means "nothing to do", which is the answer on most Mondays.
+    isIgnoreExitValue = true
+}
