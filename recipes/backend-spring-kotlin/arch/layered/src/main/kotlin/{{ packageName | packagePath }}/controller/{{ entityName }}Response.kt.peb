@@ -6,12 +6,13 @@ import java.time.Instant
 
 @Schema(description = "A {{ entityName | camel }} as returned by the API")
 data class {{ entityName }}Response(
-    @field:Schema(example = "1")
+    @field:Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     val id: Long?,
-    @field:Schema(example = "flux capacitor")
+    @field:Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED)
     val name: String,
-    @field:Schema(example = "3")
+    @field:Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
     val quantity: Int,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     val createdAt: Instant,
 ) {
     companion object {

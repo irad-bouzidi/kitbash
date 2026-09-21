@@ -25,9 +25,8 @@ options:
     type: boolean
     default: false
     label: Typed API client
-    # The wiring is kitbash-33; what exists now is the capability plumbing, so a selection
-    # that asks for it without a backend that can describe itself fails at validate time
-    # rather than at `pnpm build`.
+    # `demands` is what makes a selection asking for this without a backend that can describe
+    # itself fail at validate time rather than at `pnpm build` (§4, §18).
     demands: openapi-spec
     help: >-
       Generate the TypeScript API client from the backend's OpenAPI document instead of
@@ -38,6 +37,27 @@ variables:
 
 files:
   - from: files/**
+
+  # Two spellings of the same four functions, at the same path, so the page imports
+  # `@/api/{{ entityTable }}` either way and the option changes one file rather than every caller.
+  # `tsconfig.app.json` comes along for the ride: generated code is not ours to restyle, and one
+  # compiler flag has to come off for it. Two whole files rather than a patch, because `mergeJson`
+  # refuses to overwrite a key that is already set — which is the right rule, and means a file that
+  # differs by a setting is two files.
+  - from: handwritten/**
+    when: "!typedClient"
+  - from: typed/**
+    when: "typedClient"
+
+  # The document the client is generated from has to come from a running application, and the
+  # only thing in a generated project that knows how to start one with a database is its own test
+  # suite. So this recipe ships a JVM test — which is less odd than it looks: the typed client is
+  # this recipe's feature, and its contract belongs to it.
+  - from: typed-java/**
+    when: "typedClient && capability('java-sources')"
+  - from: typed-kotlin/**
+    when: "typedClient && capability('kotlin-sources')"
+
   # The image that serves this app, and the reverse proxy inside it, exist only when
   # containers were selected. Shipping an nginx.conf to a project with no container to
   # run it is the same tell as a README describing a database nobody chose.
@@ -129,6 +149,59 @@ patches:
       - "    }"
       - ""
 
+  # The browser half in CI. Until §33 the generated pipeline built the JVM half and nothing else,
+  # which made "the frontend compiles" a thing nobody checked.
+  - op: insertAtMarker
+    target: .gitlab-ci.yml
+    when: "capability('ci')"
+    marker: "# kitbash:jobs"
+    lines:
+      - "frontend:"
+      - "  stage: build"
+      - "  image: node:24-alpine"
+      - "  before_script:"
+      - "    - corepack enable"
+      - "  cache:"
+      - "    key:"
+      - "      files: [frontend/pnpm-lock.yaml]"
+      - "    paths: [frontend/.pnpm-store]"
+      - "  script:"
+      - "    - cd frontend"
+      - "    - pnpm config set store-dir .pnpm-store"
+      - "    - pnpm install --frozen-lockfile"
+      - "    - pnpm lint"
+      - "    - pnpm typecheck"
+      - "    - pnpm test"
+      - "    - pnpm build"
+      - "{% if typedClient %}  needs: [client]{% endif %}"
+      - ""
+
+  # With the typed client on, the frontend cannot typecheck until the JVM half has described
+  # itself — so the pipeline does what a developer does, in the order a developer does it.
+  - op: insertAtMarker
+    target: .gitlab-ci.yml
+    when: "capability('ci') && typedClient"
+    marker: "# kitbash:jobs"
+    lines:
+      - "client:"
+      - "  stage: build"
+      - "  # Docker-in-Docker, because generating the client starts the application against a real"
+      - "  # database to ask it what its API looks like. That is the only way to get the document,"
+      - "  # and it is the same thing the test suite already needs."
+      - "  services:"
+      - "    - docker:27-dind"
+      - "  variables:"
+      - "    DOCKER_HOST: tcp://docker:2375"
+      - "    TESTCONTAINERS_RYUK_DISABLED: \"true\""
+      - "  script:"
+      - "    - ./gradlew --no-daemon generateApiClient"
+      - "  artifacts:"
+      - "    paths:"
+      - "      - frontend/openapi.json"
+      - "      - frontend/src/lib/api"
+      - "    expire_in: 1 day"
+      - ""
+
   - op: insertAtMarker
     target: README.md
     marker: "<!-- kitbash:stack -->"
@@ -169,3 +242,178 @@ patches:
       - "  of the option."
       - "- **Requests are same-origin.** The dev server proxies `/api`, and so does the container's"
       - "  nginx, so nothing needs CORS."
+
+  # ---------------------------------------------------------------------------------------
+  # The typed client (§15, §33). Everything below is inert unless `typedClient` is on.
+  #
+  # It patches files the *backend* recipes own, which is the right way round: `typedClient` is
+  # declared here, and a `when` may only read an option its own recipe declared. A backend
+  # cannot gate on a frontend's option, so the wiring lives with the option.
+  # ---------------------------------------------------------------------------------------
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    when: "typedClient && capability('gradle-build')"
+    marker: "# kitbash:versions"
+    lines:
+      - 'openapi-generator = "7.14.0"'
+
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    when: "typedClient && capability('gradle-build')"
+    marker: "# kitbash:plugins"
+    lines:
+      - 'openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }'
+
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "typedClient && capability('gradle-build')"
+    marker: "// kitbash:plugins"
+    lines:
+      - "    alias(libs.plugins.openapi.generator)"
+
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "typedClient && capability('gradle-build')"
+    marker: "// kitbash:build"
+    lines:
+      - "// The typed client (§15): the browser's types are the server's DTOs, so renaming a field"
+      - "// here is a compile error at the call site over there rather than a runtime surprise."
+      - "//"
+      - "// Two steps, because springdoc describes a *running* application. `dumpOpenApiDocument`"
+      - "// starts one — with a real database, through the test suite that already knows how —"
+      - "// and writes the document; `openApiGenerate` turns it into TypeScript."
+      - "val openApiDocument = layout.projectDirectory.file(\"frontend/openapi.json\")"
+      - ""
+      - "val dumpOpenApiDocument by tasks.registering(Test::class) {"
+      - '    group = "openapi"'
+      - '    description = "Starts the application and writes frontend/openapi.json."'
+      - "    testClassesDirs = sourceSets[\"test\"].output.classesDirs"
+      - "    classpath = sourceSets[\"test\"].runtimeClasspath"
+      - "    useJUnitPlatform()"
+      - "    filter { includeTestsMatching(\"*OpenApiDocumentTest\") }"
+      - "    systemProperty(\"kitbash.openapi.write\", \"true\")"
+      - "    outputs.file(openApiDocument)"
+      - "    outputs.upToDateWhen { false }"
+      - "}"
+      - ""
+      - "openApiGenerate {"
+      - '    generatorName = "typescript-fetch"'
+      - "    inputSpec = openApiDocument.asFile.absolutePath"
+      - "    outputDir = layout.projectDirectory.dir(\"frontend/src/lib/api\").asFile.absolutePath"
+      - "    // withoutRuntimeChecks: the server validates its own input and returns RFC 9457 when it"
+      - "    // is wrong, so a second copy of the rules in the browser is two places to change."
+      - '    configOptions = mapOf("supportsES6" to "true", "withoutRuntimeChecks" to "true")'
+      - "}"
+      - ""
+      - "tasks.named(\"openApiGenerate\") { dependsOn(dumpOpenApiDocument) }"
+      - ""
+      - "tasks.register(\"generateApiClient\") {"
+      - '    group = "openapi"'
+      - '    description = "Regenerates frontend/src/lib/api from the OpenAPI document."'
+      - "    dependsOn(\"openApiGenerate\")"
+      - "}"
+      - ""
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "typedClient && capability('maven-build')"
+    marker: "<!-- kitbash:versions -->"
+    lines:
+      - "    <openapi-generator.version>7.14.0</openapi-generator.version>"
+
+  # Maven's equivalent, in a profile: `./mvnw -Pclient verify` runs the document-writing test in
+  # the `test` phase and the generator in `prepare-package`, which is one lifecycle rather than
+  # two invocations somebody has to remember the order of.
+  - op: insertAtMarker
+    target: pom.xml
+    when: "typedClient && capability('maven-build')"
+    marker: "<!-- kitbash:profiles -->"
+    lines:
+      - "    <profile>"
+      - "      <id>client</id>"
+      - "      <properties>"
+      - "        <kitbash.openapi.write>true</kitbash.openapi.write>"
+      - "      </properties>"
+      - "      <build>"
+      - "        <plugins>"
+      - "          <plugin>"
+      - "            <groupId>org.openapitools</groupId>"
+      - "            <artifactId>openapi-generator-maven-plugin</artifactId>"
+      - "            <version>${openapi-generator.version}</version>"
+      - "            <executions>"
+      - "              <execution>"
+      - "                <id>typescript-client</id>"
+      - "                <phase>prepare-package</phase>"
+      - "                <goals>"
+      - "                  <goal>generate</goal>"
+      - "                </goals>"
+      - "                <configuration>"
+      - "                  <inputSpec>${project.basedir}/frontend/openapi.json</inputSpec>"
+      - "                  <generatorName>typescript-fetch</generatorName>"
+      - "                  <output>${project.basedir}/frontend/src/lib/api</output>"
+      - "                  <configOptions>"
+      - "                    <supportsES6>true</supportsES6>"
+      - "                    <withoutRuntimeChecks>true</withoutRuntimeChecks>"
+      - "                  </configOptions>"
+      - "                </configuration>"
+      - "              </execution>"
+      - "            </executions>"
+      - "          </plugin>"
+      - "        </plugins>"
+      - "      </build>"
+      - "    </profile>"
+
+  # Prettier would reformat every file openapi-generator writes, and then check them again next
+  # time it ran. Generated code is checked by the generator being correct, not by our line width.
+  - op: appendLines
+    target: frontend/.prettierignore
+    when: "typedClient"
+    lines:
+      - ""
+      - "# Generated by ./gradlew generateApiClient"
+      - "openapi.json"
+      - "src/lib/api"
+
+  - op: insertAtMarker
+    target: frontend/eslint.config.js
+    when: "typedClient"
+    marker: "// kitbash:ignores"
+    lines:
+      - "  { ignores: ['src/lib/api'] },"
+
+  # Generated, not committed. Which of the two it is, is a decision §33 insists is made out loud:
+  # the document and the client both depend on which recipes were selected — the modular monolith
+  # publishes an endpoint the layered one does not — so there is no one correct file to ship, and
+  # a stale committed client is a lie that typechecks.
+  - op: appendLines
+    target: .gitignore
+    when: "typedClient"
+    lines:
+      - ""
+      - "# Generated by ./gradlew generateApiClient"
+      - "frontend/openapi.json"
+      - "frontend/src/lib/api/"
+
+  - op: insertAtMarker
+    target: README.md
+    when: "typedClient"
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "./gradlew generateApiClient   # writes frontend/src/lib/api from the API's own OpenAPI document"
+      - "```"
+      - ""
+      - "The typed client is **generated, not committed**: it depends on which recipes this project"
+      - "was made with, so there is no single correct version of it to ship, and a stale committed"
+      - "one is a lie that typechecks. Run that command once after cloning — it needs Docker, because"
+      - "it starts the application against a real database to ask it what its API looks like."
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    when: "typedClient"
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **The frontend's types are the backend's DTOs.** Rename a field on the server, run"
+      - "  `./gradlew generateApiClient`, and `pnpm build` fails at the call site. That binding is"
+      - "  the difference between a full-stack project and two folders in a zip."

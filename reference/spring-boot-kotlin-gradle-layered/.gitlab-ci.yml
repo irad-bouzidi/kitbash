@@ -38,3 +38,8 @@ image:
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+# Jobs other recipes add. The frontend's is the first (§33), and it needs a stage that already
+# exists — which is why `build` holds more than one thing rather than every recipe inventing a
+# stage nobody sequenced.
+# kitbash:jobs

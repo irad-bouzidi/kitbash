@@ -1,0 +1,72 @@
+/*
+ * The same four functions, over a client nobody wrote by hand.
+ *
+ * `src/lib/api/` is produced by openapi-generator from the backend's own OpenAPI document, so
+ * {{ entityName }} and Create{{ entityName }}Request below are the backend's DTOs rather than a
+ * developer's reading of them. Rename a field on the server, regenerate, and TypeScript fails
+ * here — which is the whole claim §15 makes about a full-stack generator being more than two
+ * folders in a zip.
+ *
+ * This file exists so the page imports the same path whether the typed client is on or off. A
+ * generated client's shape is the generator's business and changes when it is upgraded; a page
+ * that imported it directly would change with it.
+ */
+import { {{ entityName }}sApi, Configuration, ResponseError } from '@/lib/api';
+// kitbash:imports
+
+/** Same-origin by default, because the dev server and the container both proxy `/api`. */
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
+export type { {{ entityName }}Response as {{ entityName }}, Create{{ entityName }}Request } from '@/lib/api';
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+function client(): {{ entityName }}sApi {
+  return new {{ entityName }}sApi(
+    new Configuration({
+      basePath: BASE_URL,
+      headers: {
+        // kitbash:headers
+      },
+    }),
+  );
+}
+
+/** The server's own words, not a generic message: it already explains what went wrong. */
+async function unwrap<T>(call: Promise<T>): Promise<T> {
+  try {
+    return await call;
+  } catch (error) {
+    if (error instanceof ResponseError) {
+      const problem = (await error.response.json().catch(() => ({}))) as {
+        title?: string;
+        detail?: string;
+      };
+      throw new ApiError(
+        problem.detail ?? problem.title ?? error.response.statusText,
+        error.response.status,
+      );
+    }
+    throw error;
+  }
+}
+
+export function list{{ entityName }}s() {
+  return unwrap(client().list());
+}
+
+export function create{{ entityName }}({{ entityName | camel }}: import('@/lib/api').Create{{ entityName }}Request) {
+  return unwrap(client().create({ create{{ entityName }}Request: {{ entityName | camel }} }));
+}
+
+export function delete{{ entityName }}(id: number) {
+  return unwrap(client()._delete({ id }));
+}

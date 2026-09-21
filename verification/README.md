@@ -66,7 +66,7 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-Four of the thirteen cells today are the four §17 asks for: backend only, frontend only, both, and
+Four of the fifteen cells today are the four §17 asks for: backend only, frontend only, both, and
 both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
 
@@ -79,6 +79,18 @@ trade being made on purpose.
 
 `CellTest.coversEveryPair` asserts it rather than trusting the list: deleting a cell to make the
 matrix faster fails with the name of the pair that stopped being built.
+
+The typed client (§33) brings the two cells that are different in kind. `full-stack-typed` is the
+first to set **`sharedWorkspace`**: its client is produced by the JVM build and consumed by the
+frontend build, which is two ecosystems and one working tree — so the steps share a Docker volume
+instead of each starting from a clean copy. Nothing §13 asks for is weakened: the volume is created
+per cell and destroyed with it, the project still arrives read-only at `/input`, and every limit is
+still per container.
+
+`typed-client-contract` is the phase exit criterion, and **the only cell that passes by making
+something fail**: it renames a field on a backend DTO, regenerates the client, and requires
+`pnpm typecheck` to stop compiling — `! pnpm typecheck`, so a green cell means the binding is real.
+Removing the rename turns it red, which is how we know it is not vacuous.
 
 Auth (§31) and observability (§32) are not further axes. Both add the same files whichever
 architecture, language or build tool is chosen, so each is covered by the two reference projects

@@ -1,0 +1,66 @@
+package {{ packageName }}
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.test.context.ActiveProfiles
+import java.nio.file.Files
+import java.nio.file.Path
+
+/**
+ * Writes `frontend/openapi.json`, which the TypeScript client is generated from.
+ *
+ * A test rather than a build task, and normally skipped, which both want explaining.
+ *
+ * springdoc builds the document by inspecting a *running* application: the controllers, their
+ * annotations and the beans they were wired with. Nothing can produce it from compiled classes
+ * alone, so something has to start the context — and the only thing in this project that already
+ * knows how to start it with a database is the test suite. Reusing that is cheaper than a second
+ * mechanism that would need its own Postgres.
+ *
+ * It extends the database's test base for the same reason: the application will not start without
+ * one, and the `database` capability's contract is that a class by that name exists (see
+ * docs/recipe-format.md).
+ *
+ * It is skipped unless `-Dkitbash.openapi.write=true` because writing a file into the working tree
+ * is not something an ordinary `test` run should do. `./gradlew generateApiClient` passes the flag;
+ * nothing else does.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+@EnabledIfSystemProperty(
+    named = "kitbash.openapi.write",
+    matches = "true",
+    disabledReason = "Run ./gradlew generateApiClient to refresh frontend/openapi.json",
+)
+class OpenApiDocumentTest : PostgresTestBase() {
+    @Autowired
+    private lateinit var http: TestRestTemplate
+
+    @Test
+    @DisplayName("the served document is written where the client generator reads it")
+    fun writesTheDocument() {
+        val served = http.getForObject("/v3/api-docs", String::class.java)
+
+        assertThat(served).`as`("springdoc served nothing at /v3/api-docs").isNotBlank
+
+        // Pretty-printed with sorted keys: the file is committed nowhere but is diffed by people
+        // during an upgrade, and springdoc's map ordering is not stable between runs.
+        val json = ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+        Files.createDirectories(DOCUMENT.parent)
+        Files.writeString(
+            DOCUMENT,
+            json.writerWithDefaultPrettyPrinter().writeValueAsString(json.readTree(served)) + "\n",
+        )
+    }
+
+    companion object {
+        private val DOCUMENT: Path = Path.of("frontend", "openapi.json")
+    }
+}

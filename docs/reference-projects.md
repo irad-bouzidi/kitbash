@@ -47,6 +47,11 @@ annotation reaching the domain. The two differ in one more way on purpose — th
 OpenTelemetry tracing on and the Java one has it off — so both sides of that option are byte-checked
 rather than only built.
 
+The typed client (§33) has no reference at all, and cannot have one: the client is produced by
+running openapi-generator against a live application, which the generator does not do and a
+reference project would therefore have to carry as checked-in output nobody generated. It is
+covered by two cells instead, one of which asserts the binding by requiring a compile failure.
+
 Two combinations have no reference and are covered by a cell each: auth's browser half, because a
 standalone frontend cannot select a recipe requiring an `http-server` (`full-stack-auth`), and
 metrics without auth, because both auth-on references carry metrics too (`backend-observability`).

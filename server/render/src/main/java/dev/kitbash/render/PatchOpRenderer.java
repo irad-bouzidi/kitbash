@@ -76,9 +76,15 @@ final class PatchOpRenderer {
     }
 
     private String text(String source, String owner) {
-        if (source == null || !source.contains("{{")) {
+        if (source == null || !(source.contains("{{") || source.contains("{%"))) {
             // Most patch strings are literal; skipping the engine for those keeps the common case
             // free and keeps the template registry small.
+            //
+            // `{%` is in the test because it was not, and a patch line whose only templating was a
+            // `{% if %}` skipped the engine and shipped verbatim — §28 put one in a README and the
+            // generated project told its reader to run
+            // `{% if capabilities contains 'maven-build' %}./mvnw spring-boot:run{% else %}...`.
+            // Nothing noticed, because a cell builds a project and does not read it.
             return source;
         }
         return engine.render(TemplateRegistry.of(Map.of(source, source)), source, owner, variables);
