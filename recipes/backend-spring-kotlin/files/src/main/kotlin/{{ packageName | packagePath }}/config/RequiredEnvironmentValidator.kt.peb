@@ -31,13 +31,26 @@ class RequiredEnvironmentValidator : EnvironmentPostProcessor {
     }
 
     companion object {
-        private val REQUIRED =
-            mapOf(
-                "{{ envPrefix }}_DB_URL" to "JDBC URL, e.g. jdbc:postgresql://localhost:5432/{{ projectName }}",
-                "{{ envPrefix }}_DB_USERNAME" to "Database user",
-                "{{ envPrefix }}_DB_PASSWORD" to "Database password",
-                "{{ envPrefix }}_ENVIRONMENT_NAME" to "Environment label for /actuator/info, e.g. local",
-            )
+        /**
+         * Built rather than declared, so that a recipe contributing a variable can contribute its
+         * description too.
+         *
+         * A feature that reads a new variable adds a line at the marker below, and the startup
+         * message then names the variable *and* says what it is for — the difference between "set
+         * {{ envPrefix }}_AUTH_ISSUER_URI" and a developer guessing what a URI of what is wanted.
+         *
+         * Two things this shape has to get right. The marker is not spelled out in this comment,
+         * because a patch inserts at the first line that matches and a marker quoted in prose is a
+         * marker. And each description is short enough that its `put` never wraps: the formatter
+         * lays out the *rendered* line, so a longer prefix than this project's would rewrap a line
+         * the template had already wrapped, and the generated build would fail its own format
+         * check.
+         */
+        private val REQUIRED: Map<String, String> =
+            buildMap {
+                put("{{ envPrefix }}_ENVIRONMENT_NAME", "Environment label for /actuator/info")
+                // kitbash:required-environment
+            }
 
         internal fun describe(name: String): String = REQUIRED[name] ?: ""
     }

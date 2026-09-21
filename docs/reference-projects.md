@@ -10,10 +10,10 @@ There are seven today:
 | --- | --- |
 | `spring-boot-java-gradle-layered` | Spring Boot, Java 21, Gradle, Postgres + Flyway, Docker, GitLab CI |
 | `spring-boot-java-gradle-hexagonal` | The same stack, hexagonal (§30) |
-| `spring-boot-java-gradle-modular` | The same stack, modular monolith (§30) |
+| `spring-boot-java-gradle-modular` | The same stack, modular monolith, **with auth on** (§30, §31) |
 | `spring-boot-java-maven-layered` | The same stack, built with Maven (§28) |
 | `spring-boot-kotlin-gradle-layered` | The same stack in Kotlin, with ktlint (§29) |
-| `spring-boot-kotlin-gradle-hexagonal` | Kotlin, hexagonal (§30) |
+| `spring-boot-kotlin-gradle-hexagonal` | Kotlin, hexagonal, **with auth on** (§30, §31) |
 | `spring-boot-kotlin-gradle-modular` | Kotlin, modular monolith (§30) |
 | `react-vite-ts` | React 19, Vite, TypeScript, standalone (no backend selected) |
 
@@ -37,6 +37,14 @@ Six JVM projects rather than twelve. The reasoning is what each mechanism actual
 - A **matrix cell** proves the generated project compiles and its tests pass, which is the thing
   the uncovered combinations actually need. It does not prove the bytes are what a human reviewed,
   which is what a reference is for.
+
+Auth (§31) is carried by two of those six rather than by two more projects. It adds the same files
+whichever architecture, language or build tool is chosen — everything it ships lands in `config/` —
+so one Java project and one Kotlin project with it on cover both of its file sets, and the Kotlin
+one being the hexagonal project is deliberate: it is where the architecture test would notice a
+security annotation reaching the domain. Its browser half has no reference at all, because a
+standalone frontend cannot select a recipe that requires an `http-server`; the `full-stack-auth`
+cell builds it instead.
 
 The cost of being wrong here is specific and worth naming: a Maven-only defect in the hexagonal
 templates would be caught by `backend-hexagonal-kotlin-maven` failing to build, not by an equality

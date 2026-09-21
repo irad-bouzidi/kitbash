@@ -1,0 +1,39 @@
+import { useState } from 'react';
+
+/**
+ * The sign-in screen: one field, for the token.
+ *
+ * It says what it is rather than pretending to be a login form, because a generated project that
+ * looks finished and is not is worse than one that is honest about where it stops.
+ */
+export function SignIn({ onSignIn }: { onSignIn: (token: string) => void }) {
+  const [token, setToken] = useState('');
+
+  return (
+    <section>
+      <h2>Sign in</h2>
+      <p>
+        This front end sends a bearer token the API validates. Paste one issued by your identity
+        provider for the <code>{{ '{' }}'{{ projectName }}-api'{{ '}' }}</code> audience.
+      </p>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (token.trim()) onSignIn(token);
+        }}
+      >
+        <label htmlFor="token">Bearer token</label>
+        <textarea
+          id="token"
+          rows={4}
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+          placeholder="eyJhbGciOi..."
+        />
+        <button type="submit" disabled={!token.trim()}>
+          Sign in
+        </button>
+      </form>
+    </section>
+  );
+}

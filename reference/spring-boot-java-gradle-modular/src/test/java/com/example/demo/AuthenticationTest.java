@@ -1,0 +1,99 @@
+package com.example.demo;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * What the token is actually checked for.
+ *
+ * <p>Deliberately not {@code @WithMockUser} or a mocked decoder: those assert that Spring Security
+ * was configured, which is a tautology. These send real signed tokens over real HTTP through the
+ * filter chain that ships, so a broken audience rule or a permitted path that should not be shows
+ * up here.
+ *
+ * <p>The client is built by hand rather than injected, because {@link AuthenticatedTestClient}
+ * attaches a token to the injected one — which is right for every other test and wrong for this.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+class AuthenticationTest extends PostgresTestBase {
+
+    @LocalServerPort
+    private int port;
+
+    private final TestRestTemplate anonymous = new TestRestTemplate();
+
+    @Test
+    @DisplayName("an API call with no token is 401, as a problem document rather than an empty body")
+    void refusesAnonymousCalls() {
+        ResponseEntity<ProblemDetail> response = anonymous.getForEntity(url("/api/widgets"), ProblemDetail.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getTitle()).isEqualTo("Not authenticated");
+    }
+
+    @Test
+    @DisplayName("the same call with a valid token is 200")
+    void acceptsAValidToken() {
+        assertThat(get("/api/widgets", TestTokens.valid()).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("a token minted for another service is refused, which is the check people leave out")
+    void refusesAnotherServicesToken() {
+        assertThat(get("/api/widgets", TestTokens.forAnotherAudience()).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("an expired token is refused")
+    void refusesAnExpiredToken() {
+        assertThat(get("/api/widgets", TestTokens.expired()).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("a forged token is refused, because the signature is checked and not just the shape")
+    void refusesAForgedToken() {
+        String forged = TestTokens.valid();
+        String tampered = forged.substring(0, forged.lastIndexOf('.') + 1) + "not-a-signature";
+
+        assertThat(get("/api/widgets", tampered).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("health stays open, because the platform calling it has no token to give")
+    void leavesHealthOpen() {
+        assertThat(anonymous.getForEntity(url("/actuator/health"), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("the rest of actuator does not, because it describes the deployment")
+    void protectsTheRestOfActuator() {
+        assertThat(anonymous.getForEntity(url("/actuator/info"), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    private ResponseEntity<String> get(String path, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        return anonymous.exchange(url(path), HttpMethod.GET, new HttpEntity<>(headers), String.class);
+    }
+
+    private String url(String path) {
+        return "http://localhost:" + port + path;
+    }
+}

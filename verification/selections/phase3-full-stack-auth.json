@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "projectName": "full-stack-cell",
+  "options": {
+    "buildTool": "build-gradle-kts",
+    "backend": "backend-spring-java",
+    "architecture": "layered",
+    "database": "db-postgres-flyway",
+    "frontend": "frontend-react-vite",
+    "ci": "ci-gitlab",
+    "docker": true,
+    "auth": true
+  },
+  "variables": {
+    "groupId": "com.example",
+    "packageName": "com.example.fullstack",
+    "javaVersion": "21",
+    "entityName": "Widget",
+    "entityTable": "widgets",
+    "envPrefix": "FULLSTACK"
+  }
+}

@@ -1,3 +1,4 @@
+import { Gate } from '@/Gate';
 import { WidgetsPage } from '@/pages/WidgetsPage';
 
 export function App() {
@@ -7,7 +8,9 @@ export function App() {
         <h1>storefront</h1>
         <p>A React + TypeScript front end, talking to the widgets API.</p>
       </header>
-      <WidgetsPage />
+      <Gate>
+        <WidgetsPage />
+      </Gate>
     </main>
   );
 }

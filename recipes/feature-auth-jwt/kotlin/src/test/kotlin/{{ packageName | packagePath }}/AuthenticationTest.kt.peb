@@ -1,0 +1,97 @@
+package {{ packageName }}
+
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.http.ProblemDetail
+import org.springframework.http.ResponseEntity
+import org.springframework.test.context.ActiveProfiles
+
+/**
+ * What the token is actually checked for.
+ *
+ * Deliberately not `@WithMockUser` or a mocked decoder: those assert that Spring Security was
+ * configured, which is a tautology. These send real signed tokens over real HTTP through the filter
+ * chain that ships, so a broken audience rule or a permitted path that should not be shows up here.
+ *
+ * The client is built by hand rather than injected, because [AuthenticatedTestClient] attaches a
+ * token to the injected one — which is right for every other test and wrong for this.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+class AuthenticationTest : PostgresTestBase() {
+    @LocalServerPort
+    private var port: Int = 0
+
+    private val anonymous = TestRestTemplate()
+
+    @Test
+    @DisplayName("an API call with no token is 401, as a problem document rather than an empty body")
+    fun refusesAnonymousCalls() {
+        val response = anonymous.getForEntity(url("/api/{{ entityTable }}"), ProblemDetail::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        assertThat(response.body).isNotNull
+        assertThat(response.body!!.title).isEqualTo("Not authenticated")
+    }
+
+    @Test
+    @DisplayName("the same call with a valid token is 200")
+    fun acceptsAValidToken() {
+        assertThat(get("/api/{{ entityTable }}", TestTokens.valid()).statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    @DisplayName("a token minted for another service is refused, which is the check people leave out")
+    fun refusesAnotherServicesToken() {
+        assertThat(get("/api/{{ entityTable }}", TestTokens.forAnotherAudience()).statusCode)
+            .isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    @DisplayName("an expired token is refused")
+    fun refusesAnExpiredToken() {
+        assertThat(get("/api/{{ entityTable }}", TestTokens.expired()).statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    @DisplayName("a forged token is refused, because the signature is checked and not just the shape")
+    fun refusesAForgedToken() {
+        val forged = TestTokens.valid()
+        val tampered = forged.substring(0, forged.lastIndexOf('.') + 1) + "not-a-signature"
+
+        assertThat(get("/api/{{ entityTable }}", tampered).statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    @DisplayName("health stays open, because the platform calling it has no token to give")
+    fun leavesHealthOpen() {
+        assertThat(anonymous.getForEntity(url("/actuator/health"), String::class.java).statusCode)
+            .isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    @DisplayName("the rest of actuator does not, because it describes the deployment")
+    fun protectsTheRestOfActuator() {
+        assertThat(anonymous.getForEntity(url("/actuator/info"), String::class.java).statusCode)
+            .isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    private fun get(
+        path: String,
+        token: String,
+    ): ResponseEntity<String> {
+        val headers = HttpHeaders()
+        headers.setBearerAuth(token)
+        return anonymous.exchange(url(path), HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+    }
+
+    private fun url(path: String): String = "http://localhost:$port$path"
+}

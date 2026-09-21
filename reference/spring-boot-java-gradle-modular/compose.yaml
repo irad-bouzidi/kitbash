@@ -9,6 +9,8 @@ services:
       DEMO_DB_URL: "${DEMO_DB_URL:-jdbc:postgresql://db:5432/demo}"
       DEMO_DB_USERNAME: "${DEMO_DB_USERNAME:-demo}"
       DEMO_DB_PASSWORD: "${DEMO_DB_PASSWORD:-demo}"
+      DEMO_AUTH_ISSUER_URI: "${DEMO_AUTH_ISSUER_URI:-https://issuer.example.com/realms/demo}"
+      DEMO_AUTH_AUDIENCE: "${DEMO_AUTH_AUDIENCE:-demo-api}"
     depends_on:
       db:
         condition: service_healthy

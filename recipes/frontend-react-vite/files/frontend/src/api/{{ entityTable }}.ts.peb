@@ -7,6 +7,8 @@
  * that swap impossible.
  */
 
+// kitbash:imports
+
 /** Same-origin by default, because the dev server and the container both proxy `/api`. */
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -41,7 +43,11 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      // kitbash:headers — where a recipe that authenticates requests adds its header.
+      ...init?.headers,
+    },
   });
 
   if (!response.ok) {

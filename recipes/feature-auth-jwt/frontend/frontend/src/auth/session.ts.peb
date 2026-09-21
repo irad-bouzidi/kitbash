@@ -1,0 +1,71 @@
+/*
+ * Where the browser keeps its token, and the only file that knows.
+ *
+ * The token is *pasted in*, not obtained through a redirect, and that is a deliberate limit rather
+ * than an oversight — see the note in the README. An OIDC authorization-code flow needs an
+ * identity provider, a client registration, a redirect URI per environment and a silent-renew
+ * iframe, none of which a generator can choose for you. What this gives you is a front end whose
+ * requests are authenticated, against a back end that really checks them, with one file to replace
+ * when you pick a provider.
+ *
+ * sessionStorage rather than localStorage: a token that outlives the tab is a token still on the
+ * machine when somebody else uses it, and neither survives an XSS. This is the cheaper of the two
+ * mistakes.
+ */
+import { useCallback, useSyncExternalStore } from 'react';
+
+const KEY = '{{ projectName }}.token';
+
+const listeners = new Set<() => void>();
+
+function readToken(): string | null {
+  try {
+    return sessionStorage.getItem(KEY);
+  } catch {
+    // Private mode, or storage disabled. No token is a correct answer.
+    return null;
+  }
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  // Another tab signing out should sign this one out too.
+  window.addEventListener('storage', listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener('storage', listener);
+  };
+}
+
+function announce(): void {
+  listeners.forEach((listener) => listener());
+}
+
+/** The header every API call carries, or nothing at all when signed out. */
+export function authHeaders(): Record<string, string> {
+  const token = readToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export interface Session {
+  token: string | null;
+  signedIn: boolean;
+  signIn: (token: string) => void;
+  signOut: () => void;
+}
+
+export function useSession(): Session {
+  const token = useSyncExternalStore(subscribe, readToken, () => null);
+
+  const signIn = useCallback((value: string) => {
+    sessionStorage.setItem(KEY, value.trim());
+    announce();
+  }, []);
+
+  const signOut = useCallback(() => {
+    sessionStorage.removeItem(KEY);
+    announce();
+  }, []);
+
+  return { token, signedIn: token !== null && token !== '', signIn, signOut };
+}

@@ -77,6 +77,12 @@ groups:
         type: enum
         label: Database
         help: Schema migrations and the persistence layer.
+      - id: auth
+        type: boolean
+        label: Authentication
+        help: >-
+          Protect the API with bearer tokens, validated against an issuer you already run. The
+          service checks tokens; it does not issue them, and no identity provider is generated.
 
   - id: delivery
     label: Delivery

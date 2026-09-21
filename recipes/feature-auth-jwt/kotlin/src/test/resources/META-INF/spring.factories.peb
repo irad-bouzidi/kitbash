@@ -1,0 +1,4 @@
+# Test-only, and merged with the production file rather than replacing it: Spring reads every
+# META-INF/spring.factories on the classpath, and src/test/resources is a separate classpath entry.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  {{ packageName }}.LocalIssuerEnvironment

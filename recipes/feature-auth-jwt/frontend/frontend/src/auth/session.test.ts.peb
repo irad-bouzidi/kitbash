@@ -1,0 +1,42 @@
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { authHeaders, useSession } from '@/auth/session';
+
+describe('session', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('starts signed out, and sends no Authorization header', () => {
+    const { result } = renderHook(() => useSession());
+
+    expect(result.current.signedIn).toBe(false);
+    expect(authHeaders()).toEqual({});
+  });
+
+  it('signing in attaches the token to every request', () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.signIn('a-token'));
+
+    expect(result.current.signedIn).toBe(true);
+    expect(authHeaders()).toEqual({ Authorization: 'Bearer a-token' });
+  });
+
+  it('trims the token, because pasting one picks up a newline', () => {
+    const { result } = renderHook(() => useSession());
+
+    act(() => result.current.signIn('  a-token\n'));
+
+    expect(authHeaders()).toEqual({ Authorization: 'Bearer a-token' });
+  });
+
+  it('signing out removes it, rather than leaving it unused in storage', () => {
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.signIn('a-token'));
+
+    act(() => result.current.signOut());
+
+    expect(result.current.signedIn).toBe(false);
+    expect(sessionStorage.getItem('{{ projectName }}.token')).toBeNull();
+    expect(authHeaders()).toEqual({});
+  });
+});

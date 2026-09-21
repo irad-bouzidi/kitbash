@@ -44,6 +44,16 @@ files:
   - from: container/**
     when: "capability('containers')"
 
+# Three markers this recipe places and owns, for any recipe that guards or decorates the
+# browser half (§31 is the first):
+#
+#   frontend/src/Gate.tsx      // kitbash:imports, // kitbash:gate
+#   frontend/src/api/…         // kitbash:imports, // kitbash:headers
+#
+# `Gate` exists only to be that seam. `App` always renders through it, so a recipe that needs to
+# stand in front of the application inserts four lines instead of rewriting a file it does not
+# own — a patch can add lines, and cannot wrap an element.
+
 patches:
   # base sets a four-space default, which is right for the JVM half and wrong here. Prettier
   # reads .editorconfig, so without this the generated project's own format check fails on

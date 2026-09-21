@@ -77,6 +77,11 @@ class CellTest {
             // A fragment correct for Kotlin-on-Gradle and for Java-on-Maven and wrong for their
             // combination is caught; a three-way interaction with no two-way symptom is not,
             // and that is the trade being made.
+            //
+            // Auth (§31) is not a fourth axis here. It adds the same files whichever architecture,
+            // language or build tool is chosen — the whole point of it landing in `config/` — so it
+            // is covered by two reference projects and by the one cell that has a browser half,
+            // rather than by six more cells that would each build the same two files.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
@@ -90,6 +95,7 @@ class CellTest {
                             "backend-modular-java-maven",
                             "frontend-only",
                             "full-stack",
+                            "full-stack-auth",
                             "full-stack-no-docker");
         }
 
