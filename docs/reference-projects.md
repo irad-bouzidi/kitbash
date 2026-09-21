@@ -14,7 +14,7 @@ There are seven today:
 | `spring-boot-java-maven-layered` | The same stack, built with Maven (§28) |
 | `spring-boot-kotlin-gradle-layered` | The same stack in Kotlin, with ktlint (§29) |
 | `spring-boot-kotlin-gradle-hexagonal` | Kotlin, hexagonal, with auth, metrics and OTLP tracing on (§30–§32) |
-| `spring-boot-kotlin-gradle-modular` | Kotlin, modular monolith (§30) |
+| `spring-boot-kotlin-gradle-modular` | Kotlin, modular monolith, with GitHub Actions rather than GitLab CI (§30, §34) |
 | `react-vite-ts` | React 19, Vite, TypeScript, standalone (no backend selected) |
 
 ## How many of these there are, and why not more
@@ -46,6 +46,10 @@ being the hexagonal project is deliberate: it is where the architecture test wou
 annotation reaching the domain. The two differ in one more way on purpose — the Kotlin project has
 OpenTelemetry tracing on and the Java one has it off — so both sides of that option are byte-checked
 rather than only built.
+
+The second CI provider (§34) is carried by one of the six rather than by a seventh project: a
+provider changes one file, so switching the Kotlin modular project to GitHub Actions gives that
+file byte coverage at no cost, and leaves GitLab covered by the other five.
 
 The typed client (§33) has no reference at all, and cannot have one: the client is produced by
 running openapi-generator against a live application, which the generator does not do and a

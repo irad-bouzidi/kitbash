@@ -1,0 +1,18 @@
+{
+  "id": "ci-github",
+  "description": "The second CI provider (§34): the emitted workflow is linted by actionlint, which also shellchecks every run block — and the project it describes is built for real.",
+  "selection": "selections/phase3-ci-github.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "ci",
+      "workingDirectory": ".",
+      "commands": ["actionlint -no-color .github/workflows/ci.yml"]
+    },
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    }
+  ]
+}

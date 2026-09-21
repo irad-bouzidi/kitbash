@@ -20,8 +20,10 @@ import java.util.Map;
  */
 public record Containers(Map<String, String> images, String cpus, String memory, int timeoutSeconds) {
 
-    public static final Map<String, String> DEFAULT_IMAGES =
-            Map.of("jvm", "kitbash/verify-jvm:latest", "node", "kitbash/verify-node:latest");
+    public static final Map<String, String> DEFAULT_IMAGES = Map.of(
+            "jvm", "kitbash/verify-jvm:latest",
+            "node", "kitbash/verify-node:latest",
+            "ci", "kitbash/verify-ci:latest");
 
     /**
      * Where each image puts the writable copy of the project.
@@ -31,13 +33,14 @@ public record Containers(Map<String, String> images, String cpus, String memory,
      * at a path the Node image never looks at, and the second step would quietly build the
      * original project.
      */
-    private static final Map<String, String> WORKSPACES = Map.of("jvm", "/workspace", "node", "/work");
+    private static final Map<String, String> WORKSPACES = Map.of("jvm", "/workspace", "node", "/work", "ci", "/work");
 
     public static Containers standard() {
         return new Containers(
                 Map.of(
                         "jvm", env("KITBASH_JVM_IMAGE", DEFAULT_IMAGES.get("jvm")),
-                        "node", env("KITBASH_NODE_IMAGE", DEFAULT_IMAGES.get("node"))),
+                        "node", env("KITBASH_NODE_IMAGE", DEFAULT_IMAGES.get("node")),
+                        "ci", env("KITBASH_CI_IMAGE", DEFAULT_IMAGES.get("ci"))),
                 env("KITBASH_CELL_CPUS", "2"),
                 env("KITBASH_CELL_MEMORY", "4g"),
                 Integer.parseInt(env("KITBASH_CELL_TIMEOUT", "900")));

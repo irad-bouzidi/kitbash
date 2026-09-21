@@ -4,7 +4,11 @@ version: 1.0.0
 kind: ci
 label: GitLab CI
 slot: ci
-provides: [ci]
+# `gitlab-ci` is what lets another recipe append a job in the right syntax without naming this
+# recipe (§4). Two providers both provide `ci`; what a recipe contributing a job needs to know is
+# which spelling to write, and that is a property of the project rather than an identity — the same
+# argument `gradle-build`/`maven-build` settled in §28.
+provides: [ci, gitlab-ci]
 requires: [project-root]
 
 variables:
@@ -13,9 +17,10 @@ variables:
 files:
   - from: files/**
 
-# One marker this recipe places and owns:
+# One marker this recipe places and owns, and `ci-github` places the same one in its own file:
 #
-#   .gitlab-ci.yml   # kitbash:jobs
+#   .gitlab-ci.yml       # kitbash:jobs
+#   .github/workflows/ci.yml   # kitbash:jobs
 #
 # A recipe with something to run in CI appends a job there. Stages are deliberately not
 # extensible: a recipe that could add a stage could also reorder the pipeline, and the two
