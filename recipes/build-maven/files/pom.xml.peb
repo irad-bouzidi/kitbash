@@ -50,4 +50,12 @@
       <!-- kitbash:plugins -->
     </plugins>
   </build>
+
+  <!--
+    Profiles a feature recipe adds. Empty unless something needs one: §33's client generator is
+    the first, and it wants a lifecycle you opt into rather than one that runs on every build.
+  -->
+  <profiles>
+    <!-- kitbash:profiles -->
+  </profiles>
 </project>

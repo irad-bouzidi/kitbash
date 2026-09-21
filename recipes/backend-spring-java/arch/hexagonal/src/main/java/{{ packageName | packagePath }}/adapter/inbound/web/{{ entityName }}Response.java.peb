@@ -11,10 +11,10 @@ import java.time.Instant;
  */
 @Schema(description = "A {{ entityName | camel }} as returned by the API")
 public record {{ entityName }}Response(
-        @Schema(example = "1") Long id,
-        @Schema(example = "flux capacitor") String name,
-        @Schema(example = "3") int quantity,
-        Instant createdAt) {
+        @Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED) Long id,
+        @Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED) String name,
+        @Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED) int quantity,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
 
     static {{ entityName }}Response from({{ entityName }} {{ entityName | camel }}) {
         return new {{ entityName }}Response({{ entityName | camel }}.id(), {{ entityName | camel }}.name(), {{ entityName | camel }}.quantity(), {{ entityName | camel }}.createdAt());

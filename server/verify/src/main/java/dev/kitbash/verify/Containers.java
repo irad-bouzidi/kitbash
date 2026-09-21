@@ -23,6 +23,16 @@ public record Containers(Map<String, String> images, String cpus, String memory,
     public static final Map<String, String> DEFAULT_IMAGES =
             Map.of("jvm", "kitbash/verify-jvm:latest", "node", "kitbash/verify-node:latest");
 
+    /**
+     * Where each image puts the writable copy of the project.
+     *
+     * <p>They differ, and that is fine until a cell shares one volume between them — so the mount
+     * point is per ecosystem and the volume is not. Getting this wrong would mount the JVM's tree
+     * at a path the Node image never looks at, and the second step would quietly build the
+     * original project.
+     */
+    private static final Map<String, String> WORKSPACES = Map.of("jvm", "/workspace", "node", "/work");
+
     public static Containers standard() {
         return new Containers(
                 Map.of(
@@ -42,6 +52,14 @@ public record Containers(Map<String, String> images, String cpus, String memory,
     public static final String FAILED = "[step-failed] ";
 
     public List<String> commandFor(Cell.Step step, Path project) {
+        return commandFor(step, project, null);
+    }
+
+    /**
+     * @param workspaceVolume a Docker volume mounted at {@code /workspace} so a cell's steps share
+     *     one working tree, or null for the default of a clean copy per step.
+     */
+    public List<String> commandFor(Cell.Step step, Path project, String workspaceVolume) {
         String image = images.get(step.ecosystem());
         if (image == null) {
             throw new IllegalArgumentException("No ecosystem image for '" + step.ecosystem()
@@ -77,6 +95,10 @@ public record Containers(Map<String, String> images, String cpus, String memory,
         docker.add("-v");
         docker.add("/var/run/docker.sock:/var/run/docker.sock");
 
+        if (workspaceVolume != null) {
+            docker.add("-v");
+            docker.add(workspaceVolume + ":" + WORKSPACES.get(step.ecosystem()));
+        }
         docker.add("-v");
         docker.add(project.toAbsolutePath() + ":/input:ro");
         docker.add(image);

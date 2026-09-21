@@ -55,21 +55,63 @@ public final class CellRunner {
             }
 
             Path project = unpack(zip, workspace.path().resolve("unpacked"), log);
+            String volume = cell.sharedWorkspace() ? createVolume(cell) : null;
 
-            for (Cell.Step step : cell.steps()) {
-                append(
-                        log,
-                        "%n[cell:%s] %s in %s%n".formatted(cell.id(), step.ecosystem(), step.workingDirectory()),
-                        true);
-                int exit = run(containers.commandFor(step, project), repository.root(), log);
-                if (exit != 0) {
-                    String failed = failedCommand(log, step, exit);
-                    append(log, "%n[cell:%s] FAILED: %s%n".formatted(cell.id(), failed), true);
-                    return CellResult.failed(cell.id(), since(started), log, failed, reproduce);
+            try {
+                for (Cell.Step step : cell.steps()) {
+                    append(
+                            log,
+                            "%n[cell:%s] %s in %s%n".formatted(cell.id(), step.ecosystem(), step.workingDirectory()),
+                            true);
+                    int exit = run(containers.commandFor(step, project, volume), repository.root(), log);
+                    if (exit != 0) {
+                        String failed = failedCommand(log, step, exit);
+                        append(log, "%n[cell:%s] FAILED: %s%n".formatted(cell.id(), failed), true);
+                        return CellResult.failed(cell.id(), since(started), log, failed, reproduce);
+                    }
                 }
+            } finally {
+                removeVolume(volume);
             }
 
             return CellResult.passed(cell.id(), since(started), log, reproduce);
+        }
+    }
+
+    /**
+     * A volume for one cell's steps to share, named after the cell and the run.
+     *
+     * <p>Named rather than anonymous so a failed run leaves something a person can inspect by name;
+     * removed in a {@code finally} so a green matrix leaves nothing behind. If creation fails the
+     * cell runs without one, which degrades to the default of a copy per step — a slower way to
+     * reach the same answer, and not a reason to fail a cell.
+     */
+    private static String createVolume(Cell cell) {
+        String name = "kitbash-cell-" + cell.id() + "-" + java.util.UUID.randomUUID();
+        try {
+            Process process = new ProcessBuilder("docker", "volume", "create", name)
+                    .redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            return process.waitFor() == 0 ? name : null;
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    private static void removeVolume(String name) {
+        if (name == null) {
+            return;
+        }
+        try {
+            new ProcessBuilder("docker", "volume", "rm", "-f", name)
+                    .redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .start()
+                    .waitFor();
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

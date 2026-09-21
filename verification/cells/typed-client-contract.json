@@ -1,0 +1,30 @@
+{
+  "id": "typed-client-contract",
+  "description": "\u00a733's exit criterion, and the only cell that passes by making something fail: rename a field on a backend DTO, regenerate the client, and the frontend must stop compiling at the call site.",
+  "selection": "selections/phase3-full-stack-typed.json",
+  "triggers": [
+    "merge-request",
+    "nightly"
+  ],
+  "sharedWorkspace": true,
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": [
+        "./gradlew generateApiClient --no-daemon",
+        "sed -i 's/String name,/String renamedByTheContractTest,/' src/main/java/com/example/fullstack/controller/WidgetResponse.java",
+        "grep -q renamedByTheContractTest src/main/java/com/example/fullstack/controller/WidgetResponse.java",
+        "./gradlew generateApiClient --no-daemon"
+      ]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": [
+        "pnpm install --frozen-lockfile",
+        "! pnpm typecheck"
+      ]
+    }
+  ]
+}

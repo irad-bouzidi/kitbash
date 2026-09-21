@@ -354,6 +354,11 @@ Dedupe is by `group:name` in both formats: the same artifact asked for twice at 
 is one declaration, and the first one wins, because picking the second would make the output depend
 on recipe order.
 
+**A template's layout is checked against the *rendered* line, not the template's.** A generated
+project runs its own formatter, and a line that fits under 120 characters for `envPrefix=DEMO` may
+not for a longer one — so the template's wrapping would be wrong for that user and their build
+would fail its own format check. Keep contributed lines short enough that they cannot wrap.
+
 `appendLines` dedupes **line by line across the whole file**, which is what a `.gitignore` wants —
 two recipes both ignoring `build/` should produce one entry. It is the wrong tool for a sectioned
 file: in an `.editorconfig`, `indent_size = 2` under one section is not the same statement as
@@ -387,7 +392,9 @@ existence:
 | `containers` | A `compose.yaml` whose application service is named `app` |
 | `java-sources` / `kotlin-sources` | A `src/main/<language>` and `src/test/<language>` tree, for a recipe that has to ship a source file of its own |
 | `http-server` | A configuration package a filter or a security chain can be added to, and a `RequiredEnvironmentValidator` carrying `// kitbash:required-environment` |
-| `spa` | `frontend/src/Gate.tsx` wrapping the application, and an API client, each carrying `// kitbash:imports`; plus `// kitbash:gate` and `// kitbash:headers` |
+| `database` | An abstract `PostgresTestBase` in the root test package, which starts a real database and registers its datasource — so any recipe whose test needs a running application can extend it |
+| `spa` | `frontend/src/Gate.tsx` wrapping the application, and an API client, each carrying `// kitbash:imports`; plus `// kitbash:gate`, `// kitbash:headers`, and `// kitbash:ignores` in the ESLint config |
+| `ci` | A pipeline carrying `# kitbash:jobs`, where a recipe with something to run appends a job. Stages are not extensible: a recipe that could add one could reorder the pipeline |
 
 A build tool knows how to build a JVM project; it does not know which language the project is
 written in. That is why `build-tool` promises markers rather than content: the recipe that brings
@@ -414,6 +421,13 @@ inserts four lines instead of rewriting a file it does not own.
 so a doc comment mentioning `// kitbash:required-environment` by name captured the insertion and
 put live code inside a Javadoc block, which the generated project's formatter then turned into
 prose. Place a marker once, and describe it in the surrounding comment without spelling it out.
+
+**A patch's `lines` are rendered, tags and all.** They go through the same engine as a template, so
+`{% if capabilities contains 'maven-build' %}…{% endif %}` in a line works. It did not until §33:
+the renderer skipped the engine for any string without `{{`, so a line whose only templating was a
+statement tag shipped verbatim — and a generated README told its reader to run
+`{% if … %}./mvnw spring-boot:run{% else %}…`. `NoTemplateSyntaxSurvivesTest` generates across the
+option space and fails if anything that looks like a tag reaches the output.
 
 ---
 

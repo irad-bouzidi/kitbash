@@ -13,6 +13,14 @@ variables:
 files:
   - from: files/**
 
+# One marker this recipe places and owns:
+#
+#   .gitlab-ci.yml   # kitbash:jobs
+#
+# A recipe with something to run in CI appends a job there. Stages are deliberately not
+# extensible: a recipe that could add a stage could also reorder the pipeline, and the two
+# that exist — build, then image — are enough for anything that is not a deployment.
+
 patches:
   - op: insertAtMarker
     target: README.md

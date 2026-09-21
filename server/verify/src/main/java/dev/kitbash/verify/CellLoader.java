@@ -97,6 +97,7 @@ public final class CellLoader {
                     node.path("description").asText(null),
                     node.path("selection").asText(),
                     triggers,
+                    node.path("sharedWorkspace").asBoolean(false),
                     steps);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(file + ": " + e.getMessage(), e);

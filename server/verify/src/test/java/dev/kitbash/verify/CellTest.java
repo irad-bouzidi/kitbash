@@ -98,7 +98,9 @@ class CellTest {
                             "frontend-only",
                             "full-stack",
                             "full-stack-auth",
-                            "full-stack-no-docker");
+                            "full-stack-no-docker",
+                            "full-stack-typed",
+                            "typed-client-contract");
         }
 
         /**
@@ -202,7 +204,7 @@ class CellTest {
         @Test
         @DisplayName("a cell that runs no commands is refused, because it would pass by doing nothing")
         void refusesAnEmptyCell() {
-            assertThatThrownBy(() -> new Cell("empty", null, "s.json", Set.of("nightly"), List.of()))
+            assertThatThrownBy(() -> new Cell("empty", null, "s.json", Set.of("nightly"), false, List.of()))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("verifies nothing");
         }
@@ -213,6 +215,33 @@ class CellTest {
     class ContainerCommand {
 
         private final Containers containers = new Containers(Containers.DEFAULT_IMAGES, "2", "4g", 900);
+
+        /**
+         * §33's typed client is produced by one ecosystem and consumed by the other, so its cell
+         * asks for one working tree. The mount point differs per image and the volume does not —
+         * get that backwards and the second step silently builds the original project, which is a
+         * green cell proving nothing.
+         */
+        @Test
+        @DisplayName("a shared workspace mounts one volume at each image's own workspace path")
+        void mountsTheSharedVolumeWhereEachImageLooks() {
+            Cell.Step jvm = new Cell.Step("jvm", ".", List.of("./gradlew build"));
+            Cell.Step node = new Cell.Step("node", "frontend", List.of("pnpm build"));
+
+            assertThat(containers.commandFor(jvm, Path.of("/tmp/p"), "shared"))
+                    .containsSequence("-v", "shared:/workspace");
+            assertThat(containers.commandFor(node, Path.of("/tmp/p"), "shared")).containsSequence("-v", "shared:/work");
+        }
+
+        @Test
+        @DisplayName("without one, nothing is mounted and every step starts from the same clean copy")
+        void mountsNothingByDefault() {
+            Cell.Step jvm = new Cell.Step("jvm", ".", List.of("./gradlew build"));
+
+            assertThat(containers.commandFor(jvm, Path.of("/tmp/p")))
+                    .noneMatch(argument -> argument.startsWith("shared:"))
+                    .containsSequence("-v", "/tmp/p:/input:ro");
+        }
 
         @Test
         @DisplayName("carries every §13 limit, and mounts the project read-only")

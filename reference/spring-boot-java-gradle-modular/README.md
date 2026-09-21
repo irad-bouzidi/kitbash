@@ -6,7 +6,7 @@
 - **Backend** — Spring Boot 3.5.5 on Java 21, modular-monolith architecture
 - **Database** — Postgres, with Flyway migrations and JPA
 - **Auth** — JWT bearer tokens, validated as an OAuth2 resource server
-- **Observability** — Actuator, Micrometer and a Prometheus endpoint{% if tracing %}, with OpenTelemetry tracing over OTLP{% endif %}
+- **Observability** — Actuator, Micrometer and a Prometheus endpoint
 - **Containers** — a compose file wiring the stack together, with healthchecks and non-root images
 - **CI** — GitLab CI: build, test, format check, and a container image on the default branch
 <!-- kitbash:stack -->

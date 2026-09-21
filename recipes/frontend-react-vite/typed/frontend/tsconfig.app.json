@@ -1,0 +1,32 @@
+{
+  "$comment": [
+    "Identical to the version generated without the typed client, minus erasableSyntaxOnly.",
+    "openapi-generator's runtime uses TypeScript parameter properties, which that flag forbids,",
+    "and generated code is not ours to restyle. The flag only bans syntax a bundler has to strip,",
+    "which Vite does either way, so the cost is small and the alternative — a second TypeScript",
+    "project just for src/lib/api — is a build nobody would enjoy debugging."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

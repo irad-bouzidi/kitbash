@@ -6,6 +6,8 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
+  // kitbash:ignores — generated directories a recipe adds. Linting generated code reports
+  // nothing anybody will act on and buries the warnings that matter.
   { ignores: ['dist', 'coverage'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],

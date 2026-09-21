@@ -1,0 +1,19 @@
+{
+  "id": "full-stack-typed",
+  "description": "Both halves with the typed client on: the JVM build describes the API, openapi-generator turns that into TypeScript, and the frontend typechecks against it.",
+  "selection": "selections/phase3-full-stack-typed.json",
+  "triggers": ["merge-request", "nightly"],
+  "sharedWorkspace": true,
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon", "./gradlew generateApiClient --no-daemon"]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm typecheck", "pnpm test", "pnpm build"]
+    }
+  ]
+}
