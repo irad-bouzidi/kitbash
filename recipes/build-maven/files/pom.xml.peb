@@ -14,7 +14,6 @@
     <java.version>{{ javaVersion }}</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spotless.version>2.46.1</spotless.version>
-    <palantir-java-format.version>2.57.0</palantir-java-format.version>
     <!-- kitbash:versions -->
   </properties>
 
@@ -23,21 +22,13 @@
   </dependencies>
 
   <build>
+    <!-- kitbash:build -->
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerArgs>
-            <!-- Parameter names survive compilation, which is what lets Spring bind them. -->
-            <arg>-parameters</arg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
       <!--
         Bound to `validate` so `mvn verify` fails on badly formatted code rather than only on
         failing tests — the same rule the Gradle build enforces by making `check` depend on
-        `spotlessCheck`.
+        `spotlessCheck`. Which language it formats is not this recipe's business: the recipe
+        that brings the sources contributes its own block at the marker below.
       -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
@@ -45,17 +36,7 @@
         <version>${spotless.version}</version>
         <configuration>
           <lineEndings>UNIX</lineEndings>
-          <java>
-            <includes>
-              <include>src/**/*.java</include>
-            </includes>
-            <palantirJavaFormat>
-              <version>${palantir-java-format.version}</version>
-            </palantirJavaFormat>
-            <removeUnusedImports/>
-            <trimTrailingWhitespace/>
-            <endWithNewline/>
-          </java>
+          <!-- kitbash:formats -->
         </configuration>
         <executions>
           <execution>

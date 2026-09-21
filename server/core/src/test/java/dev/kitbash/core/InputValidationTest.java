@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Every input is hostile (§13).
@@ -103,6 +104,29 @@ class InputValidationTest {
             assertThatThrownBy(() -> Identifiers.requirePackageName("com.fun.thing"))
                     .hasMessageContaining("Kotlin keyword 'fun'")
                     .hasMessageContaining("com.fun.thing");
+        }
+
+        /**
+         * The Kotlin-only half of the keyword rule, asserted one keyword at a time.
+         *
+         * <p>kitbash-20 added this list before there was a Kotlin backend, on §13's reasoning that
+         * a package accepted today survives in somebody's preset and share link. kitbash-29 added
+         * the backend, which turns the list from a prediction into a contract: each of these is a
+         * package segment that `kotlinc` refuses outright, and the ones below are exactly the ones
+         * Java's own keyword list does *not* already catch — so a regression here would be silent
+         * against the Java tests and loud against a generated Kotlin project.
+         */
+        @ParameterizedTest(name = "com.{0}.thing")
+        @ValueSource(strings = {"fun", "val", "var", "object", "when", "is", "in", "typealias"})
+        @DisplayName("a Kotlin-only keyword is refused as a package segment")
+        void refusesKotlinOnlyKeywords(String keyword) {
+            assertThatCode(() -> Identifiers.requirePackageName("com.ok" + keyword + ".thing"))
+                    .as("only the whole segment is a keyword; '%s' inside a longer word is fine", keyword)
+                    .doesNotThrowAnyException();
+
+            assertThatThrownBy(() -> Identifiers.requirePackageName("com." + keyword + ".thing"))
+                    .isInstanceOf(GenerationException.class)
+                    .hasMessageContaining("Kotlin keyword '" + keyword + "'");
         }
     }
 

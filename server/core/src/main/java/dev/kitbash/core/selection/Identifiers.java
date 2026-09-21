@@ -100,11 +100,13 @@ public final class Identifiers {
             "_");
 
     /**
-     * Kotlin's hard keywords, rejected now although the Kotlin backend is phase 3.
+     * Kotlin's hard keywords, rejected since kitbash-20 and load-bearing since kitbash-29.
      *
-     * <p>§13 asks for this deliberately: a package name accepted today ends up in someone's
-     * history, their preset and their share link, and tightening the rule later would turn those
-     * into 400s. The ones Java does not already forbid are what matter — {@code fun}, {@code val},
+     * <p>§13 asked for this before there was a Kotlin backend to need it: a package name accepted
+     * today ends up in someone's history, their preset and their share link, and tightening the
+     * rule later would turn those into 400s. §29 added the backend, so the rule now refuses
+     * packages that would genuinely not compile rather than packages that would not compile
+     * later. The ones Java does not already forbid are what matter — {@code fun}, {@code val},
      * {@code var}, {@code object}, {@code when}, {@code is}, {@code in}, {@code typealias}.
      */
     private static final Set<String> KOTLIN_KEYWORDS = Set.of(
@@ -240,8 +242,7 @@ public final class Identifiers {
                     field,
                     value,
                     "must not use the Kotlin keyword '" + segment + "' as a segment",
-                    "The Kotlin backend arrives in phase 3 and would refuse this package then. Rejecting "
-                            + "it now costs a rename; accepting it would cost a broken saved preset later.");
+                    "kotlinc would refuse the generated source outright. Rename the segment.");
         }
     }
 

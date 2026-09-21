@@ -26,10 +26,13 @@ version: 1.4.0                   # the recipe's own semver
 frameworkVersion: "3.5.5"        # what it emits, surfaced in the UI
 kind: backend                    # base | backend | frontend | mobile | feature | infra | ci
 label: Spring Boot (Java)
+slot: backend                    # the option that selects it
 
-provides: [http-server, rest-api, openapi-spec, jvm-project]
+provides: [http-server, rest-api, openapi-spec, jvm-project, java-sources]
 requires: [build-tool, database]
-conflictsWith: [backend-spring-kotlin]
+# No `conflictsWith: [backend-spring-kotlin]`, although the two really are exclusive: they share
+# the `backend` slot, a slot holds one recipe, and the loader refuses a conflict that only says
+# that again. See "a slot holds one recipe" below.
 
 hook: true                       # a hook is registered for this id in core (see docs/hooks.md)
 
@@ -373,8 +376,21 @@ existence:
 | Capability | Also guarantees |
 | --- | --- |
 | `project-root` | A `README.md` carrying the five `<!-- kitbash:… -->` section markers, a `.gitignore`, a `.env.example`, and an `.editorconfig` carrying `# kitbash:sections` |
-| `build-tool` | A build file with a `dependencies` block, and a version catalog carrying `# kitbash:versions`, `# kitbash:libraries` and `# kitbash:plugins` |
+| `build-tool` | A build file with a `dependencies` block and four markers — one for plugins, one for project-level build configuration, one for formatter configuration, one for version declarations — plus, on Gradle, a version catalog carrying `# kitbash:versions`, `# kitbash:libraries` and `# kitbash:plugins` |
 | `containers` | A `compose.yaml` whose application service is named `app` |
+| `java-sources` / `kotlin-sources` | A `src/main/<language>` and `src/test/<language>` tree, for a recipe that has to ship a source file of its own |
+
+A build tool knows how to build a JVM project; it does not know which language the project is
+written in. That is why `build-tool` promises markers rather than content: the recipe that brings
+the sources contributes the formatter configuration and the compile settings, and a Kotlin project
+does not carry a Java formatter for files it does not have. §29 is where that stopped being theory —
+`build-gradle-kts` had quietly named `palantir-java-format` and configured `JavaCompile`, and the
+second language is what made it visible.
+
+`java-sources` and `kotlin-sources` exist for the same reason and at a finer grain than
+`jvm-project`: two backends provide `jvm-project`, so a recipe that must emit an integration test
+cannot use it to choose a language. The database recipe carries the same test twice, one tree per
+language, selected by a `when` on these.
 
 That last one is what lets the database recipe wire `depends_on` without naming the container
 recipe. Recipes still never name each other (§4); they agree on a contract that the capability

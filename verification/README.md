@@ -66,9 +66,15 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-The four cells today are the four §17 asks for: backend only, frontend only, both, and both
-with containers declined. The frontend-only case is the one most likely to break silently,
+Four of the seven cells today are the four §17 asks for: backend only, frontend only, both, and
+both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
+
+The other three are one per axis the catalog has grown, because an axis is only proven by building
+along it: `backend-maven` (§28's second build tool), `backend-kotlin` (§29's second language), and
+`backend-kotlin-maven`, the diagonal where both differ from the phase 0 stack at once. The diagonal
+is not redundant — it is the only cell that would catch a recipe fragment that is correct for
+Kotlin-on-Gradle and for Java-on-Maven and wrong for their combination.
 
 ## What is here
 
@@ -76,7 +82,7 @@ which is why it is a cell rather than an assumption.
 | --- | --- |
 | `cells/*.json` | One file per cell: a selection, its triggers, and one step per ecosystem. |
 | `selections/*.json` | The §7 envelopes the cells generate from. |
-| `images/jvm/**` | JDK 21, warm Gradle **and** Maven caches, `unzip`, `git`. Nothing else. |
+| `images/jvm/**` | JDK 21, warm Gradle, Kotlin and Maven caches, `unzip`, `git`. Nothing else. |
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
@@ -117,6 +123,17 @@ is what Maven itself reads to decide where the artefacts go. Warming with only o
 leaves the cell re-downloading the other half — which is how `backend-maven` came to take 72s
 against `backend-only`'s 22s before the image warmed it. With both set and `test-compile` run at
 image-build time, it takes 25s.
+
+Kotlin arrived with §29 and needed no new mechanism, only another warm-up: the compiler, the
+`spring`/`jpa` compiler plugins and the standard library are another sixty-odd megabytes that
+`backend-kotlin` would otherwise fetch before compiling a line. It warms from the Kotlin reference
+project, which is a real project like the other two.
+
+One cell is deliberately left cold: `backend-kotlin-maven` takes 63s against the others' 20–37s,
+because the Kotlin *Maven* plugin lives in the Maven repository and nothing in the image puts it
+there. Warming it would mean a Kotlin Maven project inside `images/jvm/`, and that is a fourth
+project to keep in step with the recipes in exchange for forty seconds of a 600s budget. Worth
+revisiting when the budget is tight; not before.
 
 The Node image has the same shape of trap. Corepack downloads the pnpm version a project pins in
 `packageManager` and caches it under `$COREPACK_HOME`, which defaults to the *current user's*

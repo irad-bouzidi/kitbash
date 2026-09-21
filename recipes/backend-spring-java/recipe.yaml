@@ -6,12 +6,15 @@ kind: backend
 label: Spring Boot (Java)
 slot: backend
 
-provides: [http-server, rest-api, openapi-spec, jvm-project]
+# `java-sources` is what lets a recipe that needs to ship a source file — the database recipe's
+# integration test — know which language to ship, without naming this recipe (§4). `jvm-project`
+# is not enough for that: §29 added a second JVM language, and both provide it.
+provides: [http-server, rest-api, openapi-spec, jvm-project, java-sources]
 requires: [project-root, build-tool, database]
-# No conflictsWith yet. The Kotlin backend arrives in kitbash-29 and the two are mutually
-# exclusive, but declaring a conflict against a recipe that does not exist is dead
-# configuration — the loader refuses it for that reason, and adding the entry is part of
-# adding the recipe it names.
+# Still no conflictsWith, and now for a better reason than "the recipe does not exist yet".
+# §29 added `backend-spring-kotlin` in this same `backend` slot, and a slot holds one recipe —
+# so the two already exclude each other and the loader refuses a conflictsWith that says so
+# again. See docs/recipe-format.md.
 
 options:
   - id: architecture
@@ -49,9 +52,11 @@ patches:
   #
   # Two build tools means two spellings of the same idea, selected by a `when` on the capability
   # each build tool provides rather than by a branch in the engine (§28) — and by a capability
-  # rather than a recipe id, because §4 is explicit that recipes never name each other. What is *not* duplicated is the dependency list below: an
-  # addDependency names the module it belongs to and the applier resolves the build file, so
-  # adding Maven did not double it — which is exactly the cost §18 was worried about.
+  # rather than a recipe id, because §4 is explicit that recipes never name each other.
+  #
+  # What is *not* duplicated is the dependency list below: an addDependency names the module it
+  # belongs to and the applier resolves the build file, so adding Maven did not double it —
+  # which is exactly the cost §18 was worried about.
   - op: insertAtMarker
     target: build.gradle.kts
     when: "capability('gradle-build')"
@@ -65,6 +70,7 @@ patches:
     when: "capability('gradle-build')"
     marker: "# kitbash:versions"
     lines:
+      - 'palantir-java-format = "2.57.0"'
       - 'spring-boot = "3.5.5"'
       - 'spring-dependency-management = "1.1.7"'
 
@@ -75,6 +81,35 @@ patches:
     lines:
       - 'spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }'
       - 'spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }'
+
+  # Java the language, not Spring the framework — but this is the only recipe that brings Java
+  # sources, so it is the recipe that says how they are compiled and formatted. §29 moved both
+  # blocks out of `build-gradle-kts`, which had quietly become a Java recipe: it named the
+  # palantir formatter and configured `JavaCompile`, and a Kotlin project generated from it
+  # would have carried a formatter for a language it does not contain.
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "capability('gradle-build')"
+    marker: "// kitbash:build"
+    lines:
+      - "tasks.withType<JavaCompile>().configureEach {"
+      - '    options.encoding = "UTF-8"'
+      - '    options.compilerArgs.add("-parameters")'
+      - "}"
+      - ""
+
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "capability('gradle-build')"
+    marker: "// kitbash:formats"
+    lines:
+      - "    java {"
+      - '        target("src/**/*.java")'
+      - "        palantirJavaFormat(libs.versions.palantir.java.format.get())"
+      - "        removeUnusedImports()"
+      - "        trimTrailingWhitespace()"
+      - "        endWithNewline()"
+      - "    }"
 
   # Maven's equivalent of those two plugins: the parent pins every starter's version, and the
   # boot plugin builds the executable jar. The parent has to come before <groupId>, which is
@@ -97,9 +132,44 @@ patches:
     marker: "<!-- kitbash:plugins -->"
     lines:
       - "      <plugin>"
+      - "        <groupId>org.apache.maven.plugins</groupId>"
+      - "        <artifactId>maven-compiler-plugin</artifactId>"
+      - "        <configuration>"
+      - "          <compilerArgs>"
+      - "            <!-- Parameter names survive compilation, which is what lets Spring bind them. -->"
+      - "            <arg>-parameters</arg>"
+      - "          </compilerArgs>"
+      - "        </configuration>"
+      - "      </plugin>"
+      - "      <plugin>"
       - "        <groupId>org.springframework.boot</groupId>"
       - "        <artifactId>spring-boot-maven-plugin</artifactId>"
       - "      </plugin>"
+
+  # The Maven spellings of the two Gradle blocks above.
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:versions -->"
+    lines:
+      - "    <palantir-java-format.version>2.57.0</palantir-java-format.version>"
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:formats -->"
+    lines:
+      - "          <java>"
+      - "            <includes>"
+      - "              <include>src/**/*.java</include>"
+      - "            </includes>"
+      - "            <palantirJavaFormat>"
+      - "              <version>${palantir-java-format.version}</version>"
+      - "            </palantirJavaFormat>"
+      - "            <removeUnusedImports/>"
+      - "            <trimTrailingWhitespace/>"
+      - "            <endWithNewline/>"
+      - "          </java>"
 
   # Versionless coordinates on purpose: the Spring Boot BOM manages them, and pinning
   # one here would freeze it while the BOM moved (see docs/hooks.md).

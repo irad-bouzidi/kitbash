@@ -1,0 +1,10 @@
+package {{ packageName }}.repository
+
+import {{ packageName }}.domain.{{ entityName }}
+import org.springframework.data.jpa.repository.JpaRepository
+
+interface {{ entityName }}Repository : JpaRepository<{{ entityName }}, Long> {
+    fun findByName(name: String): {{ entityName }}?
+
+    fun existsByName(name: String): Boolean
+}

@@ -47,6 +47,16 @@ RUN cd /tmp/warmup \
     && cd / && rm -rf /tmp/warmup \
     && rm -rf "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/native"
 
+# And once more for Kotlin (§29), whose compiler, plugins and standard library are another
+# 60-odd megabytes that every Kotlin cell would otherwise fetch before compiling a line. The
+# Kotlin reference project is a real project like the other two, so this warms exactly the
+# coordinates the generated Kotlin projects resolve.
+COPY reference/spring-boot-kotlin-gradle-layered /tmp/kotlin-warmup
+RUN cd /tmp/kotlin-warmup \
+    && ./gradlew build -x test compileTestKotlin --no-daemon \
+    && cd / && rm -rf /tmp/kotlin-warmup \
+    && rm -rf "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/native"
+
 # The same warm-up, against the Maven reference project. Without it the Maven cell re-downloaded
 # Maven itself plus Spring Boot, Flyway and Testcontainers on every run — 72 seconds against the
 # 22 the Gradle cell takes, for work the image can do once.

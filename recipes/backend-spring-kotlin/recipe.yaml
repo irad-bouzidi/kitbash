@@ -1,0 +1,339 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: backend-spring-kotlin
+version: 1.0.0
+frameworkVersion: "3.5.5"
+kind: backend
+label: Spring Boot (Kotlin)
+slot: backend
+
+# The same `provides` set as the Java backend, minus the language: whatever requires `rest-api`
+# gets it from either, which is the whole point of §29. `kotlin-sources` is the one entry that
+# differs, and it exists so a recipe shipping a source file — the database recipe's integration
+# test — can pick the right language without naming a backend (§4).
+provides: [http-server, rest-api, openapi-spec, jvm-project, kotlin-sources]
+requires: [project-root, build-tool, database]
+# No conflictsWith with `backend-spring-java`: both are in the `backend` slot, a slot holds one
+# recipe, and the loader refuses a conflict that only restates that. See docs/recipe-format.md.
+
+options:
+  - id: architecture
+    type: enum
+    values: [layered]
+    default: layered
+    label: Architecture
+    help: >-
+      Determines the package layout and the direction dependencies are allowed to point.
+      Hexagonal and modular-monolith arrive in phase 3; the option exists now so the value
+      is recorded in every selection and lock from the start.
+
+variables:
+  required: [groupId, packageName, javaVersion, entityName, entityTable, envPrefix]
+
+files:
+  - from: files/**
+  # The image that runs this backend belongs to this recipe, not to the container recipe.
+  #
+  # It is byte-identical to the Java backend's today, and deliberately a second copy rather than
+  # something shared: §29 asked for two honest recipe trees over one clever one, and the moment
+  # the two images diverge — a Kotlin-specific build flag, a different base image — the copy is
+  # what makes that a one-line edit instead of a conditional.
+  - from: container/**
+    when: "capability('containers')"
+
+patches:
+  - op: addComposeService
+    target: compose.yaml
+    when: "capability('containers')"
+    service: app
+    definition:
+      build: "."
+      ports:
+        - "8080:8080"
+
+  # Three compiler plugins, not one. `kotlin.jvm` compiles; `plugin.spring` opens the classes
+  # Spring proxies (a Kotlin class is final, and a final @Service cannot be wrapped in a
+  # transaction proxy); `plugin.jpa` synthesises the no-arg constructor JPA constructs entities
+  # with. All three are the framework's business, which is why they are inserted here rather
+  # than carried by the build-tool recipe (§19).
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "capability('gradle-build')"
+    marker: "// kitbash:plugins"
+    lines:
+      - "    alias(libs.plugins.kotlin.jvm)"
+      - "    alias(libs.plugins.kotlin.spring)"
+      - "    alias(libs.plugins.kotlin.jpa)"
+      - "    alias(libs.plugins.spring.boot)"
+      - "    alias(libs.plugins.spring.dependency.management)"
+
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    when: "capability('gradle-build')"
+    marker: "# kitbash:versions"
+    lines:
+      - 'ktlint = "1.5.0"'
+      - 'kotlin = "2.1.21"'
+      - 'spring-boot = "3.5.5"'
+      - 'spring-dependency-management = "1.1.7"'
+
+  - op: insertAtMarker
+    target: gradle/libs.versions.toml
+    when: "capability('gradle-build')"
+    marker: "# kitbash:plugins"
+    lines:
+      - 'kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }'
+      - 'kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }'
+      - 'kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }'
+      - 'spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }'
+      - 'spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }'
+
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "capability('gradle-build')"
+    marker: "// kitbash:build"
+    lines:
+      - "kotlin {"
+      - "    compilerOptions {"
+      - "        // Treat JSR-305 nullability annotations on Java APIs as Kotlin's own. Without it every"
+      - "        // Spring return type is a platform type and the compiler stops checking the thing the"
+      - "        // language exists to check."
+      - '        freeCompilerArgs.add("-Xjsr305=strict")'
+      - "    }"
+      - "}"
+      - ""
+      - "// Kotlin classes are final, and Hibernate subclasses entities for lazy proxies. `plugin.jpa`"
+      - "// supplies the no-arg constructor JPA needs; this makes the classes open. Both are compiler"
+      - "// plugins rather than `open` keywords in the source, so the domain model stays readable."
+      - "allOpen {"
+      - '    annotation("jakarta.persistence.Entity")'
+      - '    annotation("jakarta.persistence.MappedSuperclass")'
+      - '    annotation("jakarta.persistence.Embeddable")'
+      - "}"
+      - ""
+
+  # §15 wants a format check that fails the build, and ktlint is Kotlin's answer to what
+  # palantir-java-format is for Java. It runs as a spotless step rather than as its own plugin:
+  # the build-tool recipe already wires `spotlessCheck` into `check`, so a second linting plugin
+  # would be a second way to fail the same build.
+  - op: insertAtMarker
+    target: build.gradle.kts
+    when: "capability('gradle-build')"
+    marker: "// kitbash:formats"
+    lines:
+      - "    kotlin {"
+      - '        target("src/**/*.kt")'
+      - "        ktlint(libs.versions.ktlint.get())"
+      - "        trimTrailingWhitespace()"
+      - "        endWithNewline()"
+      - "    }"
+
+  # The Maven spellings of everything above. The parent has to come before <groupId>, which is
+  # where the build-tool recipe put its marker.
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:parent -->"
+    lines:
+      - "  <parent>"
+      - "    <groupId>org.springframework.boot</groupId>"
+      - "    <artifactId>spring-boot-starter-parent</artifactId>"
+      - "    <version>3.5.5</version>"
+      - "    <relativePath/>"
+      - "  </parent>"
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:versions -->"
+    lines:
+      - "    <kotlin.version>2.1.21</kotlin.version>"
+      - "    <ktlint.version>1.5.0</ktlint.version>"
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:formats -->"
+    lines:
+      - "          <kotlin>"
+      - "            <includes>"
+      - "              <include>src/**/*.kt</include>"
+      - "            </includes>"
+      - "            <ktlint>"
+      - "              <version>${ktlint.version}</version>"
+      - "            </ktlint>"
+      - "            <trimTrailingWhitespace/>"
+      - "            <endWithNewline/>"
+      - "          </kotlin>"
+
+  # Maven has no equivalent of the Kotlin Gradle plugin's source-set conventions, so the source
+  # directories are named here. Moving Maven's own roots rather than only the Kotlin plugin's is
+  # what stops every build warning "Source root doesn't exist: src/main/java" about a directory
+  # a Kotlin project has no reason to have.
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:build -->"
+    lines:
+      - "    <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>"
+      - "    <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>"
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:plugins -->"
+    lines:
+      - "      <plugin>"
+      - "        <groupId>org.jetbrains.kotlin</groupId>"
+      - "        <artifactId>kotlin-maven-plugin</artifactId>"
+      - "        <configuration>"
+      - "          <args>"
+      - "            <arg>-Xjsr305=strict</arg>"
+      - "          </args>"
+      - "          <compilerPlugins>"
+      - "            <plugin>spring</plugin>"
+      - "            <plugin>jpa</plugin>"
+      - "          </compilerPlugins>"
+      - "        </configuration>"
+      - "        <dependencies>"
+      - "          <dependency>"
+      - "            <groupId>org.jetbrains.kotlin</groupId>"
+      - "            <artifactId>kotlin-maven-allopen</artifactId>"
+      - "            <version>${kotlin.version}</version>"
+      - "          </dependency>"
+      - "          <dependency>"
+      - "            <groupId>org.jetbrains.kotlin</groupId>"
+      - "            <artifactId>kotlin-maven-noarg</artifactId>"
+      - "            <version>${kotlin.version}</version>"
+      - "          </dependency>"
+      - "        </dependencies>"
+      - "        <executions>"
+      - "          <execution>"
+      - "            <id>compile</id>"
+      - "            <phase>compile</phase>"
+      - "            <goals>"
+      - "              <goal>compile</goal>"
+      - "            </goals>"
+      - "          </execution>"
+      - "          <execution>"
+      - "            <id>test-compile</id>"
+      - "            <phase>test-compile</phase>"
+      - "            <goals>"
+      - "              <goal>test-compile</goal>"
+      - "            </goals>"
+      - "          </execution>"
+      - "        </executions>"
+      - "      </plugin>"
+      - "      <plugin>"
+      - "        <groupId>org.springframework.boot</groupId>"
+      - "        <artifactId>spring-boot-maven-plugin</artifactId>"
+      - "      </plugin>"
+
+  # Versionless coordinates on purpose: the Spring Boot BOM manages them, and pinning
+  # one here would freeze it while the BOM moved (see docs/hooks.md).
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-web
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-validation
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-actuator
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9
+    versionRef: springdoc-openapi-webmvc
+  # Jackson cannot see a Kotlin data class's constructor parameters or its nullability without
+  # this module, and a request body would deserialise with nulls in non-null fields.
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: com.fasterxml.jackson.module:jackson-module-kotlin
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.jetbrains.kotlin:kotlin-reflect
+  # Gradle's Kotlin plugin puts the standard library on the classpath by itself; Maven's does
+  # not, so this one declaration is genuinely build-tool-specific rather than duplicated.
+  - op: addDependency
+    target: .
+    when: "capability('maven-build')"
+    configuration: implementation
+    coordinate: org.jetbrains.kotlin:kotlin-stdlib
+  - op: addDependency
+    target: .
+    configuration: testImplementation
+    coordinate: org.springframework.boot:spring-boot-starter-test
+  - op: addDependency
+    target: .
+    configuration: testRuntimeOnly
+    coordinate: org.junit.platform:junit-platform-launcher
+
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Kotlin"
+      - "*.class"
+      - "hs_err_pid*"
+      - "replay_pid*"
+
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_ENVIRONMENT_NAME"
+    value: local
+    comment: Free-text environment label, reported by /actuator/info and the OpenAPI description.
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Backend** — Spring Boot {{ frameworkVersion }} on Kotlin, JVM {{ javaVersion }}, {{ architecture }} architecture"
+
+  # Only when there is no container recipe to give a shorter first command. §15 wants
+  # the README's first screen to name the one command that starts the project.
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:start -->"
+    when: "!capability('containers')"
+    lines:
+      - "```bash"
+      - "cp .env.example .env          # then export it, or let your IDE load it"
+      - "{% if capabilities contains 'maven-build' %}./mvnw spring-boot:run{% else %}./gradlew bootRun{% endif %}"
+      - "```"
+      - ""
+      - "The service listens on **http://localhost:8080**. The API is at `/api/{{ entityTable }}`,"
+      - "documented at `/swagger-ui.html`, health at `/actuator/health`."
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:layout -->"
+    lines:
+      - "```"
+      - "src/main/kotlin/{{ packageName | packagePath }}/"
+      - "  controller/   HTTP: request and response data classes, the REST controller, the error handler"
+      - "  service/      business rules and transaction boundaries"
+      - "  repository/   Spring Data interfaces"
+      - "  domain/       entities"
+      - "  config/       properties, startup validation, cross-cutting filters"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Configuration is validated at startup.** Every variable in `.env.example` is required;"
+      - "  missing ones are reported together, by name, before the context loads."
+      - "- **Logs are JSON**, one object per line, with the correlation id as a field. Every request"
+      - "  gets an `X-Correlation-Id` (the caller's, if supplied) and it is echoed in the response."
+      - "- **Errors are RFC 9457 problem documents**, never stack traces."
+      - "- **Validation annotations need `@field:`.** A constructor parameter can annotate the"
+      - "  parameter, the property or the field, and Jakarta Validation only reads the field."
