@@ -129,7 +129,11 @@
           ],
           "description": "The eight operations of §4. The set is closed: a ninth is a design discussion, not a manifest change."
         },
-        "target": { "type": "string", "minLength": 1 },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The file this patch edits — except for addDependency, where it is the module directory ('.' for the root) and the applier finds that module's build file."
+        },
         "when": { "type": "string", "minLength": 1 }
       },
       "allOf": [

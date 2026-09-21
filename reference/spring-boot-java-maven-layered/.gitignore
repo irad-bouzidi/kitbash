@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Maven
+target/
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*

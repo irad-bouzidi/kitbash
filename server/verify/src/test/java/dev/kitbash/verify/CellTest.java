@@ -63,14 +63,18 @@ class CellTest {
         }
 
         @Test
-        @DisplayName("the four §17 combinations are all covered")
-        void coversTheFourCombinations() {
-            // backend only, frontend only, both, and both with Docker declined. The frontend-only
-            // case is the one most likely to break silently, which is why it is a cell rather
-            // than an assumption.
+        @DisplayName("the §17 combinations are all covered, and so is the second build tool")
+        void coversTheCombinations() {
+            // backend only, frontend only, both, and both with Docker declined (§17). The
+            // frontend-only case is the one most likely to break silently, which is why it is a
+            // cell rather than an assumption.
+            //
+            // backend-maven is §28's: a second build tool is only proven by building with it, and
+            // an assertion that the other four still pass says nothing about the fifth.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
-                    .containsExactlyInAnyOrder("backend-only", "frontend-only", "full-stack", "full-stack-no-docker");
+                    .containsExactlyInAnyOrder(
+                            "backend-only", "backend-maven", "frontend-only", "full-stack", "full-stack-no-docker");
         }
 
         @Test

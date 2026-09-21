@@ -16,34 +16,34 @@ files:
 
 patches:
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.springframework.boot:spring-boot-starter-data-jpa
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.flywaydb:flyway-core:11.10.5
     versionRef: flyway-core
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: runtimeOnly
     coordinate: org.flywaydb:flyway-database-postgresql:11.10.5
     versionRef: flyway-postgresql
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: runtimeOnly
     coordinate: org.postgresql:postgresql
     versionRef: postgresql
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: testImplementation
     coordinate: org.springframework.boot:spring-boot-testcontainers
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: testImplementation
     coordinate: org.testcontainers:junit-jupiter
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: testImplementation
     coordinate: org.testcontainers:postgresql
 

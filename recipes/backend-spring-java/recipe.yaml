@@ -43,11 +43,18 @@ patches:
       ports:
         - "8080:8080"
 
-  # Spring's plugins, not Gradle's: the build-tool recipe knows how to build a JVM
-  # project and nothing about frameworks, so the two plugin aliases and their versions
-  # are inserted here at the markers it placed (§19).
+  # Spring's plugins, not the build tool's: the build-tool recipe knows how to build a JVM
+  # project and nothing about frameworks, so the framework's own build configuration is
+  # inserted here at the markers it placed (§19).
+  #
+  # Two build tools means two spellings of the same idea, selected by a `when` on the capability
+  # each build tool provides rather than by a branch in the engine (§28) — and by a capability
+  # rather than a recipe id, because §4 is explicit that recipes never name each other. What is *not* duplicated is the dependency list below: an
+  # addDependency names the module it belongs to and the applier resolves the build file, so
+  # adding Maven did not double it — which is exactly the cost §18 was worried about.
   - op: insertAtMarker
     target: build.gradle.kts
+    when: "capability('gradle-build')"
     marker: "// kitbash:plugins"
     lines:
       - "    alias(libs.plugins.spring.boot)"
@@ -55,6 +62,7 @@ patches:
 
   - op: insertAtMarker
     target: gradle/libs.versions.toml
+    when: "capability('gradle-build')"
     marker: "# kitbash:versions"
     lines:
       - 'spring-boot = "3.5.5"'
@@ -62,36 +70,62 @@ patches:
 
   - op: insertAtMarker
     target: gradle/libs.versions.toml
+    when: "capability('gradle-build')"
     marker: "# kitbash:plugins"
     lines:
       - 'spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }'
       - 'spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }'
 
+  # Maven's equivalent of those two plugins: the parent pins every starter's version, and the
+  # boot plugin builds the executable jar. The parent has to come before <groupId>, which is
+  # where the build-tool recipe put its marker.
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:parent -->"
+    lines:
+      - "  <parent>"
+      - "    <groupId>org.springframework.boot</groupId>"
+      - "    <artifactId>spring-boot-starter-parent</artifactId>"
+      - "    <version>3.5.5</version>"
+      - "    <relativePath/>"
+      - "  </parent>"
+
+  - op: insertAtMarker
+    target: pom.xml
+    when: "capability('maven-build')"
+    marker: "<!-- kitbash:plugins -->"
+    lines:
+      - "      <plugin>"
+      - "        <groupId>org.springframework.boot</groupId>"
+      - "        <artifactId>spring-boot-maven-plugin</artifactId>"
+      - "      </plugin>"
+
   # Versionless coordinates on purpose: the Spring Boot BOM manages them, and pinning
   # one here would freeze it while the BOM moved (see docs/hooks.md).
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.springframework.boot:spring-boot-starter-web
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.springframework.boot:spring-boot-starter-validation
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.springframework.boot:spring-boot-starter-actuator
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: implementation
     coordinate: org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9
     versionRef: springdoc-openapi-webmvc
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: testImplementation
     coordinate: org.springframework.boot:spring-boot-starter-test
   - op: addDependency
-    target: build.gradle.kts
+    target: .
     configuration: testRuntimeOnly
     coordinate: org.junit.platform:junit-platform-launcher
 
@@ -127,7 +161,7 @@ patches:
     lines:
       - "```bash"
       - "cp .env.example .env          # then export it, or let your IDE load it"
-      - "./gradlew bootRun"
+      - "{% if capabilities contains 'maven-build' %}./mvnw spring-boot:run{% else %}./gradlew bootRun{% endif %}"
       - "```"
       - ""
       - "The service listens on **http://localhost:8080**. The API is at `/api/{{ entityTable }}`,"

@@ -23,13 +23,15 @@ public final class PebbleRenderStage implements RenderStage {
 
     @Override
     public Workspace render(FilePlan plan, Selection selection, Resolution resolution) {
-        TemplateVariables variables = TemplateVariables.of(selection, resolution.effectiveOptions());
+        TemplateVariables variables =
+                TemplateVariables.of(selection, resolution.effectiveOptions(), resolution.capabilities());
         return Renderer.render(plan, variables, perRecipe(resolution, variables));
     }
 
     @Override
     public List<PatchOp> renderPatches(List<PatchOp> ops, Selection selection, Resolution resolution) {
-        TemplateVariables variables = TemplateVariables.of(selection, resolution.effectiveOptions());
+        TemplateVariables variables =
+                TemplateVariables.of(selection, resolution.effectiveOptions(), resolution.capabilities());
         Map<RecipeId, TemplateVariables> perRecipe = perRecipe(resolution, variables);
         TemplateEngine engine = TemplateEngine.over(TemplateRegistry.empty());
         return ops.stream()

@@ -16,6 +16,17 @@ RUN apt-get update \
 ENV GRADLE_USER_HOME=/opt/gradle-home
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.welcome=never"
 
+# Maven's equivalent, added by §28 when Maven became a selectable build tool. Outside the build
+# user's home for the same reason Gradle's is: the warm-up runs as root and the cell runs as
+# `builder`, and a cache in root's home is a cache the cell cannot read — the mistake the Node
+# image's corepack cache made (see verification/README.md).
+#
+# Both variables are needed and they mean different things. MAVEN_USER_HOME is what the wrapper
+# script reads to decide where to unpack the Maven distribution; maven.repo.local is what Maven
+# itself reads to decide where the artefacts go. Setting only one warms only half of it.
+ENV MAVEN_USER_HOME=/opt/maven-home
+ENV MAVEN_OPTS="-Dmaven.repo.local=/opt/maven-home/repository"
+
 # Warm the cache by actually building the reference project, then throwing the
 # project away and keeping GRADLE_USER_HOME. Resolving dependencies would warm
 # less: this also populates the Gradle distribution, the wrapper, the Kotlin DSL
@@ -36,9 +47,21 @@ RUN cd /tmp/warmup \
     && cd / && rm -rf /tmp/warmup \
     && rm -rf "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/native"
 
+# The same warm-up, against the Maven reference project. Without it the Maven cell re-downloaded
+# Maven itself plus Spring Boot, Flyway and Testcontainers on every run — 72 seconds against the
+# 22 the Gradle cell takes, for work the image can do once.
+#
+# `test-compile` rather than `package`, for exactly the reason `compileTestJava` is above: it
+# resolves the test classpath, which is where most of those coordinates live, and needs no Docker
+# daemon at image-build time as running the tests would.
+COPY reference/spring-boot-java-maven-layered /tmp/maven-warmup
+RUN cd /tmp/maven-warmup \
+    && ./mvnw -B -q test-compile \
+    && cd / && rm -rf /tmp/maven-warmup
+
 # Generated builds run as a non-root user, as they would on a developer's machine.
 RUN useradd --create-home --shell /bin/bash builder \
-    && chown -R builder:builder "$GRADLE_USER_HOME" \
+    && chown -R builder:builder "$GRADLE_USER_HOME" "$MAVEN_USER_HOME" \
     && mkdir -p /workspace \
     && chown builder:builder /workspace
 USER builder

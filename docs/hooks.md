@@ -76,7 +76,7 @@ So recipes declare ordinary patches:
 ```yaml
 patches:
   - op: addDependency
-    target: build.gradle.kts
+    target: "."
     configuration: implementation
     coordinate: org.springframework.boot:spring-boot-starter-web
     versionRef: spring-boot-starter-web
@@ -105,6 +105,31 @@ Three behaviours worth knowing:
 
 The output is meant to be read: a generated `libs.versions.toml` a human cannot follow defeats the
 point of emitting one, so entries are sorted by alias and duplicates across recipes collapse to one.
+
+### A hook belongs to a recipe, which is what made Maven cheap
+
+§28 added a second build tool and put this design under its first real test. A version catalog is a
+*Gradle* artefact; Maven has no equivalent to assemble. The obvious failure would have been for
+`VersionCatalogHook` to grow a branch — "if the selection is Maven, contribute nothing" — and for
+every later build tool to add another.
+
+It did not, because the hook is registered against `build-gradle-kts` rather than against the
+pipeline. Selecting Maven selects a different recipe, that recipe declares no hook, and the catalog
+question answers itself by never being asked. The recipes that declare the dependencies did not
+change at all:
+
+- a **versioned** coordinate (`org.flywaydb:flyway-core:11.10.5`) carries its version into whichever
+  build file it lands in — a `[versions]` entry and a `version.ref` on Gradle, a `<version>` element
+  on Maven;
+- an **unversioned** one is left floating in both, because both stacks pin it from above: the BOM on
+  Gradle, the `spring-boot-starter-parent` on Maven;
+- `versionRef` is read by the catalog hook and ignored by the pom writer, which is the correct
+  reading of an alias for a catalog that does not exist.
+
+What Maven did need is the thing a hook could not have supplied anyway: `addDependency` had to stop
+naming a build file and start naming a **module**, so that one declaration means `build.gradle.kts`
+or `pom.xml` depending on what the selection put there. That is a property of the patch operation,
+not of the recipe set, and `AddDependencyParityTest` is where it is held to account.
 
 ## Adding a hook
 

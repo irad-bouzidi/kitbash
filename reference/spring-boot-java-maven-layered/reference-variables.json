@@ -1,0 +1,58 @@
+{
+  "$comment": [
+    "The names in this reference project that become generator variables.",
+    "The equality test generates with exactly the selection below and asserts the result",
+    "equals this directory. That test is only meaningful if this file stays accurate, so",
+    "renaming anything below is a change to this file in the same commit.",
+    "",
+    "This is the Maven half of the same stack the Gradle reference describes (§18, §28). The",
+    "sources are identical on purpose: what differs is the build tool, and a second reference",
+    "that also changed the application would be testing two things at once."
+  ],
+  "referenceProject": "spring-boot-java-maven-layered",
+  "recipeIds": [
+    "base",
+    "build-maven",
+    "backend-spring-java",
+    "db-postgres-flyway",
+    "infra-docker",
+    "ci-gitlab"
+  ],
+  "selection": {
+    "schemaVersion": 1,
+    "projectName": "demo",
+    "options": {
+      "buildTool": "build-maven",
+      "backend": "backend-spring-java",
+      "architecture": "layered",
+      "database": "db-postgres-flyway",
+      "ci": "ci-gitlab",
+      "docker": true
+    },
+    "variables": {
+      "groupId": "com.example",
+      "packageName": "com.example.demo",
+      "javaVersion": "21",
+      "entityName": "Widget",
+      "entityTable": "widgets",
+      "envPrefix": "DEMO"
+    }
+  },
+  "literals": {
+    "com/example/demo": "{{ packageName | packagePath }}",
+    "com.example.demo": "{{ packageName }}",
+    "com.example": "{{ groupId }}",
+    "DemoApplication": "{{ projectName | pascal }}Application",
+    "DemoProperties": "{{ projectName | pascal }}Properties",
+    "DEMO_": "{{ envPrefix }}_",
+    "Widget": "{{ entityName }}",
+    "widgets": "{{ entityTable }}",
+    "widget": "{{ entityName | camel }}",
+    "demo": "{{ projectName }}"
+  },
+  "excludeFromExtraction": [
+    "reference-variables.json",
+    "REFERENCE.md",
+    "target/"
+  ]
+}

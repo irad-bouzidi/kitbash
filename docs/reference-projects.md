@@ -4,11 +4,12 @@ A **reference project** under `/reference` is a real project: it compiles, runs 
 own tests without the generator involved. It is the thing being maintained. A recipe is a
 derivative of it, and `ReferenceProjectEqualityTest` is the bind between the two (§4).
 
-There are two today:
+There are three today:
 
 | Directory | What it is | Recipes it covers |
 | --- | --- | --- |
 | `spring-boot-java-gradle-layered` | Spring Boot, Java 21, Gradle, Postgres + Flyway, Docker, GitLab CI | `base`, `build-gradle-kts`, `backend-spring-java`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
+| `spring-boot-java-maven-layered` | The same stack, built with Maven (§28) | `base`, `build-maven`, `backend-spring-java`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
 | `react-vite-ts` | React 19, Vite, TypeScript, standalone (no backend selected) | `base`, `frontend-react-vite`, `infra-docker` |
 
 ## Why this exists
@@ -93,6 +94,7 @@ anybody noticing what.
 | --- | --- |
 | `.gradle/` | Gradle's own working directory. Machine-local, enormous, and never checked in. |
 | `build/` | Compiled output. The verification matrix compiles; this test does not. |
+| `target/` | The same, for Maven. |
 | `frontend/node_modules/` | Installed dependencies. Reproducible from the committed lockfile. |
 | `frontend/dist/` | Vite's build output. |
 | `frontend/coverage/` | Test coverage output. |

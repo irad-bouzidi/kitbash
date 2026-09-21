@@ -34,7 +34,7 @@ final class GradleBuildFile {
 
         Block dependencies = block.get();
         String body = source.substring(dependencies.bodyStart(), dependencies.bodyEnd());
-        if (containsEntry(body, entry)) {
+        if (containsEntry(body, entry) || declaresArtifact(body, notation)) {
             return source;
         }
 
@@ -50,6 +50,43 @@ final class GradleBuildFile {
     /** Whether the block already declares this exact entry, ignoring leading whitespace. */
     private static boolean containsEntry(String body, String entry) {
         return body.lines().map(String::strip).anyMatch(line -> line.equals(entry));
+    }
+
+    /**
+     * Whether the block already declares this <i>artifact</i>, at any version.
+     *
+     * <p>Dedupe by group and name rather than by the whole line, which {@code kitbash-28} found by
+     * asking both build files the same question: the pom applier deduped this way and the Gradle
+     * one did not, so two recipes wanting Flyway at different versions produced one entry on Maven
+     * and two on Gradle. Two entries is the worse answer — which one wins depends on recipe order,
+     * and a build file that lists the same library twice is one somebody has to reason about.
+     *
+     * <p>First declaration wins, which makes the result depend on resolved recipe order rather than
+     * on which version is higher. That is the same rule the rest of the patch engine follows, and
+     * it is the one a reader can predict.
+     */
+    private static boolean declaresArtifact(String body, String notation) {
+        String artifact = artifactOf(notation);
+        if (artifact.isEmpty()) {
+            return false;
+        }
+        return body.lines().map(String::strip).anyMatch(line -> line.contains(artifact));
+    }
+
+    /**
+     * {@code group:name} out of a notation, or empty when there is none to find.
+     *
+     * <p>A version catalog accessor ({@code libs.flyway.core}) has no coordinate in it: the alias
+     * is the identity, so the exact-line check above is the only dedupe available and is enough —
+     * two recipes referring to the same alias produce the same line.
+     */
+    private static String artifactOf(String notation) {
+        if (!notation.startsWith("\"")) {
+            return "";
+        }
+        String coordinate = notation.substring(1, notation.length() - 1);
+        String[] parts = coordinate.split(":");
+        return parts.length >= 2 ? "\"" + parts[0] + ":" + parts[1] : "";
     }
 
     /** The indentation existing entries use, so an inserted line does not stand out in a diff. */
