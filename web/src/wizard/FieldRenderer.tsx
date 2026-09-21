@@ -145,7 +145,9 @@ function unavailableReason(
   if (owners.length === 0) return undefined;
 
   const recipes = resolution?.recipes ?? [];
-  if (recipes.some((recipe) => owners.includes(recipe.id))) return undefined;
+  if (recipes.some((recipe) => recipe.id !== undefined && owners.includes(recipe.id))) {
+    return undefined;
+  }
 
   const labels = owners.map(
     (owner) => recipes.find((recipe) => recipe.id === owner)?.label ?? owner,
@@ -155,6 +157,7 @@ function unavailableReason(
 
 /** "a", "a or b", "a, b or c" — an English list, because this string is read by a person. */
 function formatList(values: string[]): string {
-  if (values.length <= 1) return values[0] ?? '';
-  return `${values.slice(0, -1).join(', ')} or ${values[values.length - 1]}`;
+  const last = values[values.length - 1] ?? '';
+  if (values.length <= 1) return last;
+  return `${values.slice(0, -1).join(', ')} or ${last}`;
 }
