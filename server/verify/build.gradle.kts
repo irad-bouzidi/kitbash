@@ -47,6 +47,8 @@ tasks.named<Test>("test") {
 //
 //   ./gradlew :verify:runMatrix                          # the merge-request cells
 //   ./gradlew :verify:runMatrix -Pkitbash.trigger=nightly
+//   ./gradlew :verify:runMatrix -Pkitbash.enumerate=true            # the full matrix (§35)
+//   ./gradlew :verify:runMatrix -Pkitbash.enumerate=true -Pkitbash.shard=2/6
 val runMatrix by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Generates each cell and builds it in an ecosystem container (§12)."
@@ -59,7 +61,13 @@ val runMatrix by tasks.registering(JavaExec::class) {
         args("--cell", cell)
     } else {
         args("--trigger", providers.gradleProperty("kitbash.trigger").getOrElse("merge-request"))
+        // `-Pkitbash.enumerate=true` runs the full matrix derived from the catalog (§35) instead
+        // of the checked-in cells; `-Pkitbash.shard=k/n` runs one deterministic slice of it.
+        if (providers.gradleProperty("kitbash.enumerate").orNull == "true") {
+            args("--enumerate")
+        }
     }
+    providers.gradleProperty("kitbash.shard").orNull?.let { args("--shard", it) }
 
     // Run from the repository root: the runner finds everything else relative to it, the same
     // way the API and the CLI do.

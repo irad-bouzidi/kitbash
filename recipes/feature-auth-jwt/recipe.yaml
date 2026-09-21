@@ -115,7 +115,7 @@ patches:
     when: "capability('spa')"
     marker: "// kitbash:headers"
     lines:
-      - "      ...authHeaders(),"
+      - "    ...authHeaders(),"
 
   - op: insertAtMarker
     target: frontend/src/Gate.tsx

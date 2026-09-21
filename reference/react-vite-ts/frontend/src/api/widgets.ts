@@ -40,12 +40,25 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Headers every request carries beyond the obvious one.
+ *
+ * Empty until a recipe adds to it, and shaped exactly like the typed client's so that one patch
+ * line serves both: a marker at a different indentation in the two variants is a marker that
+ * inserts badly formatted code into one of them, which is how §35 found this.
+ */
+function extraHeaders(): Record<string, string> {
+  return {
+    // kitbash:headers
+  };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}/api${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      // kitbash:headers — where a recipe that authenticates requests adds its header.
+      ...extraHeaders(),
       ...init?.headers,
     },
   });

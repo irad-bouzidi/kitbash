@@ -11,7 +11,7 @@ class OpenApiConfig {
     // variable, and a kebab-case one does not fit inside a Kotlin identifier. Names that
     // vary between generated projects belong in strings, never in identifiers.
     @Bean
-    fun openApi(properties: {{ projectName | pascal }}Properties): OpenAPI =
+    fun openApi(properties: ApplicationProperties): OpenAPI =
         OpenAPI().info(
             Info()
                 .title("{{ projectName }} API")

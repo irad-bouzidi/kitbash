@@ -105,6 +105,57 @@ architecture, language or build tool is chosen, so each is covered by the two re
 that carry it plus one cell for the combination no reference has: `full-stack-auth` for auth's
 browser half, and `backend-observability` for metrics with auth off.
 
+## The full matrix, and the representative one
+
+Two sources of cells, one runner.
+
+**A pull request** runs the cells checked in under `cells/` — the representative set, chosen so
+every axis is covered at least once and every pair of the three structural axes is built
+(`CellTest.coversEveryPair` asserts that rather than trusting the list). Seventeen of them today.
+
+**The nightly** ignores those and enumerates the matrix from the catalog:
+
+```bash
+./gradlew :verify:runMatrix -Pkitbash.enumerate=true
+```
+
+Ninety-eight cells, derived rather than written down, so a recipe added tomorrow expands the matrix
+tomorrow. What is enumerated in full is what changes the *shape* of a generated project — build
+tool × backend × architecture × frontend × containers × CI, which is ninety-six — and the feature
+toggles ride along on bits of the cell index, so each is on in half the cells and every pair occurs
+at both settings of the other. Pairwise coverage by construction, at no extra cells.
+
+Two things are deliberately not enumerated. The **database** is not an axis: every backend requires
+one, so a backend without a database is not a combination but an invalid selection. And
+**frontend-only is sampled** — two cells — which is the one exemption §18 grants by name, because
+supporting a standalone frontend costs a single conditional and should not double the matrix.
+
+`Enumeration.EXPECTED_CELLS` is asserted. A recipe declared into one slot too many turns
+ninety-eight cells into nine hundred, and the symptom would otherwise be a nightly that quietly
+stops finishing rather than anything going red.
+
+The budget the runner prints is **one shard's** wall clock, which is the number that matters: the
+shards run in parallel, so the job is as slow as its slowest one. Ten minutes for a merge request,
+twenty for the nightly, both warm, per §12. Going over prints a loud line and does not turn the
+matrix red — a red cell should mean a generated project is broken, not that the runner had a slow
+afternoon, and a CI job timeout already catches the runaway case.
+
+## Sharding
+
+```bash
+./gradlew :verify:runMatrix -Pkitbash.enumerate=true -Pkitbash.shard=3/12
+```
+
+Both jobs shard, and the shards run as parallel runners. Assignment is round-robin over id-sorted
+cells, which means two things worth having: a cell is always in the same shard, so a flaky one can
+be rerun on its own; and fast and slow cells are mixed into every shard, which contiguous blocks
+would not do — every Maven cell would land together and shard durations would depend on where the
+alphabet fell.
+
+**By cell, not by ecosystem.** §35 suggested sharding by ecosystem; ecosystems are not the same
+size, and nearly every cell has a JVM step, so that shard would do almost all the work while the
+others finished in seconds.
+
 ## What is here
 
 | Path | What it is |
@@ -115,6 +166,7 @@ browser half, and `backend-observability` for metrics with auth off.
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
 | `images/ci/**` | `actionlint` and `check-jsonschema`. The only image that lints rather than builds. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
+| `build/enumerated/` | The nightly's selections, written by the enumeration at run time. Output, not source. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
 | `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |
 

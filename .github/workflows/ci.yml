@@ -269,11 +269,20 @@ jobs:
           if-no-files-found: ignore
 
   matrix:
-    name: verification matrix
+    name: verification matrix ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    # Generous relative to the ten-minute budget the runner prints: this bound catches a
-    # wedged runner, the runner's own per-cell timeout catches a wedged build.
-    timeout-minutes: 30
+    # Generous relative to the budget the runner prints: this bound catches a wedged runner, the
+    # runner's own per-cell timeout catches a wedged build.
+    timeout-minutes: 45
+    strategy:
+      # A red shard must not cancel the others. The question a maintainer has in the morning is
+      # "what broke", and one shard's answer is a twelfth of it.
+      fail-fast: false
+      matrix:
+        # Six on a pull request, which shards seventeen cells into threes; the nightly enumerates
+        # ninety-eight and uses all twelve. Shard assignment is round-robin over sorted ids, so a
+        # flaky cell is always in the same shard and can be rerun on its own.
+        shard: ["1/6", "2/6", "3/6", "4/6", "5/6", "6/6"]
     steps:
       - uses: actions/checkout@v4
 
@@ -296,16 +305,21 @@ jobs:
       # and test commands, in a container, never on the API host (§12).
       # One runner, two triggers, differing only in which cells they select. A third —
       # a user's own combination — plugs into the same runner in kitbash-37.
+      # Nightly enumerates the full matrix from the catalog (§35); a pull request runs the
+      # checked-in representative cells. One runner, two sources, and the same sharding over both.
       - name: ./gradlew :verify:runMatrix
         working-directory: server
         run: >-
           ./gradlew :verify:runMatrix
           -Pkitbash.trigger=${{ github.event_name == 'schedule' && 'nightly' || 'merge-request' }}
+          ${{ github.event_name == 'schedule' && '-Pkitbash.enumerate=true' || '' }}
+          -Pkitbash.shard=${{ matrix.shard }}
 
       - name: Upload the matrix logs and status page
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verification-matrix
+          # One per shard, because two shards uploading the same name is a race.
+          name: verification-matrix-${{ strategy.job-index }}
           path: verification/build
           if-no-files-found: ignore

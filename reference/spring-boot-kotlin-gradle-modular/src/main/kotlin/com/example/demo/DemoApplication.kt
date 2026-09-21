@@ -1,12 +1,12 @@
 package com.example.demo
 
-import com.example.demo.config.DemoProperties
+import com.example.demo.config.ApplicationProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-@EnableConfigurationProperties(DemoProperties::class)
+@EnableConfigurationProperties(ApplicationProperties::class)
 class DemoApplication
 
 fun main(args: Array<String>) {
