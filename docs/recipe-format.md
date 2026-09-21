@@ -412,6 +412,12 @@ The `containers` row is what lets the database recipe wire `depends_on` without 
 container recipe. Recipes still never name each other (§4); they agree on a contract that the
 capability stands for.
 
+A marker's **indentation is part of its contract**, and it bites when one recipe ships two variants
+of a file. §31's `// kitbash:headers` sat at six spaces in the hand-written API client and eight in
+the typed one, so the line auth inserted was correctly placed and badly formatted — and the
+generated project failed its own `prettier --check`, in exactly one of the four combinations. Both
+variants now put the marker inside a function with the same shape, so one patch line serves both.
+
 `spa`'s row is the one worth reading twice, because `Gate` exists *only* to be a seam. A patch can
 add lines to a file another recipe owns; it cannot wrap an element in one. So the wrapper is shipped
 by the frontend recipe, pass-through, and a recipe that needs to stand in front of the application

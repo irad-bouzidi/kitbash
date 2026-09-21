@@ -8,7 +8,12 @@ import org.springframework.validation.annotation.Validated;
 /**
  * Application settings, bound and validated at startup. Binding failures are startup failures:
  * a misconfigured service should not accept its first request and then fall over.
+ *
+ * <p>Not named after the project, for the reason {@code OpenApiConfig} gives about its title: a
+ * name that varies between generated projects belongs in a string, never in an identifier. It also
+ * used to: a long enough project name pushed this declaration past the line limit and the
+ * generated project failed its own format check on the first build (§35).
  */
 @Validated
 @ConfigurationProperties(prefix = "demo")
-public record DemoProperties(@NotBlank String environmentName, @Positive int maxWidgetsPerPage) {}
+public record ApplicationProperties(@NotBlank String environmentName, @Positive int maxWidgetsPerPage) {}

@@ -12,7 +12,7 @@ public class OpenApiConfig {
     // variable, and a kebab-case one does not fit inside a Java identifier. Names that
     // vary between generated projects belong in strings, never in identifiers.
     @Bean
-    public OpenAPI openApi({{ projectName | pascal }}Properties properties) {
+    public OpenAPI openApi(ApplicationProperties properties) {
         return new OpenAPI()
                 .info(new Info()
                         .title("{{ projectName }} API")

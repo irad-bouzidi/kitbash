@@ -1,6 +1,7 @@
 package dev.kitbash.verify;
 
 import dev.kitbash.catalog.CatalogLoader;
+import dev.kitbash.core.recipe.Catalog;
 import java.util.List;
 
 /**
@@ -13,6 +14,13 @@ import java.util.List;
  * <p>{@code --cell <id>} runs exactly one, whatever its tags. That is the mode
  * {@code verification/run-cell.sh} uses, so reproducing a red cell runs the same code CI ran
  * rather than a shell script's approximation of it.
+ *
+ * <p>{@code --enumerate} replaces the checked-in cells with the full matrix derived from the
+ * catalog (§35), and {@code --shard k/n} runs one deterministic slice of whatever was selected.
+ * Sharding is by cell rather than by ecosystem, which §35 suggested: ecosystems are not the same
+ * size, and putting every JVM cell in one shard parallelises almost nothing. Sorted ids split
+ * round-robin means shard 3 of 6 contains the same cells on every run, so a flaky cell is
+ * reproducible by shard as well as by id.
  */
 public final class MatrixMain {
 
@@ -21,13 +29,19 @@ public final class MatrixMain {
     public static void main(String[] args) {
         Repository repository = Repository.locate();
         String only = flag(args, "--cell");
+        boolean enumerate = List.of(args).contains("--enumerate");
         String trigger = only != null ? "cell:" + only : flag(args, "--trigger", "merge-request");
+        Catalog catalog = new CatalogLoader()
+                .loadAll(repository.root().resolve("recipes"))
+                .catalog();
 
         List<Cell> cells;
         try {
             cells = only != null
                     ? List.of(CellLoader.byId(repository.cells(), only))
-                    : CellLoader.forTrigger(repository.cells(), trigger);
+                    : enumerate
+                            ? Enumeration.cells(catalog, repository)
+                            : CellLoader.forTrigger(repository.cells(), trigger);
         } catch (IllegalArgumentException e) {
             // A mistyped cell id is a person retyping what a red pipeline printed. They get the
             // sentence, which names the real ids, rather than a stack trace through Optional.
@@ -41,21 +55,54 @@ public final class MatrixMain {
             System.exit(2);
         }
 
-        String digest = new CatalogLoader()
-                .loadAll(repository.root().resolve("recipes"))
-                .catalog()
-                .digest();
+        String shard = flag(args, "--shard");
+        int total = cells.size();
+        if (shard != null) {
+            cells = shardOf(cells, shard);
+            trigger = trigger + " shard " + shard;
+        }
 
-        System.out.printf("kitbash verification — %s, %s, catalog %s%n%n", trigger, count(cells.size()), digest);
+        String digest = catalog.digest();
+
+        System.out.printf(
+                "kitbash verification — %s, %s%s, catalog %s%n%n",
+                trigger, count(cells.size()), shard == null ? "" : " of " + total, digest);
 
         CellResult.Matrix matrix = new MatrixRunner(
                         new CellRunner(repository, Containers.standard()), System.out::println)
                 .run(trigger, digest, cells);
 
         StatusPage.write(matrix, repository);
-        report(matrix, repository);
+        report(matrix, repository, enumerate);
 
         System.exit(matrix.green() ? 0 : 1);
+    }
+
+    /**
+     * One slice of the matrix, chosen so the same cell is always in the same shard.
+     *
+     * <p>Round-robin over the id-sorted list rather than contiguous blocks: contiguous blocks put
+     * every Maven cell together, and a shard's duration would then depend on where the alphabet
+     * happened to land. Interleaving mixes fast and slow cells into every shard on its own.
+     */
+    static List<Cell> shardOf(List<Cell> cells, String shard) {
+        String[] parts = shard.split("/");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("--shard wants k/n, for example 2/6; got '" + shard + "'");
+        }
+        int index = Integer.parseInt(parts[0]);
+        int count = Integer.parseInt(parts[1]);
+        if (count < 1 || index < 1 || index > count) {
+            throw new IllegalArgumentException("--shard " + shard + " is not a slice of anything");
+        }
+
+        List<Cell> sorted =
+                cells.stream().sorted(java.util.Comparator.comparing(Cell::id)).toList();
+        List<Cell> slice = new java.util.ArrayList<>();
+        for (int i = index - 1; i < sorted.size(); i += count) {
+            slice.add(sorted.get(i));
+        }
+        return List.copyOf(slice);
     }
 
     /**
@@ -65,7 +112,7 @@ public final class MatrixMain {
      * are already at the head of every cell's log, and repeating the reproduction here means the
      * person reading CI output does not have to open an artifact to get it.
      */
-    private static void report(CellResult.Matrix matrix, Repository repository) {
+    private static void report(CellResult.Matrix matrix, Repository repository, boolean enumerate) {
         System.out.println();
         System.out.println("================================================================");
         System.out.printf(
@@ -81,7 +128,7 @@ public final class MatrixMain {
                     result.outcome(), result.cellId(), result.duration().toSeconds());
         }
 
-        budget(matrix);
+        budget(matrix, enumerate);
 
         if (!matrix.green()) {
             System.out.println();
@@ -111,14 +158,18 @@ public final class MatrixMain {
      * not that the runner had a slow afternoon, and a CI job timeout already catches the runaway
      * case. The number being loud is what makes it actionable.
      */
-    private static void budget(CellResult.Matrix matrix) {
-        long budget = Long.parseLong(System.getenv().getOrDefault("KITBASH_MATRIX_BUDGET", "600"));
+    private static void budget(CellResult.Matrix matrix, boolean enumerate) {
+        // §12 sets two: ten minutes for a merge request and twenty for the nightly, both warm.
+        // With sharding this is one shard's wall clock, which is the number that matters — the
+        // shards run in parallel, so the job is as slow as its slowest one.
+        String fallback = enumerate ? "1200" : "600";
+        long budget = Long.parseLong(System.getenv().getOrDefault("KITBASH_MATRIX_BUDGET", fallback));
         long elapsed = matrix.duration().toSeconds();
         System.out.println();
         System.out.printf("  wall clock:  %ds against a %ds budget%n", elapsed, budget);
         if (elapsed > budget) {
             System.out.printf(
-                    "  OVER BUDGET: %ds > %ds — kitbash-35 multiplies this by the full matrix%n", elapsed, budget);
+                    "  OVER BUDGET: %ds > %ds — shard further, or make the slowest cells faster%n", elapsed, budget);
         }
     }
 
