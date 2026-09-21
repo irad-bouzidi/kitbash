@@ -1,0 +1,116 @@
+package {{ packageName }}
+
+import {{ packageName }}.config.CorrelationIdFilter
+import {{ packageName }}.controller.Create{{ entityName }}Request
+import {{ packageName }}.controller.{{ entityName }}Response
+import {{ packageName }}.repository.{{ entityName }}Repository
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.http.ProblemDetail
+import org.springframework.test.context.ActiveProfiles
+
+/**
+ * The whole slice against a real Postgres: Flyway migration, JPA mapping, the unique index, the
+ * problem-detail error shape and the correlation id. An in-memory database would make this test
+ * cheaper and would stop proving the thing it exists to prove.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+class {{ entityName }}ApiIntegrationTest : PostgresTestBase() {
+    @Autowired
+    private lateinit var http: TestRestTemplate
+
+    @Autowired
+    private lateinit var {{ entityTable }}: {{ entityName }}Repository
+
+    @BeforeEach
+    fun clean() {
+        {{ entityTable }}.deleteAll()
+    }
+
+    @Test
+    @DisplayName("a {{ entityName | camel }} can be created, read back and restocked")
+    fun createReadRestock() {
+        val created =
+            http.postForEntity(
+                "/api/{{ entityTable }}",
+                Create{{ entityName }}Request("flux capacitor", 2),
+                {{ entityName }}Response::class.java,
+            )
+
+        assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(created.body).isNotNull
+        assertThat(created.body!!.id).isNotNull
+        assertThat(created.body!!.createdAt).isNotNull
+
+        val id = created.body!!.id
+        assertThat(created.headers.location).hasToString("/api/{{ entityTable }}/$id")
+
+        val restocked =
+            http.postForEntity("/api/{{ entityTable }}/{id}/restock", RestockBody(5), {{ entityName }}Response::class.java, id)
+        assertThat(restocked.body).isNotNull
+        assertThat(restocked.body!!.quantity).isEqualTo(7)
+
+        assertThat(http.getForObject("/api/{{ entityTable }}/{id}", {{ entityName }}Response::class.java, id).name)
+            .isEqualTo("flux capacitor")
+    }
+
+    @Test
+    @DisplayName("a duplicate name is a 409 problem document, not a constraint-violation stack trace")
+    fun duplicateNameIsConflict() {
+        http.postForEntity("/api/{{ entityTable }}", Create{{ entityName }}Request("flux capacitor", 1), {{ entityName }}Response::class.java)
+
+        val conflict =
+            http.postForEntity(
+                "/api/{{ entityTable }}",
+                Create{{ entityName }}Request("flux capacitor", 1),
+                ProblemDetail::class.java,
+            )
+
+        assertThat(conflict.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(conflict.body).isNotNull
+        assertThat(conflict.body!!.title).isEqualTo("Duplicate {{ entityName | camel }} name")
+        assertThat(conflict.body!!.properties).containsKey("correlationId")
+    }
+
+    @Test
+    @DisplayName("an unknown id is a 404 problem document")
+    fun unknownIdIsNotFound() {
+        val missing = http.getForEntity("/api/{{ entityTable }}/{id}", ProblemDetail::class.java, 999_999L)
+
+        assertThat(missing.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(missing.body).isNotNull
+        assertThat(missing.body!!.detail).contains("999999")
+    }
+
+    @Test
+    @DisplayName("a caller-supplied correlation id is echoed back")
+    fun echoesCorrelationId() {
+        val headers = HttpHeaders()
+        headers.set(CorrelationIdFilter.HEADER, "trace-from-caller")
+
+        val response =
+            http.exchange("/api/{{ entityTable }}", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+
+        assertThat(response.headers.getFirst(CorrelationIdFilter.HEADER)).isEqualTo("trace-from-caller")
+    }
+
+    @Test
+    @DisplayName("the health endpoint reports UP")
+    fun healthIsUp() {
+        assertThat(http.getForObject("/actuator/health", String::class.java)).contains("\"status\":\"UP\"")
+    }
+
+    private data class RestockBody(
+        val amount: Int,
+    )
+}

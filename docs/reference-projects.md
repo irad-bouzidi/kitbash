@@ -4,12 +4,13 @@ A **reference project** under `/reference` is a real project: it compiles, runs 
 own tests without the generator involved. It is the thing being maintained. A recipe is a
 derivative of it, and `ReferenceProjectEqualityTest` is the bind between the two (§4).
 
-There are three today:
+There are four today:
 
 | Directory | What it is | Recipes it covers |
 | --- | --- | --- |
 | `spring-boot-java-gradle-layered` | Spring Boot, Java 21, Gradle, Postgres + Flyway, Docker, GitLab CI | `base`, `build-gradle-kts`, `backend-spring-java`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
 | `spring-boot-java-maven-layered` | The same stack, built with Maven (§28) | `base`, `build-maven`, `backend-spring-java`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
+| `spring-boot-kotlin-gradle-layered` | The same stack in Kotlin, with ktlint (§29) | `base`, `build-gradle-kts`, `backend-spring-kotlin`, `db-postgres-flyway`, `infra-docker`, `ci-gitlab` |
 | `react-vite-ts` | React 19, Vite, TypeScript, standalone (no backend selected) | `base`, `frontend-react-vite`, `infra-docker` |
 
 ## Why this exists

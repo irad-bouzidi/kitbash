@@ -63,18 +63,26 @@ class CellTest {
         }
 
         @Test
-        @DisplayName("the §17 combinations are all covered, and so is the second build tool")
+        @DisplayName("the §17 combinations are covered, and so is each axis the catalog has grown")
         void coversTheCombinations() {
             // backend only, frontend only, both, and both with Docker declined (§17). The
             // frontend-only case is the one most likely to break silently, which is why it is a
             // cell rather than an assumption.
             //
-            // backend-maven is §28's: a second build tool is only proven by building with it, and
-            // an assertion that the other four still pass says nothing about the fifth.
+            // The other three are the catalog's axes, each proven only by building with it: the
+            // second build tool (§28), the second language (§29), and the diagonal where both
+            // differ from the phase 0 stack at once. An assertion that the others still pass says
+            // nothing about any of them.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
-                            "backend-only", "backend-maven", "frontend-only", "full-stack", "full-stack-no-docker");
+                            "backend-only",
+                            "backend-maven",
+                            "backend-kotlin",
+                            "backend-kotlin-maven",
+                            "frontend-only",
+                            "full-stack",
+                            "full-stack-no-docker");
         }
 
         @Test

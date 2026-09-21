@@ -1,0 +1,6 @@
+package com.example.demo.config
+
+/** Thrown before the context loads when a documented environment variable is not set. */
+class MissingEnvironmentVariablesException(
+    val missing: List<String>,
+) : RuntimeException("Missing required environment variables: ${missing.joinToString(", ")}")

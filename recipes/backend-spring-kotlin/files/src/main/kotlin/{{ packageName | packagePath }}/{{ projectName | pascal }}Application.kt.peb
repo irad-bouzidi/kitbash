@@ -1,0 +1,14 @@
+package {{ packageName }}
+
+import {{ packageName }}.config.{{ projectName | pascal }}Properties
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.runApplication
+
+@SpringBootApplication
+@EnableConfigurationProperties({{ projectName | pascal }}Properties::class)
+class {{ projectName | pascal }}Application
+
+fun main(args: Array<String>) {
+    runApplication<{{ projectName | pascal }}Application>(*args)
+}

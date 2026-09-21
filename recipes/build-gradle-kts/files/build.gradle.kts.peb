@@ -16,11 +16,6 @@ java {
 dependencies {
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.compilerArgs.add("-parameters")
-}
-
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     testLogging {
@@ -29,16 +24,12 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+// kitbash:build
+
 spotless {
     lineEndings = com.diffplug.spotless.LineEnding.UNIX
 
-    java {
-        target("src/**/*.java")
-        palantirJavaFormat(libs.versions.palantir.java.format.get())
-        removeUnusedImports()
-        trimTrailingWhitespace()
-        endWithNewline()
-    }
+    // kitbash:formats
 }
 
 // `./gradlew build` fails on badly formatted code, not just on failing tests.

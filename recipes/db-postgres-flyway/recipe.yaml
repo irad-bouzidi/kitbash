@@ -12,7 +12,17 @@ variables:
   required: [packageName, entityName, entityTable, envPrefix]
 
 files:
+  # The migration is SQL: neither the language nor the build tool changes it.
   - from: files/**
+
+  # The tests are not. An integration test is the join of a backend and a database, and it has
+  # to be written in the backend's language — so the two source sets below are the same test
+  # twice, selected by the capability the backend provides. §29 chose that over one templated
+  # tree that renders both languages, which is the "template soup" §4 forbids.
+  - from: java/**
+    when: "capability('java-sources')"
+  - from: kotlin/**
+    when: "capability('kotlin-sources')"
 
 patches:
   - op: addDependency

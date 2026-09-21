@@ -1,0 +1,13 @@
+{
+  "id": "backend-kotlin-maven",
+  "description": "Kotlin on Maven: the other diagonal of §28 x §29, and the only cell where a language and a build tool both differ from the phase 0 stack.",
+  "selection": "selections/phase3-spring-kotlin-maven.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./mvnw -B verify"]
+    }
+  ]
+}

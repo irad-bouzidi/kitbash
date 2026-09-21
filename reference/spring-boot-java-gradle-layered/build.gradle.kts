@@ -31,11 +31,6 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.compilerArgs.add("-parameters")
-}
-
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     testLogging {
@@ -43,6 +38,13 @@ tasks.withType<Test>().configureEach {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.compilerArgs.add("-parameters")
+}
+
+// kitbash:build
 
 spotless {
     lineEndings = com.diffplug.spotless.LineEnding.UNIX
@@ -54,6 +56,7 @@ spotless {
         trimTrailingWhitespace()
         endWithNewline()
     }
+    // kitbash:formats
 }
 
 // `./gradlew build` fails on badly formatted code, not just on failing tests.

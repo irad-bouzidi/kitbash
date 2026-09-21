@@ -1,0 +1,49 @@
+package {{ packageName }}.service
+
+import {{ packageName }}.domain.{{ entityName }}
+import {{ packageName }}.repository.{{ entityName }}Repository
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+/**
+ * Business rules live here, not in the controller and not in the entity. The controller maps
+ * HTTP to method calls; this class decides what is allowed.
+ */
+@Service
+@Transactional(readOnly = true)
+class {{ entityName }}Service(
+    private val {{ entityTable }}: {{ entityName }}Repository,
+) {
+    fun findAll(): List<{{ entityName }}> = {{ entityTable }}.findAll()
+
+    fun findById(id: Long): {{ entityName }} = {{ entityTable }}.findById(id).orElseThrow { {{ entityName }}NotFoundException(id) }
+
+    @Transactional
+    fun create(
+        name: String,
+        quantity: Int,
+    ): {{ entityName }} {
+        if ({{ entityTable }}.existsByName(name)) {
+            throw Duplicate{{ entityName }}NameException(name)
+        }
+        return {{ entityTable }}.save({{ entityName }}.of(name, quantity))
+    }
+
+    @Transactional
+    fun restock(
+        id: Long,
+        amount: Int,
+    ): {{ entityName }} {
+        val {{ entityName | camel }} = findById(id)
+        {{ entityName | camel }}.restock(amount)
+        return {{ entityName | camel }}
+    }
+
+    @Transactional
+    fun delete(id: Long) {
+        if (!{{ entityTable }}.existsById(id)) {
+            throw {{ entityName }}NotFoundException(id)
+        }
+        {{ entityTable }}.deleteById(id)
+    }
+}

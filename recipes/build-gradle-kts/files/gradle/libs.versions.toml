@@ -6,7 +6,6 @@
 
 [versions]
 spotless = "7.0.4"
-palantir-java-format = "2.57.0"
 # kitbash:versions
 
 [libraries]

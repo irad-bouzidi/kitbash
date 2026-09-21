@@ -1,0 +1,5 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  {{ packageName }}.config.RequiredEnvironmentValidator
+
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  {{ packageName }}.config.MissingEnvironmentFailureAnalyzer

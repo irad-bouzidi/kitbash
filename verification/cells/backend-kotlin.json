@@ -1,0 +1,13 @@
+{
+  "id": "backend-kotlin",
+  "description": "The same stack as backend-only in Kotlin — §29's proof that the backend slot is a slot and not a special case.",
+  "selection": "selections/phase3-spring-kotlin-gradle.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    }
+  ]
+}
