@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
@@ -17,11 +18,34 @@ import org.springframework.core.env.ConfigurableEnvironment;
  */
 public class RequiredEnvironmentValidator implements EnvironmentPostProcessor {
 
-    private static final Map<String, String> REQUIRED = Map.of(
-            "DEMO_DB_URL", "JDBC URL, e.g. jdbc:postgresql://localhost:5432/demo",
-            "DEMO_DB_USERNAME", "Database user",
-            "DEMO_DB_PASSWORD", "Database password",
-            "DEMO_ENVIRONMENT_NAME", "Environment label for /actuator/info, e.g. local");
+    private static final Map<String, String> REQUIRED = required();
+
+    /**
+     * Built rather than declared, so that a recipe contributing a variable can contribute its
+     * description too.
+     *
+     * <p>A feature that reads a new variable adds a line at the marker below, and the startup
+     * message then names the variable <em>and</em> says what it is for — the difference between
+     * "set DEMO_AUTH_ISSUER_URI" and a developer guessing what a URI of what is wanted.
+     *
+     * <p>Two things this shape has to get right. The marker is not spelled out in this comment,
+     * because a patch inserts at the first line that matches and a marker quoted in prose is a
+     * marker. And each description is short enough that its {@code put} never wraps: the formatter
+     * lays out the <em>rendered</em> line, so a longer prefix than this project's would rewrap a
+     * line the template had already wrapped, and the generated build would fail its own format
+     * check.
+     */
+    private static Map<String, String> required() {
+        Map<String, String> required = new LinkedHashMap<>();
+        required.put("DEMO_ENVIRONMENT_NAME", "Environment label for /actuator/info");
+        required.put("DEMO_DB_URL", "JDBC URL of the database");
+        required.put("DEMO_DB_USERNAME", "Database user");
+        required.put("DEMO_DB_PASSWORD", "Database password");
+        required.put("DEMO_AUTH_ISSUER_URI", "OpenID issuer this service trusts");
+        required.put("DEMO_AUTH_AUDIENCE", "Audience this service accepts");
+        // kitbash:required-environment
+        return Map.copyOf(required);
+    }
 
     static String describe(String name) {
         return REQUIRED.getOrDefault(name, "");

@@ -1,0 +1,18 @@
+{
+  "id": "full-stack-auth",
+  "description": "Both halves with auth on — the only cell that builds the browser side of §31, since a standalone frontend cannot select a recipe that requires an http-server.",
+  "selection": "selections/phase3-full-stack-auth.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon"]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm test", "pnpm build"]
+    }
+  ]
+}

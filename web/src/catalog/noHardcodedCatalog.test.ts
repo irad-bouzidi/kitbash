@@ -27,6 +27,22 @@ const EXEMPT: string[] = [];
 /** Generated from the server's OpenAPI document; it is allowed to name what the server names. */
 const GENERATED = 'lib/api/';
 
+/**
+ * The code, without the prose.
+ *
+ * The rule is about strings the wizard *renders*, and a label that appears in a comment renders
+ * nothing. Without this, adding a slot called "Authentication" to the catalog turned a sentence
+ * explaining an unrelated build-time switch into a failure — and the tempting fix is to reword the
+ * catalog around the comment, which is the rule enforcing the wrong thing.
+ *
+ * Deliberately crude: a `//` inside a string literal would be stripped as a comment. That costs a
+ * false pass on a construction nothing here uses, and the alternative is a TypeScript parser in a
+ * test that exists to avoid carrying a parser.
+ */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
     const path = join(directory, entry);
@@ -66,7 +82,7 @@ describe('the wizard renders itself from /metadata', () => {
 
     for (const file of files) {
       if (EXEMPT.includes(file)) continue;
-      const source = readFileSync(join(WEB_SRC, file), 'utf8');
+      const source = withoutComments(readFileSync(join(WEB_SRC, file), 'utf8'));
       for (const id of ids) {
         expect(
           new RegExp(`['"\`]${id}['"\`]`).test(source),
@@ -81,7 +97,7 @@ describe('the wizard renders itself from /metadata', () => {
 
     for (const file of files) {
       if (EXEMPT.includes(file)) continue;
-      const source = readFileSync(join(WEB_SRC, file), 'utf8');
+      const source = withoutComments(readFileSync(join(WEB_SRC, file), 'utf8'));
       for (const label of labels) {
         // Word boundaries, not substrings. A label is a whole word: the query library's name
         // contains one of them as a fragment, and a check that cannot tell the difference is a

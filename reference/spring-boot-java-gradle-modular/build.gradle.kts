@@ -30,6 +30,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    testImplementation("org.springframework.security:spring-security-test")
 }
 
 tasks.withType<Test>().configureEach {

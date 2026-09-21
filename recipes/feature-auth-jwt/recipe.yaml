@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# The first genuinely cross-cutting recipe, and the one §4 names when it explains why a class per
+# technology fails. Auth touches the backend, the frontend's API client, the frontend's rendering,
+# the application config, the environment file, the compose file and the build file — seven files
+# owned by five other recipes. With a generator class per technology that is coordination between
+# classes, which is `if/else` wearing an interface. Here it is this directory plus the patches
+# below, and nothing else in the catalog changed shape to allow it.
+#
+# What is deliberately NOT here is Keycloak (§11). An identity provider adds a container, a
+# healthcheck, a startup race, a realm import and a whole verification dimension; a resource server
+# validating tokens somebody else issued proves the recipe shape at a fraction of that cost, and is
+# also the half of auth that a real deployment keeps.
+id: feature-auth-jwt
+version: 1.0.0
+frameworkVersion: "6.5"
+kind: feature
+label: JWT authentication
+slot: auth
+
+provides: [auth]
+# `http-server`, not `rest-api`: what this recipe needs is something with a filter chain to protect.
+# A selection with auth and no backend fails at resolve time naming this capability and the option
+# that would satisfy it, which is a better message than the first missing file would have been.
+requires: [http-server]
+
+variables:
+  required: [packageName, envPrefix]
+
+files:
+  # Framework wiring, which is what auth is — so it lands in `config/` and needs no per-architecture
+  # variant. That the layered, hexagonal and modular projects all take the same file unchanged is
+  # the strongest evidence §30's architectures are about the domain and not about plumbing.
+  - from: java/**
+    when: "capability('java-sources')"
+  - from: kotlin/**
+    when: "capability('kotlin-sources')"
+  # The browser half, only when there is a browser half.
+  - from: frontend/**
+    when: "capability('spa')"
+
+patches:
+  - op: addDependency
+    target: .
+    configuration: implementation
+    coordinate: org.springframework.boot:spring-boot-starter-oauth2-resource-server
+  - op: addDependency
+    target: .
+    configuration: testImplementation
+    coordinate: org.springframework.security:spring-security-test
+
+  # The issuer and the audience, merged into a file the backend recipe owns. Both come from the
+  # environment: an issuer URI is per-deployment, and baking one in is how a staging build ends up
+  # trusting production's tokens.
+  - op: mergeYaml
+    target: src/main/resources/application.yaml
+    content:
+      spring:
+        security:
+          oauth2:
+            resourceserver:
+              jwt:
+                issuer-uri: "{{ '${' }}{{ envPrefix }}_AUTH_ISSUER_URI}"
+                audiences: "{{ '${' }}{{ envPrefix }}_AUTH_AUDIENCE}"
+
+  # One op, two files: .env.example and the app's compose service. The pair is what makes
+  # `docker compose up` work without a .env, which is the first thing anybody tries.
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_AUTH_ISSUER_URI"
+    value: https://issuer.example.com/realms/{{ projectName }}
+    comment: >-
+      OpenID issuer this service trusts. Its /.well-known/openid-configuration is read at startup,
+      so a wrong value fails the boot rather than the first request.
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    name: "{{ envPrefix }}_AUTH_AUDIENCE"
+    value: "{{ projectName }}-api"
+    comment: >-
+      The audience this service accepts. Without it any token from the issuer opens this service,
+      including one obtained for something else entirely.
+
+  # Into the backend's startup validator, so a missing issuer is reported by name with the other
+  # required variables rather than as a placeholder-resolution stack trace.
+  - op: insertAtMarker
+    target: src/main/java/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.java
+    when: "capability('java-sources')"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '        required.put("{{ envPrefix }}_AUTH_ISSUER_URI", "OpenID issuer this service trusts");'
+      - '        required.put("{{ envPrefix }}_AUTH_AUDIENCE", "Audience this service accepts");'
+
+  - op: insertAtMarker
+    target: src/main/kotlin/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.kt
+    when: "capability('kotlin-sources')"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '                put("{{ envPrefix }}_AUTH_ISSUER_URI", "OpenID issuer this service trusts")'
+      - '                put("{{ envPrefix }}_AUTH_AUDIENCE", "Audience this service accepts")'
+
+  # The frontend's two seams, placed and documented by `frontend-react-vite`.
+  - op: insertAtMarker
+    target: frontend/src/api/{{ entityTable }}.ts
+    when: "capability('spa')"
+    marker: "// kitbash:imports"
+    lines:
+      - "import { authHeaders } from '@/auth/session';"
+
+  - op: insertAtMarker
+    target: frontend/src/api/{{ entityTable }}.ts
+    when: "capability('spa')"
+    marker: "// kitbash:headers"
+    lines:
+      - "      ...authHeaders(),"
+
+  - op: insertAtMarker
+    target: frontend/src/Gate.tsx
+    when: "capability('spa')"
+    marker: "// kitbash:imports"
+    lines:
+      - "import { SignIn } from '@/auth/SignIn';"
+      - "import { useSession } from '@/auth/session';"
+
+  # `Gate` exists so this is an insertion rather than a rewrite: a patch can add lines to a file
+  # another recipe owns, and cannot wrap an element in one.
+  - op: insertAtMarker
+    target: frontend/src/Gate.tsx
+    when: "capability('spa')"
+    marker: "// kitbash:gate"
+    lines:
+      - "  const session = useSession();"
+      - "  if (!session.signedIn) {"
+      - "    return <SignIn onSignIn={session.signIn} />;"
+      - "  }"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Auth** — JWT bearer tokens, validated as an OAuth2 resource server"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Every endpoint needs a token** except `/actuator/health`, which the platform calls and"
+      - "  cannot authenticate. The audience is checked as well as the signature: without that, a"
+      - "  token issued for any other service in the estate opens this one."
+      - "- **No identity provider is generated**, on purpose. This service validates tokens; it does"
+      - "  not issue them, and the front end asks you to paste one rather than pretending to run an"
+      - "  authorization-code flow it has no provider for. Point `{{ envPrefix }}_AUTH_ISSUER_URI` at"
+      - "  a real issuer and replace `frontend/src/auth/session.ts` when you have chosen one —"
+      - "  everything behind it, including the tests, already assumes real tokens."

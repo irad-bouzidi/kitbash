@@ -1,0 +1,81 @@
+package com.example.demo.config
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
+import org.springframework.security.config.Customizer
+import org.springframework.security.config.annotation.web.builders.HttpSecurity
+import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.web.SecurityFilterChain
+
+/**
+ * Every endpoint needs a valid bearer token except the ones a platform calls.
+ *
+ * A resource server, not a login form: this service validates tokens somebody else issued, which
+ * is the only shape that stays correct when a second service is added. It holds no sessions, no
+ * users and no passwords, and `STATELESS` is what makes that a fact rather than an intention —
+ * without it Spring creates a session on the first authenticated request and the service quietly
+ * stops being horizontally scalable.
+ *
+ * CSRF is off for the same reason: there is no cookie to forge. A CSRF token protects a session,
+ * and a request authenticated by an `Authorization` header the browser does not attach by itself
+ * has nothing for an attacker's page to ride on.
+ */
+@Configuration
+class SecurityConfiguration(
+    private val json: ObjectMapper,
+) {
+    @Bean
+    fun api(
+        http: HttpSecurity,
+        endpoints: WebEndpointProperties,
+    ): SecurityFilterChain {
+        val actuator = endpoints.basePath
+        return http
+            .csrf { it.disable() }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authorizeHttpRequests {
+                // Liveness and readiness are called by the platform, which has no token and cannot
+                // be given one. Nothing else under /actuator is open: `info` and `metrics` describe
+                // the deployment and are worth a token.
+                it
+                    .requestMatchers("$actuator/health", "$actuator/health/**")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated()
+            }.oauth2ResourceServer { oauth2 ->
+                oauth2
+                    .jwt(Customizer.withDefaults())
+                    .authenticationEntryPoint { _, response, _ ->
+                        problem(response, HttpStatus.UNAUTHORIZED, "Not authenticated", "A valid bearer token is required.")
+                    }.accessDeniedHandler { _, response, _ ->
+                        problem(response, HttpStatus.FORBIDDEN, "Not permitted", "The token is valid but does not allow this.")
+                    }
+            }.build()
+    }
+
+    /**
+     * A rejected request gets the same RFC 9457 document as every other failure.
+     *
+     * Spring's default is an empty body and a `WWW-Authenticate` header, which is correct and
+     * useless: a caller debugging a 401 learns nothing, and a client that parses problem documents
+     * everywhere has to special-case the two responses that are not one.
+     */
+    private fun problem(
+        response: HttpServletResponse,
+        status: HttpStatus,
+        title: String,
+        detail: String,
+    ) {
+        val body = ProblemDetail.forStatusAndDetail(status, detail)
+        body.title = title
+        response.status = status.value()
+        response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
+        json.writeValue(response.outputStream, body)
+    }
+}

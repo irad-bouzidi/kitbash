@@ -5,6 +5,7 @@
 - **Build** — Gradle 8.14 with the Kotlin DSL, dependencies in a version catalog
 - **Backend** — Spring Boot 3.5.5 on Kotlin, JVM 21, hexagonal architecture
 - **Database** — Postgres, with Flyway migrations and JPA
+- **Auth** — JWT bearer tokens, validated as an OAuth2 resource server
 - **Containers** — a compose file wiring the stack together, with healthchecks and non-root images
 - **CI** — GitLab CI: build, test, format check, and a container image on the default branch
 <!-- kitbash:stack -->
@@ -85,4 +86,12 @@ src/main/kotlin/com/example/demo/
   mapping between the two is the price of being able to test the model without a context.
 - **Flyway owns the schema.** `ddl-auto: validate` — Hibernate checks the entity against the
   migration and refuses to start if they disagree. To change a table, add a `V<n>__*.sql`.
+- **Every endpoint needs a token** except `/actuator/health`, which the platform calls and
+  cannot authenticate. The audience is checked as well as the signature: without that, a
+  token issued for any other service in the estate opens this one.
+- **No identity provider is generated**, on purpose. This service validates tokens; it does
+  not issue them, and the front end asks you to paste one rather than pretending to run an
+  authorization-code flow it has no provider for. Point `DEMO_AUTH_ISSUER_URI` at
+  a real issuer and replace `frontend/src/auth/session.ts` when you have chosen one —
+  everything behind it, including the tests, already assumes real tokens.
 <!-- kitbash:rules -->

@@ -386,6 +386,8 @@ existence:
 | `build-tool` | A build file with a `dependencies` block and four markers — one for plugins, one for project-level build configuration, one for formatter configuration, one for version declarations — plus, on Gradle, a version catalog carrying `# kitbash:versions`, `# kitbash:libraries` and `# kitbash:plugins` |
 | `containers` | A `compose.yaml` whose application service is named `app` |
 | `java-sources` / `kotlin-sources` | A `src/main/<language>` and `src/test/<language>` tree, for a recipe that has to ship a source file of its own |
+| `http-server` | A configuration package a filter or a security chain can be added to, and a `RequiredEnvironmentValidator` carrying `// kitbash:required-environment` |
+| `spa` | `frontend/src/Gate.tsx` wrapping the application, and an API client, each carrying `// kitbash:imports`; plus `// kitbash:gate` and `// kitbash:headers` |
 
 A build tool knows how to build a JVM project; it does not know which language the project is
 written in. That is why `build-tool` promises markers rather than content: the recipe that brings
@@ -399,9 +401,19 @@ second language is what made it visible.
 cannot use it to choose a language. The database recipe carries the same test twice, one tree per
 language, selected by a `when` on these.
 
-That last one is what lets the database recipe wire `depends_on` without naming the container
-recipe. Recipes still never name each other (§4); they agree on a contract that the capability
-stands for.
+The `containers` row is what lets the database recipe wire `depends_on` without naming the
+container recipe. Recipes still never name each other (§4); they agree on a contract that the
+capability stands for.
+
+`spa`'s row is the one worth reading twice, because `Gate` exists *only* to be a seam. A patch can
+add lines to a file another recipe owns; it cannot wrap an element in one. So the wrapper is shipped
+by the frontend recipe, pass-through, and a recipe that needs to stand in front of the application
+inserts four lines instead of rewriting a file it does not own.
+
+**A marker quoted in prose is a marker.** `insertAtMarker` inserts at the first line that matches,
+so a doc comment mentioning `// kitbash:required-environment` by name captured the insertion and
+put live code inside a Javadoc block, which the generated project's formatter then turned into
+prose. Place a marker once, and describe it in the surrounding comment without spelling it out.
 
 ---
 

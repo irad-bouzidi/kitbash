@@ -1,3 +1,4 @@
+import { Gate } from '@/Gate';
 import { {{ entityName }}sPage } from '@/pages/{{ entityName }}sPage';
 
 export function App() {
@@ -7,7 +8,9 @@ export function App() {
         <h1>{{ projectName }}</h1>
         <p>A React + TypeScript front end, talking to the {{ entityTable }} API.</p>
       </header>
-      <{{ entityName }}sPage />
+      <Gate>
+        <{{ entityName }}sPage />
+      </Gate>
     </main>
   );
 }

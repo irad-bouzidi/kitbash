@@ -236,6 +236,9 @@ patches:
     value: local
     comment: Free-text environment label, reported by /actuator/info and the OpenAPI description.
 
+  # The one marker in RequiredEnvironmentValidator: a recipe that reads a new environment
+  # variable adds it here, so the startup failure names the variable *and* says what it is for.
+  # Declared by this recipe because this recipe owns the file (see docs/recipe-format.md).
   - op: insertAtMarker
     target: README.md
     marker: "<!-- kitbash:stack -->"

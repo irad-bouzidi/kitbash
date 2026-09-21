@@ -76,6 +76,27 @@ patches:
           enabled: true
           locations: classpath:db/migration
 
+  # The database's own variables, described where the backend reports them missing. Until §31
+  # these three were hardcoded in the backend's validator, which meant a backend recipe knew the
+  # names of a database recipe's variables — the exact coupling capabilities exist to avoid.
+  - op: insertAtMarker
+    target: src/main/java/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.java
+    when: "capability('java-sources')"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '        required.put("{{ envPrefix }}_DB_URL", "JDBC URL of the database");'
+      - '        required.put("{{ envPrefix }}_DB_USERNAME", "Database user");'
+      - '        required.put("{{ envPrefix }}_DB_PASSWORD", "Database password");'
+
+  - op: insertAtMarker
+    target: src/main/kotlin/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.kt
+    when: "capability('kotlin-sources')"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '                put("{{ envPrefix }}_DB_URL", "JDBC URL of the database")'
+      - '                put("{{ envPrefix }}_DB_USERNAME", "Database user")'
+      - '                put("{{ envPrefix }}_DB_PASSWORD", "Database password")'
+
   - op: addEnvVar
     target: .env.example
     composeTarget: compose.yaml

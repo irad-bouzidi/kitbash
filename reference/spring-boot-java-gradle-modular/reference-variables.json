@@ -14,7 +14,8 @@
     "backend-spring-java",
     "db-postgres-flyway",
     "infra-docker",
-    "ci-gitlab"
+    "ci-gitlab",
+    "feature-auth-jwt"
   ],
   "selection": {
     "schemaVersion": 1,
@@ -25,7 +26,8 @@
       "architecture": "modular-monolith",
       "database": "db-postgres-flyway",
       "ci": "ci-gitlab",
-      "docker": true
+      "docker": true,
+      "auth": true
     },
     "variables": {
       "groupId": "com.example",

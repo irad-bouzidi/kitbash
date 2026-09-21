@@ -50,8 +50,8 @@ class MetadataControllerTest {
         JsonNode document = metadata();
 
         assertThat(document.path("catalogDigest").asText()).startsWith("sha256:");
-        // Nine since kitbash-29 added the second backend.
-        assertThat(document.path("recipeCount").asInt()).isEqualTo(9);
+        // Ten since kitbash-31 added the auth feature.
+        assertThat(document.path("recipeCount").asInt()).isEqualTo(10);
         assertThat(texts(document.path("groups"), "id")).containsExactly("stack", "delivery");
 
         List<String> slots = new ArrayList<>();
@@ -60,7 +60,7 @@ class MetadataControllerTest {
                 slots.add(option.path("id").asText());
             }
         }));
-        assertThat(slots).contains("backend", "frontend", "buildTool", "database", "docker", "ci");
+        assertThat(slots).contains("backend", "frontend", "buildTool", "database", "auth", "docker", "ci");
     }
 
     @Test
@@ -161,7 +161,7 @@ class MetadataControllerTest {
 
         assertThat(info.path("catalog").path("digest").asText())
                 .isEqualTo(metadata().path("catalogDigest").asText());
-        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(9);
+        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(10);
     }
 
     @Test
@@ -217,6 +217,44 @@ class MetadataControllerTest {
         assertThat(baseIsImplied).isTrue();
         assertThat(response.path("effectiveOptions").path("architecture").asText())
                 .isEqualTo("layered");
+    }
+
+    /**
+     * §31's error path, asserted against the running endpoint rather than checked by hand.
+     *
+     * <p>The plan's own example of this case says {@code PATCH_TARGET_MISSING} — auth patches files
+     * a backend produces, so with no backend the first patch would fail. It does not get that far,
+     * and the reason is an improvement rather than a deviation: {@code feature-auth-jwt} declares
+     * {@code requires: [http-server]}, so the resolver refuses the selection before anything is
+     * rendered and says which capability is missing <em>and</em> which option would supply it. A
+     * message naming a file the user never asked for would be strictly worse.
+     */
+    @Test
+    @DisplayName("auth with no backend is refused at validate time, naming the capability and the option")
+    void authNeedsSomethingToProtect() throws Exception {
+        String body =
+                """
+                {"schemaVersion":1,"projectName":"svc",
+                 "options":{"frontend":"frontend-react-vite","auth":true},
+                 "variables":{"entityName":"Widget","entityTable":"widgets"}}""";
+
+        JsonNode response = post("/api/v1/validate", body);
+
+        assertThat(response.path("valid").asBoolean()).isFalse();
+
+        JsonNode conflict = null;
+        for (JsonNode candidate : response.path("conflicts")) {
+            if (candidate.path("message").asText().contains("http-server")) {
+                conflict = candidate;
+            }
+        }
+        assertThat(conflict)
+                .as("no conflict mentioned 'http-server'; the whole list was %s", response.path("conflicts"))
+                .isNotNull();
+        assertThat(conflict.path("code").asText()).isEqualTo("CAPABILITY_UNSATISFIED");
+        assertThat(conflict.path("message").asText()).contains("feature-auth-jwt", "http-server");
+        // The hint has to name the way out, which is the option that would provide it.
+        assertThat(conflict.path("hint").asText()).contains("backend");
     }
 
     private JsonNode post(String path, String body) throws Exception {
