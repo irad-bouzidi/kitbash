@@ -27,6 +27,33 @@ options:
       your build checks rather than something a README claims — §11 is explicit that an
       architecture option which only renames folders should be dropped.
 
+# Versions this recipe pins, and where the weekly bump job looks for newer ones (§36).
+#
+# Declared rather than discovered: a job that guesses which literals are versions
+# eventually rewrites a port number. `version` is the exact string this recipe writes —
+# in frameworkVersion, in a catalog entry, in a coordinate, in a pom property — and the
+# bump replaces every occurrence of it inside this directory at once, which is what
+# makes a Spring Boot bump land as one coherent change rather than four.
+tracks:
+  - version: "3.5.5"
+    artifact: org.springframework.boot:spring-boot-starter-parent
+    label: Spring Boot
+  - version: "1.1.7"
+    artifact: io.spring.dependency-management:io.spring.dependency-management.gradle.plugin
+    label: Spring's dependency-management plugin
+  - version: "2.1.21"
+    artifact: org.jetbrains.kotlin:kotlin-stdlib
+    label: Kotlin
+  - version: "1.5.0"
+    artifact: com.pinterest.ktlint:ktlint-cli
+    label: ktlint
+  - version: "2.8.9"
+    artifact: org.springdoc:springdoc-openapi-starter-webmvc-ui
+    label: springdoc
+  - version: "1.4.1"
+    artifact: com.tngtech.archunit:archunit-junit5
+    label: ArchUnit
+
 variables:
   required: [groupId, packageName, javaVersion, entityName, entityTable, envPrefix]
 

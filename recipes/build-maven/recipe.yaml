@@ -17,6 +17,18 @@ requires: [project-root]
 # in the coordinate the recipe declared. So selecting Maven simply does not run that hook, which is
 # what "a hook belongs to a recipe" buys: the question answers itself rather than needing a branch.
 
+# Versions this recipe pins, and where the weekly bump job looks for newer ones (§36).
+#
+# Declared rather than discovered: a job that guesses which literals are versions
+# eventually rewrites a port number. `version` is the exact string this recipe writes —
+# in frameworkVersion, in a catalog entry, in a coordinate, in a pom property — and the
+# bump replaces every occurrence of it inside this directory at once, which is what
+# makes a Spring Boot bump land as one coherent change rather than four.
+tracks:
+  - version: "2.46.1"
+    artifact: com.diffplug.spotless:spotless-maven-plugin
+    label: Spotless
+
 variables:
   required: [groupId, javaVersion]
 

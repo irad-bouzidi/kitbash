@@ -8,6 +8,18 @@ slot: database
 provides: [database]
 requires: [jvm-project]
 
+# Versions this recipe pins, and where the weekly bump job looks for newer ones (§36).
+#
+# Declared rather than discovered: a job that guesses which literals are versions
+# eventually rewrites a port number. `version` is the exact string this recipe writes —
+# in frameworkVersion, in a catalog entry, in a coordinate, in a pom property — and the
+# bump replaces every occurrence of it inside this directory at once, which is what
+# makes a Spring Boot bump land as one coherent change rather than four.
+tracks:
+  - version: "11.10.5"
+    artifact: org.flywaydb:flyway-core
+    label: Flyway
+
 variables:
   required: [packageName, entityName, entityTable, envPrefix]
 

@@ -2,10 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kitbash.dev/schema/recipe.schema.json",
   "title": "Kitbash recipe manifest",
-  "description": "The recipe.yaml format from plan §4. The loader validates against this schema first and then applies the semantic checks a schema cannot express (a `when` naming an undeclared option, a `requires` nothing provides, a glob matching nothing).",
+  "description": "The recipe.yaml format from plan \u00a74. The loader validates against this schema first and then applies the semantic checks a schema cannot express (a `when` naming an undeclared option, a `requires` nothing provides, a glob matching nothing).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "kind", "label"],
+  "required": [
+    "id",
+    "version",
+    "kind",
+    "label"
+  ],
   "properties": {
     "id": {
       "type": "string",
@@ -22,29 +27,49 @@
       "description": "What this recipe emits, surfaced in the UI. Display text, never compared."
     },
     "kind": {
-      "enum": ["base", "backend", "frontend", "mobile", "feature", "infra", "ci"],
+      "enum": [
+        "base",
+        "backend",
+        "frontend",
+        "mobile",
+        "feature",
+        "infra",
+        "ci"
+      ],
       "description": "The slot this recipe fills, which is also its position in the apply order."
     },
-    "label": { "type": "string", "minLength": 1 },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
     "slot": {
       "type": "string",
       "pattern": "^[a-zA-Z][a-zA-Z0-9]*$",
-      "description": "The option that offers this recipe as a choice, declared in _catalog.yaml. Omit it for a recipe nothing chooses directly — `base` arrives because something requires `project-root`."
+      "description": "The option that offers this recipe as a choice, declared in _catalog.yaml. Omit it for a recipe nothing chooses directly \u2014 `base` arrives because something requires `project-root`."
     },
-    "provides": { "$ref": "#/$defs/capabilityList" },
-    "requires": { "$ref": "#/$defs/capabilityList" },
+    "provides": {
+      "$ref": "#/$defs/capabilityList"
+    },
+    "requires": {
+      "$ref": "#/$defs/capabilityList"
+    },
     "conflictsWith": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      },
       "uniqueItems": true
     },
     "hook": {
       "type": "boolean",
-      "description": "Declares that a hook is registered for this recipe in core. A recipe directory can say it has a hook; it cannot supply code (§4)."
+      "description": "Declares that a hook is registered for this recipe in core. A recipe directory can say it has a hook; it cannot supply code (\u00a74)."
     },
     "options": {
       "type": "array",
-      "items": { "$ref": "#/$defs/option" }
+      "items": {
+        "$ref": "#/$defs/option"
+      }
     },
     "variables": {
       "type": "object",
@@ -52,7 +77,10 @@
       "properties": {
         "required": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+          },
           "uniqueItems": true
         }
       }
@@ -62,34 +90,103 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["from"],
+        "required": [
+          "from"
+        ],
         "properties": {
-          "from": { "type": "string", "minLength": 1 },
-          "when": { "type": "string", "minLength": 1 }
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "when": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "patches": {
       "type": "array",
-      "items": { "$ref": "#/$defs/patch" }
+      "items": {
+        "$ref": "#/$defs/patch"
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "description": "Versions this recipe pins and the artifact each follows, for the weekly bump job (\u00a736). Declared rather than discovered: a job that guesses which literals are versions eventually rewrites a port number.",
+      "items": {
+        "type": "object",
+        "required": [
+          "version",
+          "artifact"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?([.-][A-Za-z0-9]+)*$",
+            "description": "The exact literal this recipe writes. Every occurrence of it inside the recipe directory is replaced together."
+          },
+          "artifact": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$",
+            "description": "The Maven coordinate whose latest release the job compares against."
+          },
+          "label": {
+            "type": "string",
+            "description": "What a human calls it, for the bump's own changelog."
+          }
+        }
+      }
     }
   },
   "$defs": {
     "capabilityList": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      },
       "uniqueItems": true
     },
     "option": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "help"],
+      "required": [
+        "id",
+        "type",
+        "help"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
-        "type": { "enum": ["enum", "boolean", "string", "multi-select"] },
-        "values": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "default": { "type": ["string", "boolean", "array"] },
-        "label": { "type": "string" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+        },
+        "type": {
+          "enum": [
+            "enum",
+            "boolean",
+            "string",
+            "multi-select"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "default": {
+          "type": [
+            "string",
+            "boolean",
+            "array"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
         "demands": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
@@ -103,18 +200,57 @@
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
-          "then": { "required": ["values"], "properties": { "values": { "minItems": 1 } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "values"
+            ],
+            "properties": {
+              "values": {
+                "minItems": 1
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "multi-select" } }, "required": ["type"] },
-          "then": { "required": ["values"], "properties": { "values": { "minItems": 1 } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "multi-select"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "values"
+            ],
+            "properties": {
+              "values": {
+                "minItems": 1
+              }
+            }
+          }
         }
       ]
     },
     "patch": {
       "type": "object",
-      "required": ["op", "target"],
+      "required": [
+        "op",
+        "target"
+      ],
       "properties": {
         "op": {
           "enum": [
@@ -127,106 +263,281 @@
             "addEnvVar",
             "addComposeService"
           ],
-          "description": "The eight operations of §4. The set is closed: a ninth is a design discussion, not a manifest change."
+          "description": "The eight operations of \u00a74. The set is closed: a ninth is a design discussion, not a manifest change."
         },
         "target": {
           "type": "string",
           "minLength": 1,
-          "description": "The file this patch edits — except for addDependency, where it is the module directory ('.' for the root) and the applier finds that module's build file."
+          "description": "The file this patch edits \u2014 except for addDependency, where it is the module directory ('.' for the root) and the applier finds that module's build file."
         },
-        "when": { "type": "string", "minLength": 1 }
+        "when": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "op": { "const": "addDependency" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "addDependency"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["configuration", "coordinate"],
+            "required": [
+              "configuration",
+              "coordinate"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "configuration": { "type": "string", "minLength": 1 },
-              "coordinate": { "type": "string", "minLength": 1 },
-              "versionRef": { "type": "string" }
+              "op": true,
+              "target": true,
+              "when": true,
+              "configuration": {
+                "type": "string",
+                "minLength": 1
+              },
+              "coordinate": {
+                "type": "string",
+                "minLength": 1
+              },
+              "versionRef": {
+                "type": "string"
+              }
             }
           }
         },
         {
-          "if": { "properties": { "op": { "const": "mergeYaml" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "mergeYaml"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["content"],
-            "additionalProperties": false,
-            "properties": { "op": true, "target": true, "when": true, "content": { "type": "object" } }
-          }
-        },
-        {
-          "if": { "properties": { "op": { "const": "mergeJson" } }, "required": ["op"] },
-          "then": {
-            "required": ["content"],
-            "additionalProperties": false,
-            "properties": { "op": true, "target": true, "when": true, "content": { "type": "object" } }
-          }
-        },
-        {
-          "if": { "properties": { "op": { "const": "addScript" } }, "required": ["op"] },
-          "then": {
-            "required": ["name", "command"],
+            "required": [
+              "content"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "name": { "type": "string", "minLength": 1 },
-              "command": { "type": "string", "minLength": 1 }
+              "op": true,
+              "target": true,
+              "when": true,
+              "content": {
+                "type": "object"
+              }
             }
           }
         },
         {
-          "if": { "properties": { "op": { "const": "insertAtMarker" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "mergeJson"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["marker", "lines"],
+            "required": [
+              "content"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "marker": { "type": "string", "minLength": 1 },
-              "lines": { "type": "array", "items": { "type": "string" } }
+              "op": true,
+              "target": true,
+              "when": true,
+              "content": {
+                "type": "object"
+              }
             }
           }
         },
         {
-          "if": { "properties": { "op": { "const": "appendLines" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "addScript"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["lines"],
+            "required": [
+              "name",
+              "command"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "lines": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+              "op": true,
+              "target": true,
+              "when": true,
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
         {
-          "if": { "properties": { "op": { "const": "addEnvVar" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "insertAtMarker"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["name", "value"],
+            "required": [
+              "marker",
+              "lines"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "name": { "type": "string", "pattern": "^(\\{\\{[^}]*\\}\\}[A-Z0-9_]*|[A-Z][A-Z0-9_]*)$", "description": "An environment variable name, or a template that renders to one — the prefix is usually a variable." },
-              "value": { "type": "string" },
-              "composeValue": { "type": "string", "description": "What the compose service should see, when it differs from the host value — a database is at localhost for a developer and at the service name for the app container." },
-              "comment": { "type": "string" },
-              "composeTarget": { "type": "string" },
-              "composeService": { "type": "string" }
+              "op": true,
+              "target": true,
+              "when": true,
+              "marker": {
+                "type": "string",
+                "minLength": 1
+              },
+              "lines": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
         {
-          "if": { "properties": { "op": { "const": "addComposeService" } }, "required": ["op"] },
+          "if": {
+            "properties": {
+              "op": {
+                "const": "appendLines"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
           "then": {
-            "required": ["service", "definition"],
+            "required": [
+              "lines"
+            ],
             "additionalProperties": false,
             "properties": {
-              "op": true, "target": true, "when": true,
-              "service": { "type": "string", "minLength": 1 },
-              "definition": { "type": "object" },
-              "dependsOn": { "type": "array", "items": { "type": "string" } }
+              "op": true,
+              "target": true,
+              "when": true,
+              "lines": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "addEnvVar"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "required": [
+              "name",
+              "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "op": true,
+              "target": true,
+              "when": true,
+              "name": {
+                "type": "string",
+                "pattern": "^(\\{\\{[^}]*\\}\\}[A-Z0-9_]*|[A-Z][A-Z0-9_]*)$",
+                "description": "An environment variable name, or a template that renders to one \u2014 the prefix is usually a variable."
+              },
+              "value": {
+                "type": "string"
+              },
+              "composeValue": {
+                "type": "string",
+                "description": "What the compose service should see, when it differs from the host value \u2014 a database is at localhost for a developer and at the service name for the app container."
+              },
+              "comment": {
+                "type": "string"
+              },
+              "composeTarget": {
+                "type": "string"
+              },
+              "composeService": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "addComposeService"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "required": [
+              "service",
+              "definition"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "op": true,
+              "target": true,
+              "when": true,
+              "service": {
+                "type": "string",
+                "minLength": 1
+              },
+              "definition": {
+                "type": "object"
+              },
+              "dependsOn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           }
         }

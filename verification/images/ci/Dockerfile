@@ -23,6 +23,18 @@ RUN apt-get update \
 # catches the same class of thing: a key that does not exist, a value of the wrong shape.
 RUN pip install --no-cache-dir check-jsonschema==0.31.2
 
+# §13 attaches a second duty to the freshness job: run the generated dependency trees through a
+# vulnerability scan, so this does not become an efficient distributor of known-vulnerable
+# dependencies. osv-scanner reads a pom.xml or a pnpm-lock.yaml directly and needs no API key.
+ARG OSV_SCANNER_VERSION=2.2.4
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL -o /usr/local/bin/osv-scanner \
+        "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
+    && chmod +x /usr/local/bin/osv-scanner \
+    && apt-get purge -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --shell /bin/bash builder \
     && mkdir -p /work \
     && chown builder:builder /work

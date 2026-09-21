@@ -32,6 +32,18 @@ options:
       Generate the TypeScript API client from the backend's OpenAPI document instead of
       hand-writing it. Requires a backend that publishes one.
 
+# Versions this recipe pins, and where the weekly bump job looks for newer ones (§36).
+#
+# Declared rather than discovered: a job that guesses which literals are versions
+# eventually rewrites a port number. `version` is the exact string this recipe writes —
+# in frameworkVersion, in a catalog entry, in a coordinate, in a pom property — and the
+# bump replaces every occurrence of it inside this directory at once, which is what
+# makes a Spring Boot bump land as one coherent change rather than four.
+tracks:
+  - version: "7.14.0"
+    artifact: org.openapitools:openapi-generator-maven-plugin
+    label: openapi-generator
+
 variables:
   # Not javaVersion, although the typed client's CI job renders it: a standalone frontend has no
   # JVM and requiring it would make the case §18 explicitly allows impossible to express. The line

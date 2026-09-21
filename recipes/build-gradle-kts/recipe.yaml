@@ -17,6 +17,18 @@ requires: [project-root]
 # docs/hooks.md for why that earns a hook and what the alternative would have been.
 hook: true
 
+# Versions this recipe pins, and where the weekly bump job looks for newer ones (§36).
+#
+# Declared rather than discovered: a job that guesses which literals are versions
+# eventually rewrites a port number. `version` is the exact string this recipe writes —
+# in frameworkVersion, in a catalog entry, in a coordinate, in a pom property — and the
+# bump replaces every occurrence of it inside this directory at once, which is what
+# makes a Spring Boot bump land as one coherent change rather than four.
+tracks:
+  - version: "7.0.4"
+    artifact: com.diffplug.spotless:spotless-plugin-gradle
+    label: Spotless
+
 variables:
   required: [groupId, javaVersion]
 
