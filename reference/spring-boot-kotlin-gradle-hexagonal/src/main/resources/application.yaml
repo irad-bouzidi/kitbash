@@ -32,7 +32,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics"
+        include:
+        - health
+        - info
+        - metrics
+        - prometheus
   endpoint:
     health:
       probes:
@@ -41,6 +45,12 @@ management:
   info:
     env:
       enabled: true
+  otlp:
+    tracing:
+      endpoint: "${DEMO_OTLP_ENDPOINT}"
+  tracing:
+    sampling:
+      probability: 0.1
 info:
   app:
     name: demo

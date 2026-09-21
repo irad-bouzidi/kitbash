@@ -1,0 +1,87 @@
+package {{ packageName }};
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * What the service says about itself, asserted rather than assumed.
+ *
+ * <p>Observability is the easiest thing in a project to believe you have: the dependency is on the
+ * classpath, the endpoint returns 200, and nobody notices the metric is missing until the incident
+ * when it is wanted. These tests read the actual numbers and the actual log line.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Not optional, and the reason this test exists at all: @SpringBootTest turns metrics and tracing
+// export *off*, so a suite without this annotation asserts nothing about either and passes. The
+// first version of this file got a 404 from /actuator/prometheus for exactly that reason.
+@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+@ActiveProfiles("test")
+@org.junit.jupiter.api.extension.ExtendWith(OutputCaptureExtension.class)
+class ObservabilityTest extends PostgresTestBase {
+
+    @Autowired
+    private TestRestTemplate http;
+
+    @Test
+    @DisplayName("the Prometheus endpoint is served, and carries the JVM's own meters")
+    void exposesPrometheus() {
+        String body = http.getForObject("/actuator/prometheus", String.class);
+
+        assertThat(body).contains("jvm_memory_used_bytes");
+    }
+
+    @Test
+    @DisplayName("creating a {{ entityName | camel }} moves a counter that is about this application, not about the JVM")
+    void counts{{ entityName }}sCreated() {
+        double before = counter();
+
+        http.postForEntity("/api/{{ entityTable }}", Map.of("name", "observed", "quantity", 1), String.class);
+
+        assertThat(counter()).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("the correlation id reaches the log line, which is the only place it is any use")
+    void correlationIdIsLogged(CapturedOutput output) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Correlation-Id", "trace-for-the-log");
+
+        http.exchange("/api/{{ entityTable }}", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        // Logs are one JSON object per line and the id is a field, so a search for the id in a log
+        // aggregator finds every line written while handling that request.
+        assertThat(output.getOut()).contains("trace-for-the-log");
+    }
+
+    @Test
+    @DisplayName("health reports UP with the readiness probe the container's HEALTHCHECK calls")
+    void exposesReadiness() {
+        assertThat(http.getForEntity("/actuator/health/readiness", String.class).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+    }
+
+    private double counter() {
+        String body = http.getForObject("/actuator/prometheus", String.class);
+        if (body == null) {
+            return 0;
+        }
+        return body.lines()
+                .filter(line -> line.startsWith("{{ entityTable }}_created_{{ entityTable }}_total"))
+                .mapToDouble(line -> Double.parseDouble(line.substring(line.lastIndexOf(' ') + 1)))
+                .findFirst()
+                .orElse(0);
+    }
+}

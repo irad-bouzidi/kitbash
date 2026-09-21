@@ -54,6 +54,7 @@ class RequiredEnvironmentValidator : EnvironmentPostProcessor {
                 put("DEMO_DB_PASSWORD", "Database password")
                 put("DEMO_AUTH_ISSUER_URI", "OpenID issuer this service trusts")
                 put("DEMO_AUTH_AUDIENCE", "Audience this service accepts")
+                put("DEMO_OTLP_ENDPOINT", "OTLP endpoint spans are sent to")
                 // kitbash:required-environment
             }
 

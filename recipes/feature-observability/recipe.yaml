@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# The metrics layer, and nothing below it. §15 already puts health endpoints, structured JSON logs
+# and a correlation id in *every* generated project, so this recipe's job is the part that is
+# genuinely optional: a Prometheus endpoint, one metric that is about the application rather than
+# about the JVM, and an access line so the correlation id is on something.
+#
+# What is deliberately NOT here is the LGTM stack (§11). Prometheus, Grafana, Loki and Tempo are
+# four containers, four healthchecks, four startup races and a dashboard nobody reviewed — and a
+# generated project that ships a monitoring platform is a different product. This one exports; you
+# point it at whatever you already run.
+id: feature-observability
+version: 1.0.0
+frameworkVersion: "1.15"
+kind: feature
+label: Metrics and tracing
+slot: observability
+
+provides: [observability]
+requires: [http-server]
+
+options:
+  - id: tracing
+    type: boolean
+    default: false
+    label: OpenTelemetry tracing
+    help: >-
+      Export spans over OTLP to a collector you already run. Off by default: it adds two
+      dependencies and a required endpoint, and metrics are useful on their own.
+
+variables:
+  required: [entityTable, envPrefix]
+
+files:
+  - from: java/**
+    when: "capability('java-sources')"
+  - from: kotlin/**
+    when: "capability('kotlin-sources')"
+  # The interaction test, which neither recipe could write alone: it needs auth's filter chain and
+  # this recipe's endpoints in the same project. Shipped only when both were selected, because a
+  # test asserting 401 would fail in a project with nothing to authenticate against.
+  # Only when tracing is on, and language-independent: it is a resource, not a source file.
+  - from: tracing/**
+    when: "tracing"
+
+  - from: java-auth/**
+    when: "capability('java-sources') && capability('auth')"
+  - from: kotlin-auth/**
+    when: "capability('kotlin-sources') && capability('auth')"
+
+patches:
+  # runtimeOnly: nothing compiles against the registry, and a compile dependency on it is how a
+  # `PrometheusMeterRegistry` import ends up in application code that should not know the format.
+  - op: addDependency
+    target: .
+    configuration: runtimeOnly
+    coordinate: io.micrometer:micrometer-registry-prometheus
+
+  # Tracing is two dependencies and a required endpoint, so it is a choice rather than a default.
+  - op: addDependency
+    target: .
+    when: "tracing"
+    configuration: implementation
+    coordinate: io.micrometer:micrometer-tracing-bridge-otel
+  - op: addDependency
+    target: .
+    when: "tracing"
+    configuration: implementation
+    coordinate: io.opentelemetry:opentelemetry-exporter-otlp
+
+  # `prometheus` is added to a list the backend recipe already wrote, which is what mergeYaml is
+  # for — the alternative is this recipe owning application.yaml, and then every other feature
+  # needing this recipe selected.
+  - op: mergeYaml
+    target: src/main/resources/application.yaml
+    content:
+      management:
+        endpoints:
+          web:
+            exposure:
+              include:
+                - prometheus
+
+  - op: mergeYaml
+    target: src/main/resources/application.yaml
+    when: "tracing"
+    content:
+      management:
+        otlp:
+          tracing:
+            endpoint: "{{ '${' }}{{ envPrefix }}_OTLP_ENDPOINT}"
+        tracing:
+          sampling:
+            # Ten per cent. Tracing every request is affordable until the day it is not, and a
+            # sampled trace is still a trace; this is the number to raise while debugging.
+            probability: 0.1
+
+  - op: addEnvVar
+    target: .env.example
+    composeTarget: compose.yaml
+    composeService: app
+    when: "tracing"
+    name: "{{ envPrefix }}_OTLP_ENDPOINT"
+    value: http://localhost:4318/v1/traces
+    comment: >-
+      OTLP/HTTP endpoint spans are sent to. No collector is generated — §11 keeps the monitoring
+      stack out of this project — so point it at one you run.
+
+  - op: insertAtMarker
+    target: src/main/java/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.java
+    when: "capability('java-sources') && tracing"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '        required.put("{{ envPrefix }}_OTLP_ENDPOINT", "OTLP endpoint spans are sent to");'
+
+  - op: insertAtMarker
+    target: src/main/kotlin/{{ packageName | packagePath }}/config/RequiredEnvironmentValidator.kt
+    when: "capability('kotlin-sources') && tracing"
+    marker: "// kitbash:required-environment"
+    lines:
+      - '                put("{{ envPrefix }}_OTLP_ENDPOINT", "OTLP endpoint spans are sent to")'
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Observability** — Actuator, Micrometer and a Prometheus endpoint{% if tracing %}, with OpenTelemetry tracing over OTLP{% endif %}"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **One metric is about the application**, not the JVM: `{{ entityTable }}_created_total` moves when"
+      - "  somebody uses the API. JVM gauges say the process is alive; this says it is being used."
+      - "- **Every request writes one structured line** with its correlation id, method, path, status"
+      - "  and duration — which is what makes \"what happened to request X\" a question with an answer."
+      - "- **No monitoring stack is generated.** `/actuator/prometheus` is a scrape target for the"
+      - "  Prometheus you already run, and §11 is explicit that four more containers would be a"
+      - "  different product."

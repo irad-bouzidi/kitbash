@@ -50,8 +50,8 @@ class MetadataControllerTest {
         JsonNode document = metadata();
 
         assertThat(document.path("catalogDigest").asText()).startsWith("sha256:");
-        // Ten since kitbash-31 added the auth feature.
-        assertThat(document.path("recipeCount").asInt()).isEqualTo(10);
+        // Eleven since kitbash-32 added the observability feature.
+        assertThat(document.path("recipeCount").asInt()).isEqualTo(11);
         assertThat(texts(document.path("groups"), "id")).containsExactly("stack", "delivery");
 
         List<String> slots = new ArrayList<>();
@@ -60,7 +60,8 @@ class MetadataControllerTest {
                 slots.add(option.path("id").asText());
             }
         }));
-        assertThat(slots).contains("backend", "frontend", "buildTool", "database", "auth", "docker", "ci");
+        assertThat(slots)
+                .contains("backend", "frontend", "buildTool", "database", "auth", "observability", "docker", "ci");
     }
 
     @Test
@@ -161,7 +162,7 @@ class MetadataControllerTest {
 
         assertThat(info.path("catalog").path("digest").asText())
                 .isEqualTo(metadata().path("catalogDigest").asText());
-        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(10);
+        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(11);
     }
 
     @Test

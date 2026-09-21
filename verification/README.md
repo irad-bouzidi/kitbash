@@ -66,7 +66,7 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-Four of the twelve cells today are the four §17 asks for: backend only, frontend only, both, and
+Four of the thirteen cells today are the four §17 asks for: backend only, frontend only, both, and
 both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
 
@@ -80,9 +80,10 @@ trade being made on purpose.
 `CellTest.coversEveryPair` asserts it rather than trusting the list: deleting a cell to make the
 matrix faster fails with the name of the pair that stopped being built.
 
-Auth (§31) is not a fourth axis. It adds the same files whichever architecture, language or build
-tool is chosen, so it is covered by two reference projects plus `full-stack-auth` — the one cell
-with a browser half, and therefore the only one that builds the frontend side of it.
+Auth (§31) and observability (§32) are not further axes. Both add the same files whichever
+architecture, language or build tool is chosen, so each is covered by the two reference projects
+that carry it plus one cell for the combination no reference has: `full-stack-auth` for auth's
+browser half, and `backend-observability` for metrics with auth off.
 
 ## What is here
 

@@ -1,0 +1,83 @@
+package com.example.demo
+
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
+import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.test.context.ActiveProfiles
+
+/**
+ * What the service says about itself, asserted rather than assumed.
+ *
+ * Observability is the easiest thing in a project to believe you have: the dependency is on the
+ * classpath, the endpoint returns 200, and nobody notices the metric is missing until the incident
+ * when it is wanted. These tests read the actual numbers and the actual log line.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Not optional, and the reason this test exists at all: @SpringBootTest turns metrics and tracing
+// export *off*, so a suite without this annotation asserts nothing about either and passes. The
+// first version of this file got a 404 from /actuator/prometheus for exactly that reason.
+@AutoConfigureObservability
+@ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension::class)
+class ObservabilityTest : PostgresTestBase() {
+    @Autowired
+    private lateinit var http: TestRestTemplate
+
+    @Test
+    @DisplayName("the Prometheus endpoint is served, and carries the JVM's own meters")
+    fun exposesPrometheus() {
+        val body = http.getForObject("/actuator/prometheus", String::class.java)
+
+        assertThat(body).contains("jvm_memory_used_bytes")
+    }
+
+    @Test
+    @DisplayName("creating a widget moves a counter that is about this application, not about the JVM")
+    fun countsWidgetsCreated() {
+        val before = counter()
+
+        http.postForEntity("/api/widgets", mapOf("name" to "observed", "quantity" to 1), String::class.java)
+
+        assertThat(counter()).isEqualTo(before + 1)
+    }
+
+    @Test
+    @DisplayName("the correlation id reaches the log line, which is the only place it is any use")
+    fun correlationIdIsLogged(output: CapturedOutput) {
+        val headers = HttpHeaders()
+        headers.set("X-Correlation-Id", "trace-for-the-log")
+
+        http.exchange("/api/widgets", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
+
+        // Logs are one JSON object per line and the id is a field, so a search for the id in a log
+        // aggregator finds every line written while handling that request.
+        assertThat(output.out).contains("trace-for-the-log")
+    }
+
+    @Test
+    @DisplayName("health reports UP with the readiness probe the container's HEALTHCHECK calls")
+    fun exposesReadiness() {
+        assertThat(http.getForEntity("/actuator/health/readiness", String::class.java).statusCode)
+            .isEqualTo(HttpStatus.OK)
+    }
+
+    private fun counter(): Double {
+        val body = http.getForObject("/actuator/prometheus", String::class.java) ?: return 0.0
+        return body
+            .lineSequence()
+            .filter { it.startsWith("widgets_created_widgets_total") }
+            .map { it.substringAfterLast(' ').toDouble() }
+            .firstOrNull() ?: 0.0
+    }
+}
