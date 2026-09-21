@@ -16,6 +16,7 @@ it to the full matrix with sharding.
 ```bash
 docker build -t kitbash/verify-jvm:latest  -f verification/images/jvm/Dockerfile  .
 docker build -t kitbash/verify-node:latest -f verification/images/node/Dockerfile .
+docker build -t kitbash/verify-ci:latest   -f verification/images/ci/Dockerfile   .
 
 cd server
 ./gradlew :verify:runMatrix                            # the merge-request cells
