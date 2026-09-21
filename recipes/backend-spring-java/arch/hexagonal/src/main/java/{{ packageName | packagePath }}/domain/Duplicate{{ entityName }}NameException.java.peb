@@ -1,0 +1,8 @@
+package {{ packageName }}.domain;
+
+public class Duplicate{{ entityName }}NameException extends RuntimeException {
+
+    public Duplicate{{ entityName }}NameException(String name) {
+        super("A {{ entityName | camel }} named '" + name + "' already exists");
+    }
+}

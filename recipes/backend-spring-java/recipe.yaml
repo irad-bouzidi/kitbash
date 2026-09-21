@@ -19,22 +19,34 @@ requires: [project-root, build-tool, database]
 options:
   - id: architecture
     type: enum
-    values: [layered]
+    values: [layered, hexagonal, modular-monolith]
     default: layered
     label: Architecture
     help: >-
       Determines the package layout and the direction dependencies are allowed to point.
-      Hexagonal and modular-monolith arrive in phase 3; the option exists now so the value
-      is recorded in every selection and lock from the start.
+      Each one ships an ArchUnit test inside the generated project, so the choice is something
+      your build checks rather than something a README claims — §11 is explicit that an
+      architecture option which only renames folders should be dropped.
 
 variables:
   required: [groupId, packageName, javaVersion, entityName, entityTable, envPrefix]
 
 files:
+  # Everything a choice of architecture does not move: the application class, the framework
+  # wiring under config/, and the resources. Three copies of these would be three places to
+  # fix a logging change.
   - from: files/**
-  # The image that runs this backend belongs to this recipe, not to the container recipe.
-  - from: container/**
-    when: "capability('containers')"
+
+  # And the part it does move. One directory per value of the `architecture` option, selected
+  # by `when` rather than by a recipe per architecture — §30 is explicit that the architecture
+  # is an option on this recipe, because a project is one backend with a shape, not three
+  # backends.
+  - from: arch/layered/**
+    when: "architecture == 'layered'"
+  - from: arch/hexagonal/**
+    when: "architecture == 'hexagonal'"
+  - from: arch/modular-monolith/**
+    when: "architecture == 'modular-monolith'"
 
 patches:
   - op: addComposeService
@@ -199,6 +211,14 @@ patches:
     configuration: testRuntimeOnly
     coordinate: org.junit.platform:junit-platform-launcher
 
+  # The architecture test's engine. testImplementation because it is a test — but a test that
+  # ships to the user, so it runs in their build and not only in ours (§30).
+  - op: addDependency
+    target: .
+    configuration: testImplementation
+    coordinate: com.tngtech.archunit:archunit-junit5:1.4.1
+    versionRef: archunit
+
   - op: appendLines
     target: .gitignore
     lines:
@@ -240,6 +260,7 @@ patches:
 
   - op: insertAtMarker
     target: README.md
+    when: "architecture == 'layered'"
     marker: "<!-- kitbash:layout -->"
     lines:
       - "```"
@@ -254,6 +275,38 @@ patches:
 
   - op: insertAtMarker
     target: README.md
+    when: "architecture == 'hexagonal'"
+    marker: "<!-- kitbash:layout -->"
+    lines:
+      - "```"
+      - "src/main/java/{{ packageName | packagePath }}/"
+      - "  domain/                       the model, with no framework on it at all"
+      - "  application/                  the use cases"
+      - "    port/inbound/               what the application can be asked to do"
+      - "    port/outbound/              what it needs from the outside world"
+      - "  adapter/inbound/web/          the REST controller and its wire types"
+      - "  adapter/outbound/persistence/ the JPA row and the mapping to the domain"
+      - "  config/                       properties, startup validation, filters"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    when: "architecture == 'modular-monolith'"
+    marker: "<!-- kitbash:layout -->"
+    lines:
+      - "```"
+      - "src/main/java/{{ packageName | packagePath }}/"
+      - "  {{ entityName | camel }}/                      a module: public API at the top, everything else below"
+      - "    {{ entityName }}Api.java            the only type another module may use"
+      - "    internal/                 entity, repository, service, controller"
+      - "  report/                     a second module, reading the first through its API"
+      - "  config/                     properties, startup validation, filters"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
     marker: "<!-- kitbash:rules -->"
     lines:
       - "- **Configuration is validated at startup.** Every variable in `.env.example` is required;"
@@ -261,3 +314,30 @@ patches:
       - "- **Logs are JSON**, one object per line, with the correlation id as a field. Every request"
       - "  gets an `X-Correlation-Id` (the caller's, if supplied) and it is echoed in the response."
       - "- **Errors are RFC 9457 problem documents**, never stack traces."
+
+  - op: insertAtMarker
+    target: README.md
+    when: "architecture == 'layered'"
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **The layers are enforced.** `ArchitectureTest` fails the build if a repository imports a"
+      - "  controller, or the web layer queries directly. Layered is the architecture people assume"
+      - "  they have and most often do not."
+
+  - op: insertAtMarker
+    target: README.md
+    when: "architecture == 'hexagonal'"
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **The domain has no framework on it**, and `ArchitectureTest` fails the build if that"
+      - "  changes. JPA annotations belong on the row in `adapter/outbound/persistence`, and the"
+      - "  mapping between the two is the price of being able to test the model without a context."
+
+  - op: insertAtMarker
+    target: README.md
+    when: "architecture == 'modular-monolith'"
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **A module's `internal` package is private to it.** `ArchitectureTest` fails the build if"
+      - "  another module reaches past the public API type, and a second rule fails on a dependency"
+      - "  cycle between modules — which is what turns a set of modules back into one."

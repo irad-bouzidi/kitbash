@@ -50,13 +50,13 @@ class MetadataControllerTest {
         JsonNode document = metadata();
 
         assertThat(document.path("catalogDigest").asText()).startsWith("sha256:");
-        // Eight since kitbash-28 added the second build tool.
+        // Nine since kitbash-29 added the second backend.
         assertThat(document.path("recipeCount").asInt()).isEqualTo(9);
         assertThat(texts(document.path("groups"), "id")).containsExactly("stack", "delivery");
 
         List<String> slots = new ArrayList<>();
         document.path("groups").forEach(group -> group.path("options").forEach(option -> {
-            if (option.path("availableWhen").isNull()) {
+            if (option.path("availableWhen").isEmpty()) {
                 slots.add(option.path("id").asText());
             }
         }));
@@ -86,8 +86,23 @@ class MetadataControllerTest {
 
         // §9 wants an option that does not currently apply to stay visible and disabled with the
         // reason on hover, which a client can only do if it knows what it depends on.
-        assertThat(architecture.path("availableWhen").asText()).isEqualTo("backend-spring-java");
-        assertThat(texts(architecture.path("choices"), "value")).containsExactly("layered");
+        //
+        // Both JVM backends declare `architecture`, and the wizard gets one control for the pair:
+        // two would collide on the option id and leave a permanently disabled duplicate on screen
+        // whichever backend was chosen.
+        assertThat(texts(architecture.path("availableWhen"), null))
+                .containsExactly("backend-spring-java", "backend-spring-kotlin");
+        assertThat(texts(architecture.path("choices"), "value"))
+                .containsExactly("layered", "hexagonal", "modular-monolith");
+
+        // And exactly one of it, which is the part a duplicate id would have broken.
+        List<String> architectures = new ArrayList<>();
+        metadata().path("groups").forEach(group -> group.path("options").forEach(option -> {
+            if (option.path("id").asText().equals("architecture")) {
+                architectures.add(option.path("id").asText());
+            }
+        }));
+        assertThat(architectures).hasSize(1);
     }
 
     @Test

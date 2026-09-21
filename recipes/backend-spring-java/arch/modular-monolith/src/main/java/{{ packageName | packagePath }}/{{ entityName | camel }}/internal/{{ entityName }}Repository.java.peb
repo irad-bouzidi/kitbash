@@ -1,0 +1,11 @@
+package {{ packageName }}.{{ entityName | camel }}.internal;
+
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+interface {{ entityName }}Repository extends JpaRepository<{{ entityName }}, Long> {
+
+    Optional<{{ entityName }}> findByName(String name);
+
+    boolean existsByName(String name);
+}

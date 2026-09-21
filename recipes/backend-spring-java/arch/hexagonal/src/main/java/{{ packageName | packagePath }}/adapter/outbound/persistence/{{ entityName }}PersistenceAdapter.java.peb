@@ -1,0 +1,59 @@
+package {{ packageName }}.adapter.outbound.persistence;
+
+import {{ packageName }}.application.port.outbound.{{ entityName }}Repository;
+import {{ packageName }}.domain.{{ entityName }};
+import java.util.List;
+import java.util.Optional;
+import org.springframework.stereotype.Component;
+
+/**
+ * The driven adapter: it implements a port the application declared, and it is the only class in
+ * the project that knows both a {@link {{ entityName }}} and a {@link {{ entityName }}Row}.
+ *
+ * <p>The mapping is hand-written and that is the honest cost of the architecture. Two methods, no
+ * mapping framework, and a translation that anyone can read — which is a better trade at this size
+ * than a library that has to be configured before a reader can tell what a field becomes.
+ */
+@Component
+class {{ entityName }}PersistenceAdapter implements {{ entityName }}Repository {
+
+    private final {{ entityName }}JpaRepository rows;
+
+    {{ entityName }}PersistenceAdapter({{ entityName }}JpaRepository rows) {
+        this.rows = rows;
+    }
+
+    @Override
+    public List<{{ entityName }}> findAll() {
+        return rows.findAll().stream().map({{ entityName }}PersistenceAdapter::toDomain).toList();
+    }
+
+    @Override
+    public Optional<{{ entityName }}> findById(long id) {
+        return rows.findById(id).map({{ entityName }}PersistenceAdapter::toDomain);
+    }
+
+    @Override
+    public boolean existsByName(String name) {
+        return rows.existsByName(name);
+    }
+
+    @Override
+    public boolean existsById(long id) {
+        return rows.existsById(id);
+    }
+
+    @Override
+    public {{ entityName }} save({{ entityName }} {{ entityName | camel }}) {
+        return toDomain(rows.save(new {{ entityName }}Row({{ entityName | camel }}.id(), {{ entityName | camel }}.name(), {{ entityName | camel }}.quantity(), {{ entityName | camel }}.createdAt())));
+    }
+
+    @Override
+    public void deleteById(long id) {
+        rows.deleteById(id);
+    }
+
+    private static {{ entityName }} toDomain({{ entityName }}Row row) {
+        return {{ entityName }}.existing(row.id(), row.name(), row.quantity(), row.createdAt());
+    }
+}

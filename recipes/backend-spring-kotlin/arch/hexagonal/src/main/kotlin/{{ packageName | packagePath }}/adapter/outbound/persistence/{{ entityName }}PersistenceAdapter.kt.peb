@@ -1,0 +1,32 @@
+package {{ packageName }}.adapter.outbound.persistence
+
+import {{ packageName }}.application.port.outbound.{{ entityName }}Repository
+import {{ packageName }}.domain.{{ entityName }}
+import org.springframework.stereotype.Component
+
+/**
+ * The driven adapter: it implements a port the application declared, and it is the only class in
+ * the project that knows both a [{{ entityName }}] and a [{{ entityName }}Row].
+ *
+ * The mapping is hand-written and that is the honest cost of the architecture. Two functions, no
+ * mapping framework, and a translation anyone can read — which is a better trade at this size than
+ * a library that has to be configured before a reader can tell what a field becomes.
+ */
+@Component
+internal class {{ entityName }}PersistenceAdapter(
+    private val rows: {{ entityName }}JpaRepository,
+) : {{ entityName }}Repository {
+    override fun findAll(): List<{{ entityName }}> = rows.findAll().map { it.toDomain() }
+
+    override fun findById(id: Long): {{ entityName }}? = rows.findById(id).map { it.toDomain() }.orElse(null)
+
+    override fun existsByName(name: String): Boolean = rows.existsByName(name)
+
+    override fun existsById(id: Long): Boolean = rows.existsById(id)
+
+    override fun save({{ entityName | camel }}: {{ entityName }}): {{ entityName }} = rows.save({{ entityName }}Row({{ entityName | camel }}.id, {{ entityName | camel }}.name, {{ entityName | camel }}.quantity, {{ entityName | camel }}.createdAt)).toDomain()
+
+    override fun deleteById(id: Long) = rows.deleteById(id)
+
+    private fun {{ entityName }}Row.toDomain(): {{ entityName }} = {{ entityName }}.existing(id!!, name, quantity, createdAt)
+}

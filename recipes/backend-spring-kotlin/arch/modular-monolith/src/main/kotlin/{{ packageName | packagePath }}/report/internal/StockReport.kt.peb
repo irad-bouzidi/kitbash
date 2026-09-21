@@ -1,0 +1,11 @@
+package {{ packageName }}.report.internal
+
+import io.swagger.v3.oas.annotations.media.Schema
+
+@Schema(description = "How much of everything there is")
+internal data class StockReport(
+    @field:Schema(example = "3")
+    val count: Int,
+    @field:Schema(example = "17")
+    val totalQuantity: Int,
+)

@@ -1,0 +1,54 @@
+package {{ packageName }}.{{ entityName | camel }}.internal
+
+import {{ packageName }}.{{ entityName | camel }}.{{ entityName }}Api
+import {{ packageName }}.{{ entityName | camel }}.{{ entityName }}Summary
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+/**
+ * Business rules live here, not in the controller and not in the entity.
+ *
+ * It also implements [{{ entityName }}Api], which is how the module's published surface and its internal one
+ * stay the same code: the alternative — a separate facade that delegates — is two places to change
+ * and a standing invitation to let them drift.
+ */
+@Service
+@Transactional(readOnly = true)
+internal class {{ entityName }}Service(
+    private val {{ entityTable }}: {{ entityName }}Repository,
+) : {{ entityName }}Api {
+    override fun summaries(): List<{{ entityName }}Summary> = {{ entityTable }}.findAll().map { {{ entityName }}Summary(it.id, it.name, it.quantity) }
+
+    fun findAll(): List<{{ entityName }}> = {{ entityTable }}.findAll()
+
+    fun findById(id: Long): {{ entityName }} = {{ entityTable }}.findById(id).orElseThrow { {{ entityName }}NotFoundException(id) }
+
+    @Transactional
+    fun create(
+        name: String,
+        quantity: Int,
+    ): {{ entityName }} {
+        if ({{ entityTable }}.existsByName(name)) {
+            throw Duplicate{{ entityName }}NameException(name)
+        }
+        return {{ entityTable }}.save({{ entityName }}.of(name, quantity))
+    }
+
+    @Transactional
+    fun restock(
+        id: Long,
+        amount: Int,
+    ): {{ entityName }} {
+        val {{ entityName | camel }} = findById(id)
+        {{ entityName | camel }}.restock(amount)
+        return {{ entityName | camel }}
+    }
+
+    @Transactional
+    fun delete(id: Long) {
+        if (!{{ entityTable }}.existsById(id)) {
+            throw {{ entityName }}NotFoundException(id)
+        }
+        {{ entityTable }}.deleteById(id)
+    }
+}

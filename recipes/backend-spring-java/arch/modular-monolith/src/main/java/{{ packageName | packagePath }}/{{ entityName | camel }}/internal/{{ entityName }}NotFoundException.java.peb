@@ -1,0 +1,8 @@
+package {{ packageName }}.{{ entityName | camel }}.internal;
+
+class {{ entityName }}NotFoundException extends RuntimeException {
+
+    {{ entityName }}NotFoundException(long id) {
+        super("No {{ entityName | camel }} with id " + id);
+    }
+}

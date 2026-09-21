@@ -1,0 +1,55 @@
+package com.example.demo.domain
+
+import java.time.Instant
+
+/**
+ * The example entity, and the one class in this project with no framework on it at all.
+ *
+ * That is the whole claim hexagonal makes, and `ArchitectureTest` is what keeps it true: no
+ * Spring, no Jakarta Persistence, no Jackson. The mapping to a database row lives in
+ * `adapter.outbound.persistence`, which is free to be as annotated as JPA needs.
+ *
+ * A class rather than a `data class`: a data class derives `equals` from every property, and this
+ * type's identity is its stored id. The two disagree the moment a widget is saved.
+ */
+class Widget private constructor(
+    val id: Long?,
+    var name: String,
+    var quantity: Int,
+    val createdAt: Instant,
+) {
+    fun rename(newName: String) {
+        name = newName
+    }
+
+    fun restock(amount: Int) {
+        require(amount >= 0) { "restock amount must not be negative: $amount" }
+        quantity += amount
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        // Identity is the stored id; two unsaved widgets are never equal.
+        return other is Widget && id != null && id == other.id
+    }
+
+    override fun hashCode(): Int = id?.hashCode() ?: 0
+
+    companion object {
+        /** A widget that has never been stored: no id yet, and the clock read once, here. */
+        fun of(
+            name: String,
+            quantity: Int,
+        ): Widget = Widget(null, name, quantity, Instant.now())
+
+        /** A widget read back from storage. Used by the persistence adapter, not by callers. */
+        fun existing(
+            id: Long,
+            name: String,
+            quantity: Int,
+            createdAt: Instant,
+        ): Widget = Widget(id, name, quantity, createdAt)
+    }
+}

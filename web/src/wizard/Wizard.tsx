@@ -177,7 +177,7 @@ function asOption(variable: CatalogVariable) {
     defaultValue: variable.defaultValue,
     // Always available: a name is needed whatever the stack, and the server tells us which
     // recipes require it through `requiredBy` rather than through this field.
-    availableWhen: undefined,
+    availableWhen: [],
     choices: [],
   };
 }

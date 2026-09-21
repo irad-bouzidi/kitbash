@@ -139,12 +139,25 @@ function unavailableReason(
   option: CatalogOption,
   resolution: ValidationResponse | null,
 ): string | undefined {
-  const owner = option.availableWhen;
-  if (!owner) return undefined;
+  // A list since kitbash-30: both JVM backends declare `architecture`, and the option applies
+  // when any of them is selected. One control for the pair — two would share an id.
+  const owners = option.availableWhen ?? [];
+  if (owners.length === 0) return undefined;
 
-  const selected = (resolution?.recipes ?? []).some((recipe) => recipe.id === owner);
-  if (selected) return undefined;
+  const recipes = resolution?.recipes ?? [];
+  if (recipes.some((recipe) => recipe.id !== undefined && owners.includes(recipe.id))) {
+    return undefined;
+  }
 
-  const label = (resolution?.recipes ?? []).find((recipe) => recipe.id === owner)?.label ?? owner;
-  return `Applies when ${label} is selected.`;
+  const labels = owners.map(
+    (owner) => recipes.find((recipe) => recipe.id === owner)?.label ?? owner,
+  );
+  return `Applies when ${formatList(labels)} is selected.`;
+}
+
+/** "a", "a or b", "a, b or c" — an English list, because this string is read by a person. */
+function formatList(values: string[]): string {
+  const last = values[values.length - 1] ?? '';
+  if (values.length <= 1) return last;
+  return `${values.slice(0, -1).join(', ')} or ${last}`;
 }

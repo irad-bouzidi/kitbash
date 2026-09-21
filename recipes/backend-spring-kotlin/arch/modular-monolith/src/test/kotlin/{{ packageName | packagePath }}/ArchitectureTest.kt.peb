@@ -1,0 +1,94 @@
+package {{ packageName }}
+
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.junit.AnalyzeClasses
+import com.tngtech.archunit.junit.ArchTest
+import com.tngtech.archunit.lang.ArchRule
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition
+
+/**
+ * The architecture, as a test your build runs.
+ *
+ * A modular monolith differs from a monolith with folders in exactly one respect: the folders are
+ * enforced. Kotlin's `internal` helps less here than it looks — it is module-wide in the
+ * *compilation* sense, so every class in this project can see every `internal` class in it — which
+ * makes these rules the only thing standing between two modules and a shortcut.
+ *
+ * Each rule is a *function* rather than the `val` of type `ArchRule` that ArchUnit's own examples
+ * use, and that is not style. Maven Surefire filters discovered tests by their source, keeps
+ * `MethodSource` and drops `FieldSource` — so the field form reports "Tests run: 0" and passes,
+ * silently, on a Maven build. Gradle runs both. Since this project can be generated with either
+ * build tool, only the form that works under both is safe to ship.
+ *
+ * Adding a module means adding one function below. That is the intended cost: a module nobody
+ * declared is a module nobody is enforcing.
+ */
+@AnalyzeClasses(packages = ["{{ packageName }}"], importOptions = [ImportOption.DoNotIncludeTests::class])
+class ArchitectureTest {
+    @ArchTest
+    fun {{ entityName | camel }}InternalsAreItsOwn(classes: JavaClasses) {
+        internalsOf("{{ entityName | camel }}").check(classes)
+    }
+
+    @ArchTest
+    fun reportInternalsAreItsOwn(classes: JavaClasses) {
+        internalsOf("report").check(classes)
+    }
+
+    /**
+     * The one rule that makes the modules worth having. Everything else is layout.
+     *
+     * It reads "nothing outside the module", which includes the module's own public API type: that
+     * type may be implemented from inside, and may not be reached into from outside.
+     */
+    private fun internalsOf(module: String): ArchRule =
+        noClasses()
+            .that()
+            .resideOutsideOfPackage("..$module..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage("..$module.internal..")
+            .because(
+                "`$module.internal` is private to the $module module. Another module talks to it " +
+                    "through the public API type in `$module`, and if what you need is not there, " +
+                    "adding it is a deliberate widening of that module's contract.",
+            )
+
+    /**
+     * Cycles are what turn a set of modules back into one module.
+     *
+     * Today `report` reads `{{ entityName | camel }}` and nothing reads `report`. The first time somebody makes that
+     * mutual, this fails — much cheaper than discovering it when the modules are meant to become
+     * separate deployables.
+     */
+    @ArchTest
+    fun modulesAreFreeOfCycles(classes: JavaClasses) {
+        SlicesRuleDefinition
+            .slices()
+            .matching("{{ packageName }}.(*)..")
+            .should()
+            .beFreeOfCycles()
+            .because("two modules that need each other are one module that has not admitted it.")
+            .check(classes)
+    }
+
+    /**
+     * A module owns its tables. Reading another module's rows directly is the shortcut that makes
+     * the published API decorative.
+     */
+    @ArchTest
+    fun onlyModulesTouchPersistence(classes: JavaClasses) {
+        noClasses()
+            .that()
+            .resideOutsideOfPackage("..internal..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage("jakarta.persistence..", "org.springframework.data..")
+            .because(
+                "persistence belongs inside a module. A repository reachable from outside one is a " +
+                    "shared database dressed as a shared class.",
+            ).check(classes)
+    }
+}

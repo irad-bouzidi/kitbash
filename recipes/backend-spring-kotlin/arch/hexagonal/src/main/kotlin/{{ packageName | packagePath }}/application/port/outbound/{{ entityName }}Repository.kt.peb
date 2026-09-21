@@ -1,0 +1,28 @@
+package {{ packageName }}.application.port.outbound
+
+import {{ packageName }}.domain.{{ entityName }}
+
+/**
+ * What the application needs from the outside world, stated without reference to who provides it.
+ *
+ * A driven port, and the direction of the dependency is the point: this interface is declared
+ * *here*, by the code that needs it, rather than in the persistence package that satisfies it. So
+ * the adapter depends on the application and never the other way round, which is what the
+ * dependency-inversion half of hexagonal actually means.
+ *
+ * It speaks [{{ entityName }}], not rows: a port that returned a JPA entity would put the database back in
+ * the middle of the application under a different name.
+ */
+interface {{ entityName }}Repository {
+    fun findAll(): List<{{ entityName }}>
+
+    fun findById(id: Long): {{ entityName }}?
+
+    fun existsByName(name: String): Boolean
+
+    fun existsById(id: Long): Boolean
+
+    fun save({{ entityName | camel }}: {{ entityName }}): {{ entityName }}
+
+    fun deleteById(id: Long)
+}

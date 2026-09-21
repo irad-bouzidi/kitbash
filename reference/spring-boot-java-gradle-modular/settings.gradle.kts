@@ -1,0 +1,7 @@
+rootProject.name = "demo"
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}

@@ -1,0 +1,8 @@
+package {{ packageName }}.domain;
+
+public class {{ entityName }}NotFoundException extends RuntimeException {
+
+    public {{ entityName }}NotFoundException(long id) {
+        super("No {{ entityName | camel }} with id " + id);
+    }
+}

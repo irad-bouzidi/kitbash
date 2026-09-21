@@ -32,7 +32,7 @@ const METADATA = {
           help: 'Which contraption to use.',
           required: false,
           defaultValue: null,
-          availableWhen: null,
+          availableWhen: [],
           choices: [
             {
               value: 'contraption-alpha',
@@ -54,7 +54,7 @@ const METADATA = {
           help: 'Adds a flourish.',
           required: false,
           defaultValue: true,
-          availableWhen: null,
+          availableWhen: [],
           choices: [],
         },
         {
@@ -64,7 +64,7 @@ const METADATA = {
           help: 'Only applies to Alpha.',
           required: false,
           defaultValue: 'pale',
-          availableWhen: 'contraption-alpha',
+          availableWhen: ['contraption-alpha'],
           choices: [{ value: 'pale', label: 'pale' }],
         },
       ],

@@ -1,0 +1,57 @@
+{
+  "$comment": [
+    "The names in this reference project that become generator variables.",
+    "kitbash-30 extracted the recipe by replacing these literals with placeholders;",
+    "the equality test generates with exactly the selection below and asserts the result",
+    "equals this directory. That test is only meaningful if this file stays accurate, so",
+    "renaming anything below is a change to this file in the same commit.",
+    "This file and REFERENCE.md are reference metadata and are excluded from extraction."
+  ],
+  "referenceProject": "spring-boot-java-gradle-modular",
+  "recipeIds": [
+    "base",
+    "build-gradle-kts",
+    "backend-spring-java",
+    "db-postgres-flyway",
+    "infra-docker",
+    "ci-gitlab"
+  ],
+  "selection": {
+    "schemaVersion": 1,
+    "projectName": "demo",
+    "options": {
+      "buildTool": "build-gradle-kts",
+      "backend": "backend-spring-java",
+      "architecture": "modular-monolith",
+      "database": "db-postgres-flyway",
+      "ci": "ci-gitlab",
+      "docker": true
+    },
+    "variables": {
+      "groupId": "com.example",
+      "packageName": "com.example.demo",
+      "javaVersion": "21",
+      "entityName": "Widget",
+      "entityTable": "widgets",
+      "envPrefix": "DEMO"
+    }
+  },
+  "literals": {
+    "com/example/demo": "{{ packageName | packagePath }}",
+    "com.example.demo": "{{ packageName }}",
+    "com.example": "{{ groupId }}",
+    "DemoApplication": "{{ projectName | pascal }}Application",
+    "DemoProperties": "{{ projectName | pascal }}Properties",
+    "DEMO_": "{{ envPrefix }}_",
+    "Widget": "{{ entityName }}",
+    "widgets": "{{ entityTable }}",
+    "widget": "{{ entityName | camel }}",
+    "demo": "{{ projectName }}"
+  },
+  "excludeFromExtraction": [
+    "reference-variables.json",
+    "REFERENCE.md",
+    ".gradle/",
+    "build/"
+  ]
+}

@@ -1,0 +1,13 @@
+package {{ packageName }}.{{ entityName | camel }}
+
+/**
+ * What one {{ entityName | camel }} looks like to a module that is not the {{ entityName | camel }} module.
+ *
+ * Plain values rather than the entity, which is the point: another module holding a managed entity
+ * could write to this module's tables through it.
+ */
+data class {{ entityName }}Summary(
+    val id: Long?,
+    val name: String,
+    val quantity: Int,
+)

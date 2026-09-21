@@ -1,0 +1,67 @@
+package {{ packageName }}.application;
+
+import {{ packageName }}.application.port.inbound.Manage{{ entityName }}s;
+import {{ packageName }}.application.port.outbound.{{ entityName }}Repository;
+import {{ packageName }}.domain.Duplicate{{ entityName }}NameException;
+import {{ packageName }}.domain.{{ entityName }};
+import {{ packageName }}.domain.{{ entityName }}NotFoundException;
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The use cases. Business rules live here and in the domain, never in an adapter.
+ *
+ * <p>This class is annotated — {@code @Service}, {@code @Transactional} — and that is deliberate
+ * rather than a leak. A transaction boundary is a statement about a use case, so it belongs on the
+ * use case. What must stay clean is the <em>domain</em>, and `ArchitectureTest` enforces exactly
+ * that line rather than a slogan about framework-free code.
+ */
+@Service
+@Transactional(readOnly = true)
+public class {{ entityName }}Service implements Manage{{ entityName }}s {
+
+    private final {{ entityName }}Repository {{ entityTable }};
+
+    public {{ entityName }}Service({{ entityName }}Repository {{ entityTable }}) {
+        this.{{ entityTable }} = {{ entityTable }};
+    }
+
+    @Override
+    public List<{{ entityName }}> findAll() {
+        return {{ entityTable }}.findAll();
+    }
+
+    @Override
+    public {{ entityName }} findById(long id) {
+        return {{ entityTable }}.findById(id).orElseThrow(() -> new {{ entityName }}NotFoundException(id));
+    }
+
+    @Override
+    @Transactional
+    public {{ entityName }} create(String name, int quantity) {
+        if ({{ entityTable }}.existsByName(name)) {
+            throw new Duplicate{{ entityName }}NameException(name);
+        }
+        return {{ entityTable }}.save({{ entityName }}.of(name, quantity));
+    }
+
+    @Override
+    @Transactional
+    public {{ entityName }} restock(long id, int amount) {
+        {{ entityName }} {{ entityName | camel }} = findById(id);
+        {{ entityName | camel }}.restock(amount);
+        // Explicit, unlike the layered version: a domain object is not a managed entity here, so
+        // nothing writes it back for us at commit. That is the trade hexagonal makes.
+        return {{ entityTable }}.save({{ entityName | camel }});
+    }
+
+    @Override
+    @Transactional
+    public void delete(long id) {
+        if (!{{ entityTable }}.existsById(id)) {
+            throw new {{ entityName }}NotFoundException(id);
+        }
+        {{ entityTable }}.deleteById(id);
+    }
+}
