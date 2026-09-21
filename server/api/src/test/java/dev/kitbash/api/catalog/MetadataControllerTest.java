@@ -50,7 +50,8 @@ class MetadataControllerTest {
         JsonNode document = metadata();
 
         assertThat(document.path("catalogDigest").asText()).startsWith("sha256:");
-        assertThat(document.path("recipeCount").asInt()).isEqualTo(7);
+        // Eight since kitbash-28 added the second build tool.
+        assertThat(document.path("recipeCount").asInt()).isEqualTo(8);
         assertThat(texts(document.path("groups"), "id")).containsExactly("stack", "delivery");
 
         List<String> slots = new ArrayList<>();
@@ -145,7 +146,7 @@ class MetadataControllerTest {
 
         assertThat(info.path("catalog").path("digest").asText())
                 .isEqualTo(metadata().path("catalogDigest").asText());
-        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(7);
+        assertThat(info.path("catalog").path("recipes").asInt()).isEqualTo(8);
     }
 
     @Test

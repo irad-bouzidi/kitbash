@@ -56,10 +56,34 @@ public final class TemplateVariables {
     }
 
     public static TemplateVariables of(Selection selection, Map<String, OptionValue> effectiveOptions) {
+        return of(selection, effectiveOptions, java.util.Set.of());
+    }
+
+    /**
+     * The variables a template may read, including what the selected set <i>provides</i>.
+     *
+     * <p>Capabilities are here for the same reason {@code when} expressions can ask about them
+     * (§4): a template that needs to know whether this project builds with Maven must not do it by
+     * naming {@code build-maven}, because recipes never name each other. It asks what the project
+     * has — {@code capabilities contains 'maven-build'} — and the question survives a recipe being
+     * renamed, replaced or joined by a second one that provides the same thing.
+     *
+     * <p>Sorted, because §4's byte-identical guarantee covers anything a template can iterate.
+     */
+    public static TemplateVariables of(
+            Selection selection,
+            Map<String, OptionValue> effectiveOptions,
+            java.util.Collection<dev.kitbash.core.recipe.Capability> capabilities) {
         Builder builder = builder();
         effectiveOptions.forEach((id, value) -> builder.put(id, value.templateValue()));
         selection.variables().forEach(builder::put);
         builder.put("projectName", selection.projectName());
+        builder.put(
+                "capabilities",
+                capabilities.stream()
+                        .map(dev.kitbash.core.recipe.Capability::name)
+                        .sorted()
+                        .toList());
         return builder.build();
     }
 

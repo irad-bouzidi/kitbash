@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+id: build-maven
+version: 1.0.0
+frameworkVersion: "3.9"
+kind: base
+label: Maven
+slot: buildTool
+provides: [build-tool, maven-build]
+requires: [project-root]
+
+# No hook, and that is the documented answer to §28's question about the version catalog.
+#
+# The catalog hook belongs to `build-gradle-kts` because a version catalog is a Gradle artefact:
+# one [versions] entry per alias, assembled from the union of the selected recipes. Maven has no
+# equivalent to assemble. Its nearest relatives — the Spring Boot parent and <dependencyManagement>
+# — already pin what they manage, and the dependencies that fall outside them carry their version
+# in the coordinate the recipe declared. So selecting Maven simply does not run that hook, which is
+# what "a hook belongs to a recipe" buys: the question answers itself rather than needing a branch.
+
+variables:
+  required: [groupId, javaVersion]
+
+files:
+  - from: files/**
+
+patches:
+  # Appended rather than owned by `base`: a project without Maven has no reason to ignore
+  # target/, and a .gitignore listing directories that never appear is the same tell as a
+  # README describing a database nobody selected.
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Maven"
+      - "target/"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Build** — Maven {{ frameworkVersion }}, dependencies managed by the Spring Boot parent"
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:work -->"
+    lines:
+      - "```bash"
+      - "./mvnw verify                 # compile, format check, unit and integration tests"
+      - "```"
+      - ""
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:rules -->"
+    lines:
+      - "- **Formatting is a build failure**, not a review comment — `./mvnw spotless:apply`."

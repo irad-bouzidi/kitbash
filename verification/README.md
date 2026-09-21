@@ -76,7 +76,7 @@ which is why it is a cell rather than an assumption.
 | --- | --- |
 | `cells/*.json` | One file per cell: a selection, its triggers, and one step per ecosystem. |
 | `selections/*.json` | The §7 envelopes the cells generate from. |
-| `images/jvm/**` | JDK 21, a warm Gradle cache, `unzip`, `git`. Nothing else. |
+| `images/jvm/**` | JDK 21, warm Gradle **and** Maven caches, `unzip`, `git`. Nothing else. |
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
@@ -99,7 +99,7 @@ deployment.
 
 ## The images are warmed, on purpose and precisely
 
-Both images build the corresponding reference project at image-build time and keep the caches.
+Both images build the corresponding reference projects at image-build time and keep the caches.
 That is a speed optimisation, not a correctness one: builds still resolve against the network, so
 a dependency that disappears upstream still breaks the cell. An offline cache would silently go
 stale and then hide real breakage.
@@ -110,6 +110,13 @@ classpath, so every cell re-downloaded JUnit, AssertJ and Testcontainers before 
 a test — minutes per cell, straight off the ten-minute merge-request budget. Compiling the tests
 warms exactly those coordinates and still needs no Docker daemon at image-build time, which
 running them would.
+
+Maven arrived with §28 and needed the same treatment plus one more variable. `MAVEN_USER_HOME` is
+what the wrapper script reads to decide where to unpack the Maven distribution; `maven.repo.local`
+is what Maven itself reads to decide where the artefacts go. Warming with only one of them set
+leaves the cell re-downloading the other half — which is how `backend-maven` came to take 72s
+against `backend-only`'s 22s before the image warmed it. With both set and `test-compile` run at
+image-build time, it takes 25s.
 
 The Node image has the same shape of trap. Corepack downloads the pnpm version a project pins in
 `packageManager` and caches it under `$COREPACK_HOME`, which defaults to the *current user's*

@@ -6,24 +6,36 @@ default:
   image: eclipse-temurin:{{ javaVersion }}-jdk-alpine
   cache:
     key:
-      files: [gradle/libs.versions.toml]
+{% if capabilities contains 'maven-build' %}      files: [pom.xml]
+    paths: [.m2/repository]
+
+variables:
+  # Inside the project directory, because that is the only path a GitLab cache can hold.
+  MAVEN_OPTS: -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository{% else %}      files: [gradle/libs.versions.toml]
     paths: [.gradle/caches, .gradle/wrapper]
 
 variables:
-  GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
+  GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle{% endif %}
 
 build:
   stage: build
-  # `check` depends on spotlessCheck, so a formatting failure is a pipeline failure
+{% if capabilities contains 'maven-build' %}  # Spotless is bound to `validate`, so a formatting failure is a pipeline failure rather
+  # than a review comment.
+  script:
+    - ./mvnw -B verify
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml{% else %}  # `check` depends on spotlessCheck, so a formatting failure is a pipeline failure
   # rather than a review comment.
   script:
     - ./gradlew --no-daemon build
   artifacts:
     when: always
     reports:
-      junit: build/test-results/test/TEST-*.xml
+      junit: build/test-results/test/TEST-*.xml{% endif %}
     paths:
-      - build/libs/*.jar
+      - {% if capabilities contains 'maven-build' %}target/*.jar{% else %}build/libs/*.jar{% endif %}
     expire_in: 1 week
 
 image:

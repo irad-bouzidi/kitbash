@@ -1,0 +1,41 @@
+# Build, test, lint and publish an image. Every job is one command; anything more
+# belongs in the build itself, where it can be run locally.
+stages: [build, image]
+
+default:
+  image: eclipse-temurin:21-jdk-alpine
+  cache:
+    key:
+      files: [pom.xml]
+    paths: [.m2/repository]
+
+variables:
+  # Inside the project directory, because that is the only path a GitLab cache can hold.
+  MAVEN_OPTS: -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository
+
+build:
+  stage: build
+  # Spotless is bound to `validate`, so a formatting failure is a pipeline failure rather
+  # than a review comment.
+  script:
+    - ./mvnw -B verify
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+    paths:
+      - target/*.jar
+    expire_in: 1 week
+
+image:
+  stage: image
+  image: docker:27
+  services:
+    - docker:27-dind
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"

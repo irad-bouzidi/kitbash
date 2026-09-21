@@ -42,7 +42,36 @@ final class MavenPomFile {
     private MavenPomFile() {}
 
     /** Adds a {@code <dependency>}, creating {@code <dependencies>} if the pom has none. */
-    static String addDependency(String source, String coordinate, String scope) {
+    /**
+     * Maven's scope for a dependency the op described in Gradle's vocabulary.
+     *
+     * <p>{@code kitbash-28} found this the hard way: the op's {@code configuration} field says
+     * {@code implementation}, and writing that into {@code <scope>} produces a pom Maven does not
+     * understand — {@code implementation} is not one of its five scopes. The translation belongs
+     * here, in the format strategy, for the reason §28 gives: how a dependency is <i>spelled</i> is
+     * the build file's business, and the op only says what the dependency is <i>for</i>.
+     *
+     * <p>{@code compile} is Maven's default and is left out rather than written, which is what a
+     * pom somebody maintains by hand looks like.
+     */
+    private static String mavenScope(String configuration) {
+        if (configuration == null || configuration.isBlank()) {
+            return null;
+        }
+        return switch (configuration) {
+            case "implementation", "api", "compile" -> null;
+            case "compileOnly", "compileOnlyApi", "provided" -> "provided";
+            case "runtimeOnly", "runtime" -> "runtime";
+            case "testImplementation", "testCompileOnly", "testRuntimeOnly", "test" -> "test";
+            default ->
+                throw new IllegalArgumentException("No Maven scope corresponds to the dependency "
+                        + "configuration '" + configuration + "'. Add it to MavenPomFile#mavenScope, or use one "
+                        + "of: implementation, compileOnly, runtimeOnly, testImplementation, testRuntimeOnly.");
+        };
+    }
+
+    static String addDependency(String source, String coordinate, String configuration) {
+        String scope = mavenScope(configuration);
         Document pom = parse(source);
         Element project = pom.getDocumentElement();
         Element dependencies = child(project, "dependencies").orElseGet(() -> {
@@ -66,8 +95,7 @@ final class MavenPomFile {
         if (version != null) {
             dependency.appendChild(element(pom, "version", version));
         }
-        // Maven's default scope is `compile`; writing it out adds noise to every entry.
-        if (scope != null && !scope.isBlank() && !"compile".equals(scope)) {
+        if (scope != null) {
             dependency.appendChild(element(pom, "scope", scope));
         }
         dependencies.appendChild(dependency);

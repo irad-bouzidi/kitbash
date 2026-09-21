@@ -42,7 +42,12 @@ public final class PatchApplier {
 
     /** Exhaustive over the §4 table. No default branch — deliberately, permanently. */
     static void applyOne(Workspace workspace, PatchOp op) {
-        requireTarget(workspace, op, op.target());
+        // Every op but one names the file it patches, and a name that is not there is a recipe
+        // bug worth catching before anything is written. AddDependency may name a module instead,
+        // so it checks its own target once it has resolved which file that is.
+        if (!(op instanceof PatchOp.AddDependency)) {
+            requireTarget(workspace, op, op.target());
+        }
         switch (op) {
             case PatchOp.AddDependency value -> addDependency(workspace, value);
             case PatchOp.MergeYaml value -> mergeYaml(workspace, value);
@@ -61,9 +66,16 @@ public final class PatchApplier {
      * Dispatches on the build system the target file belongs to. This is the one place a file name
      * decides behaviour, and it is a *format* decision rather than a technology one: the op says
      * "add this dependency", and how a dependency is spelled is the build file's business.
+     *
+     * <p>The target may also name a <b>module directory</b> rather than a file — {@code .} for the
+     * project root, {@code frontend} for the web half. That is what {@code kitbash-28} needed: a
+     * recipe that declares a dependency should not have to know whether the project it lands in
+     * builds with Gradle or Maven, and writing {@code target: build.gradle.kts} in every backend
+     * recipe made the build tool part of every dependency declaration. §18 predicted the cost —
+     * "it doubles every JVM backend's dependency patches" — and this is how it is not paid.
      */
     private static void addDependency(Workspace workspace, PatchOp.AddDependency op) {
-        String target = op.target();
+        String target = buildFileFor(workspace, op);
         String source = read(workspace, target);
         String patched;
         if (target.endsWith(".gradle.kts") || target.endsWith(".gradle")) {
@@ -78,6 +90,40 @@ public final class PatchApplier {
         }
         write(workspace, target, patched);
     }
+
+    /**
+     * The build file this dependency belongs in.
+     *
+     * <p>A target that exists is taken at its word. Otherwise it is read as a module directory and
+     * resolved to whichever build file is actually there — which is the point: the selection
+     * decided that, not the recipe.
+     */
+    private static String buildFileFor(Workspace workspace, PatchOp.AddDependency op) {
+        String target = op.target();
+        if (workspace.contains(target)) {
+            return target;
+        }
+
+        String directory = target.equals(".") || target.isBlank() ? "" : target.replaceAll("/+$", "") + "/";
+        for (String candidate : BUILD_FILES) {
+            if (workspace.contains(directory + candidate)) {
+                return directory + candidate;
+            }
+        }
+        throw GenerationError.patchTargetMissing(op.owner().value(), target, op.operation())
+                .asException();
+    }
+
+    /**
+     * The build files a module can have, in the order they are looked for.
+     *
+     * <p>Technology names, and the only ones in this class — which is the boundary §28 draws: the
+     * applier's format strategy knows what a build file is called, and nothing else in {@code core}
+     * does. A module with two of these is a module that has not decided what it is, and the first
+     * match is as good an answer as any.
+     */
+    private static final List<String> BUILD_FILES =
+            List.of("build.gradle.kts", "build.gradle", "pom.xml", "package.json");
 
     /**
      * A version catalog reference when the recipe named one, a literal coordinate otherwise. §4

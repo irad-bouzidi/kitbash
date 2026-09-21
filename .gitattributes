@@ -3,8 +3,17 @@
 # shape depending on who checked it out — `core.autocrlf` is overridden, not trusted.
 * text=auto eol=lf
 
+# cmd.exe reads these line by line, and a lone LF leaves a stray CR in the last token
+# on each line — so a normalised wrapper script fails on the first Windows machine that
+# runs it, which is not a machine CI has. `PostProcessor` exempts the same two suffixes
+# when it normalises generated output; these two lists have to agree.
 *.bat text eol=crlf
+*.cmd text eol=crlf
+
+# The Unix wrappers, spelled out rather than left to `text=auto`, because a `gradlew` or
+# `mvnw` with CRLF is a wrapper that fails with "bad interpreter".
 gradlew text eol=lf
+mvnw text eol=lf
 
 *.jar binary
 *.zip binary

@@ -323,7 +323,7 @@ ninth is a design discussion, not a manifest change.
 
 | `op` | Required keys | Targets |
 | --- | --- | --- |
-| `addDependency` | `configuration`, `coordinate`, optional `versionRef` | `build.gradle.kts`, `pom.xml`, `package.json` |
+| `addDependency` | `configuration`, `coordinate`, optional `versionRef` | a **module** — `.` for the root, `frontend` for a subdirectory |
 | `mergeYaml` | `content` | `application.yml`, `compose.yaml`, CI files |
 | `mergeJson` | `content` | `package.json`, `tsconfig.json` |
 | `addScript` | `name`, `command` | `package.json` |
@@ -331,6 +331,18 @@ ninth is a design discussion, not a manifest change.
 | `appendLines` | `lines` | `.gitignore`, `.env.example` |
 | `addEnvVar` | `name`, `value`, optional `comment`, `composeTarget`, `composeService` | `.env.example` **and** `compose.yaml` |
 | `addComposeService` | `service`, `definition`, optional `dependsOn` | `compose.yaml` |
+
+`addDependency` is the one operation whose `target` names a directory rather than a file, and §28
+is why. A recipe declaring `spring-boot-starter-web` knows which *module* the dependency belongs to;
+it does not know, and must not know, whether the user picked Gradle or Maven. So the target is the
+module, the applier looks for `build.gradle.kts`, `build.gradle`, `pom.xml` or `package.json` inside
+it, and the format strategy takes over from there — including translating Gradle's configurations to
+Maven's scopes (`implementation` is Maven's default and so written as no scope at all;
+`testImplementation` becomes `test`; a configuration with no Maven meaning is refused rather than
+guessed at). A module containing no build file is `PATCH_TARGET_MISSING`, as it would be for a file.
+Dedupe is by `group:name` in both formats: the same artifact asked for twice at different versions
+is one declaration, and the first one wins, because picking the second would make the output depend
+on recipe order.
 
 `appendLines` dedupes **line by line across the whole file**, which is what a `.gitignore` wants —
 two recipes both ignoring `build/` should produce one entry. It is the wrong tool for a sectioned

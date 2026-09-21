@@ -1,0 +1,13 @@
+{
+  "id": "backend-maven",
+  "description": "The same JVM stack as backend-only, built with Maven — §28's proof that the second build tool is a selection rather than a fork.",
+  "selection": "selections/phase3-spring-java-maven.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./mvnw -B verify"]
+    }
+  ]
+}
