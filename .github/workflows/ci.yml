@@ -61,10 +61,22 @@ jobs:
           - project: spring-boot-java-gradle-layered
             build: ./gradlew build
             results: build/test-results/test/TEST-*.xml
+          - project: spring-boot-java-gradle-hexagonal
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
+          - project: spring-boot-java-gradle-modular
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
           - project: spring-boot-java-maven-layered
             build: ./mvnw -B verify
             results: target/surefire-reports/TEST-*.xml
           - project: spring-boot-kotlin-gradle-layered
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
+          - project: spring-boot-kotlin-gradle-hexagonal
+            build: ./gradlew build
+            results: build/test-results/test/TEST-*.xml
+          - project: spring-boot-kotlin-gradle-modular
             build: ./gradlew build
             results: build/test-results/test/TEST-*.xml
     steps:
