@@ -1,0 +1,9 @@
+{
+  "id": "authoring-example",
+  "description": "docs/authoring-recipes.md's worked example, end to end: the recipe that walkthrough builds, built for real.",
+  "selection": "selections/authoring-example.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {"ecosystem": "jvm", "workingDirectory": ".", "commands": ["./gradlew build --no-daemon"]}
+  ]
+}

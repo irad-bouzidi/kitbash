@@ -92,6 +92,10 @@ class CellTest {
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
+                            // docs/authoring-recipes.md's worked example. A walkthrough whose
+                            // result is not built is a walkthrough that rots: this cell is what
+                            // makes the recipe in it still work when somebody follows it next year.
+                            "authoring-example",
                             "backend-only",
                             "backend-maven",
                             "backend-kotlin",

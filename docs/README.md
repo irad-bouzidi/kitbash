@@ -9,6 +9,7 @@
 | [`data-model.md`](data-model.md) | The four tables, and why the recipe catalog is not one of them. |
 | [`reference-projects.md`](reference-projects.md) | How the projects under `/reference` are maintained, and every path the equality test ignores. |
 | [`recipe-format.md`](recipe-format.md) | The shape of a recipe: `recipe.yaml`, its `files/` tree, and the patch operations. |
+| [`authoring-recipes.md`](authoring-recipes.md) | How to write one: the workflow, the harness, and a worked example that CI builds. |
 | [`errors.md`](errors.md) | Every §14 error code: what causes it, what fixes it, and where the rule is enforced. |
 | [`dashboard.json`](dashboard.json) | The operator dashboard: every §14 metric, and the privacy rule they operate under. |
 | [`cli.md`](cli.md) | The `kitbash` CLI: installing the released binary, and what its two version numbers mean. |

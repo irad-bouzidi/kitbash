@@ -31,6 +31,8 @@ record Arguments(Command command, Path selection, Path out, boolean zip, Path ca
     static Arguments parseCatalogOnly(List<String> args) {
         Path catalog = null;
         for (int i = 0; i < args.size(); i++) {
+            // Only --catalog is read. Other flags belong to whichever command is being parsed for,
+            // and rejecting them here would make this parser know about all of them.
             if (args.get(i).equals("--catalog")) {
                 catalog = Path.of(value(args, ++i, "--catalog"));
             }

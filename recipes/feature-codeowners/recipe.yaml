@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# Extracted from reference/spring-boot-java-gradle-layered. Every file below should have been a hand-written file in
+# that project first: `kitbash recipe check feature-codeowners` is what proves this still reproduces it.
+id: feature-codeowners
+version: 0.1.0
+kind: feature
+label: feature-codeowners
+slot: codeowners
+requires: []
+provides: []
+
+files:
+  # A glob under this recipe. Where each file lands is decided by where it sits beneath
+  # `files/`, which is what makes a recipe readable as the tree it produces.
+  - from: files/**
