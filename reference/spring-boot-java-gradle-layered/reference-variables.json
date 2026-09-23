@@ -14,12 +14,14 @@
     "backend-spring-java",
     "db-postgres-flyway",
     "infra-docker",
-    "ci-gitlab"
+    "ci-gitlab",
+    "feature-codeowners"
   ],
   "selection": {
     "schemaVersion": 1,
     "projectName": "demo",
     "options": {
+      "codeowners": true,
       "buildTool": "build-gradle-kts",
       "backend": "backend-spring-java",
       "architecture": "layered",

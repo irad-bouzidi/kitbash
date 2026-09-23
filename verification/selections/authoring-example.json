@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "projectName": "authoring-example",
+  "options": {
+    "buildTool": "build-gradle-kts",
+    "backend": "backend-spring-java",
+    "architecture": "layered",
+    "database": "db-postgres-flyway",
+    "codeowners": true,
+    "docker": false
+  },
+  "variables": {
+    "groupId": "com.example", "packageName": "com.example.authoring", "javaVersion": "21",
+    "entityName": "Widget", "entityTable": "widgets", "envPrefix": "AUTHORING"
+  }
+}

@@ -28,6 +28,8 @@ public final class Kitbash {
               kitbash generate --selection <file> --out <dir> [--zip] [--catalog <dir>]
               kitbash validate --selection <file> [--catalog <dir>]
               kitbash catalog --json [--catalog <dir>]
+              kitbash recipe check <id> [--catalog <dir>]
+              kitbash recipe new <id> --from <reference-project> [--catalog <dir>]
               kitbash --version
 
             Options:
@@ -35,6 +37,7 @@ public final class Kitbash {
               --out <dir>         Where to write. With --zip, the path of the zip to write.
               --zip               Write one deterministic zip instead of a directory.
               --catalog <dir>     A recipe tree other than the repository's, for local work.
+              --from <project>    The reference project to derive a new recipe from (§4).
 
             Exit codes:
               0  success
@@ -57,6 +60,13 @@ public final class Kitbash {
 
         if (args.contains("--version")) {
             return version(args, out, err);
+        }
+
+        // Parsed before Arguments, because `recipe` takes a sub-command and a bare id rather than
+        // the flag-only shape everything else has. Two grammars in one parser would make the one
+        // people use every day harder to read.
+        if (args.get(0).equals("recipe")) {
+            return recipe(args, out, err);
         }
 
         Arguments arguments;
@@ -107,5 +117,48 @@ public final class Kitbash {
             out.printf("kitbash %s%ncatalog unavailable: %s%n", Distribution.version(), noCatalog.getMessage());
             return 1;
         }
+    }
+
+    /**
+     * {@code kitbash recipe …} — the authoring SDK's half of the CLI (§43).
+     *
+     * <p>Separate from the three generation commands because the audience is: those are for
+     * somebody who wants a project, these are for somebody writing the recipes that produce one.
+     * Sharing the binary is what makes the second audience's tools give the same verdicts as the
+     * first audience's generator, which is the whole requirement §43 sets.
+     */
+    private static int recipe(List<String> args, PrintStream out, PrintStream err) {
+        if (args.size() < 3) {
+            err.println("Usage: kitbash recipe check <id> | kitbash recipe new <id> --from <reference-project>");
+            return 2;
+        }
+        String subcommand = args.get(1);
+        String id = args.get(2);
+        List<String> rest = args.subList(3, args.size());
+
+        try {
+            Arguments arguments = Arguments.parseCatalogOnly(rest);
+            return switch (subcommand) {
+                case "check" -> RecipeCheck.run(arguments, id, out, err);
+                case "new" -> RecipeScaffold.run(arguments, id, from(rest), out, err);
+                default -> {
+                    err.printf("Unknown recipe command '%s'. Expected check or new.%n", subcommand);
+                    yield 2;
+                }
+            };
+        } catch (IllegalArgumentException wrong) {
+            err.println(wrong.getMessage());
+            return 2;
+        }
+    }
+
+    private static String from(List<String> args) {
+        int index = args.indexOf("--from");
+        if (index < 0 || index + 1 >= args.size()) {
+            throw new IllegalArgumentException(
+                    "--from is required for `recipe new`: name the reference project to derive from. "
+                            + "§4's workflow is to start from a project somebody maintains by hand.");
+        }
+        return args.get(index + 1);
     }
 }
