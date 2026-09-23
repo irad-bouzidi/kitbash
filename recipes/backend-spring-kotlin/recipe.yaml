@@ -41,9 +41,19 @@ tracks:
   - version: "1.1.7"
     artifact: io.spring.dependency-management:io.spring.dependency-management.gradle.plugin
     label: Spring's dependency-management plugin
+  # Kotlin is ahead of the lint toolchain, and the ceiling is on the one that is moving fastest.
+  # 2.4's compiler-embeddable no longer carries ZipUtilKt, which the ktlint step reaches for
+  # through Spotless, so every Kotlin file in a generated project fails with NoClassDefFoundError.
+  # Spotless and ktlint are already at their latest, so there is nothing to bump *to* — which is
+  # what makes this a ceiling rather than a pair that should move together. 2.3.21 is green;
+  # bisected in a verification container, because the host's warm Gradle cache said otherwise.
   - version: "2.1.21"
     artifact: org.jetbrains.kotlin:kotlin-stdlib
     label: Kotlin
+    holdBelow: "2.4.0"
+    because: >-
+      Kotlin 2.4's compiler-embeddable drops ZipUtilKt, which Spotless's ktlint step needs; every
+      Kotlin file then fails to lint. Lift this when a Spotless release says it supports Kotlin 2.4.
   # ktlint and Spotless have to move together: Spotless 7.2 requires ktlint 1.6 or later, and the
   # mismatch in either direction fails every Kotlin file with NoClassDefFoundError on ZipUtilKt.
   # The weekly job bumps everything onto one branch, so they do move together — which is why there
