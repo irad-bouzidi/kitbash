@@ -67,15 +67,28 @@ The job then reports it under "held back by a declared ceiling" rather than prop
 every Monday — and the reason is written down, so the next person can tell whether it still
 applies. A ceiling is not a freeze: a project held below `1.6.0` still gets `1.5.9`.
 
-No `tracks` entry carries one today. The first one that did was a mistake worth recording: ktlint
-was held below 1.6 on the theory that it needed a newer Spotless than we had. The truth was the
-other way round — Spotless 7.2 *requires* ktlint 1.6 — so the ceiling pinned one half of a pair
-while the job moved the other half, and turned a bump that would have been green red.
+Kotlin carries one today, held below `2.4.0`: 2.4's compiler-embeddable drops a class Spotless's
+ktlint step needs, and Spotless and ktlint are both already at their latest — so there is nothing
+to bump *to*, which is what makes it a ceiling rather than a pair that should move together.
 
-Two things follow. A ceiling is for a dependency that is incompatible with something that is not
-moving; two dependencies that must move together need no ceiling at all, because the job bumps
-everything onto one branch. And a `because` is a claim about the world, so it is worth being sure
-of it before writing it down — this one was wrong in the repository for two days.
+That one was found the hard way. The first ceiling this repository had was on ktlint, held below 1.6 on the theory that it needed a
+newer Spotless than we had. That was wrong twice over. Spotless 7.2 *requires* ktlint 1.6, so the
+ceiling pinned one half of a pair while the job moved the other half — and the real culprit was
+neither of them: the Kotlin plugin had moved to 2.4, and its compiler-embeddable no longer carries
+the class ktlint reaches for.
+
+Three things follow, and they are why this section exists at all.
+
+A ceiling is for a dependency incompatible with something that is **not** moving. Two dependencies
+that must move together need none, because the job bumps everything onto one branch.
+
+A `because` is a claim about the world. The first one was wrong, and it sat in the repository for
+two days telling the next reader something untrue.
+
+**Bisect in a verification container, not on your machine.** The host said Spotless 7.2.1 with
+ktlint 1.8.0 was fine; the container said it was not, and the container was right — a warm Gradle
+cache had an older Kotlin compiler in it. The whole point of §12's containers is that they look
+like a user's machine and yours does not.
 
 **npm dependencies**, for now. The frontend's `package.json` and its lockfile are not in `tracks`,
 so `pnpm` versions move when a person moves them. Adding them means driving `pnpm update` and
