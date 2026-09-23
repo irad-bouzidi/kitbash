@@ -20,6 +20,24 @@ record Arguments(Command command, Path selection, Path out, boolean zip, Path ca
         CATALOG
     }
 
+    /**
+     * Just enough of the command line to find a catalog, for {@code --version}.
+     *
+     * <p>{@code --version} is not a command and takes no selection, so the full parser would reject
+     * it before it could read the one flag it does honour. Sharing that flag matters: asking a
+     * binary which catalog it carries, while pointing it at the catalog you intend to use, is the
+     * question somebody actually has.
+     */
+    static Arguments parseCatalogOnly(List<String> args) {
+        Path catalog = null;
+        for (int i = 0; i < args.size(); i++) {
+            if (args.get(i).equals("--catalog")) {
+                catalog = Path.of(value(args, ++i, "--catalog"));
+            }
+        }
+        return new Arguments(Command.CATALOG, null, null, false, catalog, false);
+    }
+
     static Arguments parse(List<String> args) {
         Command command =
                 switch (args.get(0)) {

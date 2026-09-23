@@ -2,10 +2,62 @@
 
 Offline generation: no server, no database, no Spring context.
 
+## Install
+
+Download the archive for your platform from the [releases page][releases] and unpack it anywhere:
+
+```bash
+tar -xzf kitbash-<version>.tgz
+./kitbash/bin/kitbash --version
+```
+
+**No JDK required.** The distribution carries its own Java runtime, its own recipes, and a launcher
+that finds both — which is what makes generation work offline. Nothing needs to be on `PATH` and
+nothing is installed system-wide; put `kitbash/bin` on your `PATH` if you want the short form.
+
+[releases]: https://github.com/irad-bouzidi/kitbash/releases
+
+### What `--version` tells you, and why there are two numbers
+
+```
+kitbash 0.3.1
+catalog sha256:096dae1b50793d6d0523d9ac0dd37403d8656fa23f52147980172516291a16c5
+  from /opt/kitbash/recipes
+```
+
+A CLI **carries its catalog**, so which catalog it carries is part of its identity. Two installs of
+the same version built from different commits generate different projects, and the digest is the
+only thing that distinguishes them — it is the first thing to quote in a bug report, for the same
+reason the API exposes it.
+
+It follows that a stale binary emits a stale catalog. That is why the digest is in `--version`, in
+the generated project's README, and in every error the CLI prints: visible rather than surprising.
+
+The digest is computed from the recipes this run would actually use, including whatever `--catalog`
+points at — not recorded at build time. The two differ exactly when somebody needs to know.
+
+### From source
+
 ```bash
 cd server && ./gradlew :cli:installDist
 ./server/cli/build/install/kitbash/bin/kitbash --help
 ```
+
+This build has **no** embedded catalog, which is deliberate: inside the repository the upward search
+finds the working tree's `recipes/`, so a developer running the CLI here generates from the catalog
+under review rather than one baked into a binary.
+
+### Platforms and the glibc floor
+
+The runtime is produced by `jlink`, which links against the glibc of the machine that built it — so
+the release job builds inside a **Debian 12** container rather than on whatever the runner happens
+to be. A distribution built on a newer host refuses to start on an older one with
+`GLIBC_2.38 not found`, which is not something a published binary should teach its users.
+
+`jlink` rather than a native image, because what the smoke test checks is "runs with no JDK", and
+`jlink` gets there with the JDK the build already has: no second toolchain, no reflection
+configuration for Jackson and Pebble, no per-platform native build. The cost is size — tens of
+megabytes rather than one — and startup time, which nothing here is measuring.
 
 ## Commands
 
@@ -13,6 +65,7 @@ cd server && ./gradlew :cli:installDist
 kitbash generate --selection selection.json --out ./target [--zip] [--catalog <dir>]
 kitbash validate --selection selection.json [--catalog <dir>]
 kitbash catalog  --json [--catalog <dir>]
+kitbash --version
 ```
 
 | Exit | Meaning |
