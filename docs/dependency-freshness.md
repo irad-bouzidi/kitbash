@@ -127,6 +127,21 @@ Maven side from `pom.xml`, the browser side from `pnpm-lock.yaml` — and attach
 whatever it opens. Findings do not fail the job: a known issue in a transitive test dependency is
 something a reviewer weighs, and failing on it would block the very bump that fixes it.
 
+## What it needs from the repository
+
+**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests."**
+Without it the job does everything — bumps, builds ninety-eight cells, scans — and then dies on
+`gh pr create` with `GitHub Actions is not permitted to create or approve pull requests`. It is off
+by default on a new repository, and because the first five runs never got past a red matrix, this
+was the last thing the job discovered about itself.
+
+The setting also permits Actions to *approve* pull requests, which is the half of it worth
+thinking about: a workflow that can approve can satisfy a review requirement without a human. This
+repository's job only creates, and never merges.
+
+If the setting is off, the run opens an issue saying so and naming the branch, rather than leaving
+a green bump on a branch nobody was told about.
+
 ## What it never does
 
 **Merge.** A human reviews and merges. The job's job is to make that review take a minute, which is
