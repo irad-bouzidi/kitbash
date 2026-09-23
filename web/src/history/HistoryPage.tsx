@@ -1,3 +1,5 @@
+import { asProblem } from '@/errors/problem';
+import { ProblemDetail } from '@/errors/ProblemDetail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -36,11 +38,15 @@ export function HistoryPage() {
   if (isError) {
     return (
       <div className="flex w-full max-w-5xl flex-col gap-3">
-        <p role="alert" className="text-sm text-destructive">
-          {error instanceof ApiError
-            ? (error.problem.detail ?? error.message)
-            : 'History is not reachable.'}
-        </p>
+        {/* The server's own envelope where there is one, so a 404 explains itself and a 403
+            says which role is missing. Our sentence only for a failure that never reached it. */}
+        {asProblem(error) ? (
+          <ProblemDetail error={error} className="text-sm" />
+        ) : (
+          <p role="alert" className="text-sm text-destructive">
+            History is not reachable.
+          </p>
+        )}
         <ButtonLink to="/new" variant="outline">
           Start a new project
         </ButtonLink>
@@ -160,14 +166,7 @@ function GenerationCard({ generation }: { generation: Generation }) {
               {replay.catalogMoved ? replay.summary : 'nothing has changed since'}
             </p>
           )}
-          {failure && (
-            <p role="alert" className="text-sm text-destructive">
-              {failure.problem.detail ?? failure.message}
-              {failure.problem.hint && (
-                <span className="block text-muted-foreground">{failure.problem.hint}</span>
-              )}
-            </p>
-          )}
+          {failure && <ProblemDetail error={failure} className="text-sm" />}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button disabled={busy || failed} onClick={() => run(downloadGeneration(generation))}>

@@ -8,6 +8,8 @@ import {
   type GenerateRequest,
   type PreviewTree,
 } from '@/lib/api';
+import { ProblemDetail } from '@/errors/ProblemDetail';
+import { asProblem } from '@/errors/problem';
 import { highlight } from '@/preview/highlight';
 
 /**
@@ -64,16 +66,14 @@ export function PreviewDialog({
           </Button>
         </div>
 
-        {tree.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {tree.error instanceof ApiError
-              ? (tree.error.problem.detail ?? tree.error.message)
-              : 'The preview could not be rendered.'}
-            {tree.error instanceof ApiError && tree.error.problem.hint && (
-              <span className="block text-muted-foreground">{tree.error.problem.hint}</span>
-            )}
-          </p>
-        )}
+        {tree.isError &&
+          (asProblem(tree.error) ? (
+            <ProblemDetail error={tree.error} className="text-sm" />
+          ) : (
+            <p role="alert" className="text-sm text-destructive">
+              The preview could not be rendered.
+            </p>
+          ))}
 
         <div className="grid min-h-0 flex-1 grid-cols-[18rem_minmax(0,1fr)] gap-4">
           <FileTree tree={tree.data} selected={selected} onSelect={setSelected} />

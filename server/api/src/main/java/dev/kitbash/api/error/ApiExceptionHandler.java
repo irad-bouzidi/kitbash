@@ -8,7 +8,9 @@ import dev.kitbash.api.verify.UnknownVerificationException;
 import dev.kitbash.core.error.ErrorCode;
 import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.error.GenerationException;
-import dev.kitbash.core.selection.SelectionValidationException;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -31,9 +33,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    private final RejectionMetrics rejections;
+
+    public ApiExceptionHandler(RejectionMetrics rejections) {
+        this.rejections = rejections;
+    }
+
     @ExceptionHandler(GenerationException.class)
     public ProblemDetail generationFailed(GenerationException exception) {
         GenerationError error = exception.error();
+        // Counted here rather than at the throw sites: this is the one place every typed rejection
+        // passes through, and counting at fourteen sites is fourteen chances to forget.
+        rejections.record(error);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(statusFor(error.code()), error.message());
         problem.setTitle(title(error.code()));
         problem.setProperty("error", error.code().name());
@@ -57,11 +70,22 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(SelectionValidationException.class)
-    public ProblemDetail invalidSelection(SelectionValidationException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
-        problem.setTitle("Invalid selection");
-        problem.setProperty("field", exception.field());
+    /**
+     * A resource that is not there (§14, kitbash-39).
+     *
+     * <p>These three — a preset, a share link, a generation — used to answer <b>400 with no code
+     * and no hint</b>, through an exception meant for a malformed selection. Both halves were
+     * wrong: the caller had sent a perfectly good id for a row that no longer exists, and the
+     * envelope carried none of what §14 requires. A 404 with the envelope is what they are.
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ProblemDetail notFound(ResourceNotFoundException exception) {
+        rejections.recordUntyped("NOT_FOUND", null);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+        problem.setTitle("Not found");
+        problem.setProperty("error", "NOT_FOUND");
+        problem.setProperty("resource", exception.resource());
+        problem.setProperty("hint", exception.hint());
         return problem;
     }
 
@@ -174,6 +198,46 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "The request body is not a readable selection envelope.");
         problem.setTitle("Malformed request");
+        return problem;
+    }
+
+    /**
+     * Anything with no mapping: a 500 in the §14 shape, and a logged defect.
+     *
+     * <p>§39 allows a generic fallback for <em>genuinely unmapped</em> failures and requires those
+     * to be logged as defects. Both halves matter. Without the handler, Spring's default reply
+     * carries {@code include-message: always} — so an {@code IllegalStateException} from inside the
+     * patch stage would reach a user as its own text, which is the stack-trace leak §39 forbids by
+     * a slower route.
+     *
+     * <p>Without the log, the fallback would be a place failures go to be forgotten. Every hit here
+     * is a throw site somebody has not given an error type to yet, which is a defect in this
+     * codebase and not a mistake by the caller — so it is logged at error with the exception, and
+     * the reply says as much rather than implying the request was wrong.
+     *
+     * <p>The reference is a correlation id, not a hash of anything: §39 keeps the envelope exactly
+     * as §14 defines it, and an id that lets somebody find the log line belongs beside the envelope
+     * rather than inside it.
+     */
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail unmapped(Exception exception) {
+        String reference = UUID.randomUUID().toString().substring(0, 8);
+        log.error(
+                "Unmapped failure {} — this is a defect: the throw site needs a GenerationError variant (§39)",
+                reference,
+                exception);
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Something failed inside the generator rather than in the request. The failure has "
+                        + "been logged as a defect under reference " + reference + ".");
+        problem.setTitle("Unexpected failure");
+        problem.setProperty("error", "UNEXPECTED");
+        problem.setProperty("reference", reference);
+        problem.setProperty(
+                "hint",
+                "Nothing about the selection needs changing. Quote reference " + reference
+                        + " in a bug report — it is in the server log beside the cause.");
         return problem;
     }
 

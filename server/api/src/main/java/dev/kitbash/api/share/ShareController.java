@@ -2,6 +2,7 @@ package dev.kitbash.api.share;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.error.ResourceNotFoundException;
 import dev.kitbash.api.generate.GenerateRequest;
 import dev.kitbash.api.security.Caller;
 import dev.kitbash.api.security.RateLimiter;
@@ -11,7 +12,6 @@ import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.pipeline.GenerationPipeline;
 import dev.kitbash.core.selection.SelectionEnvelope;
 import dev.kitbash.core.selection.SelectionMigrations;
-import dev.kitbash.core.selection.SelectionValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.Instant;
@@ -124,8 +124,12 @@ public class ShareController {
         return new SharedSelection(token, SelectionMigrations.migrate(stored.toEnvelope()), link.expiresAt());
     }
 
-    private static SelectionValidationException notFound() {
-        return new SelectionValidationException("token", "No share link with that token.");
+    private static ResourceNotFoundException notFound() {
+        return new ResourceNotFoundException(
+                "shareLink",
+                "No share link with that token.",
+                "Share links expire. Ask whoever sent it for the URL form of the selection instead, "
+                        + "which carries the selection itself and never expires.");
     }
 
     private String serialize(SelectionEnvelope envelope) {

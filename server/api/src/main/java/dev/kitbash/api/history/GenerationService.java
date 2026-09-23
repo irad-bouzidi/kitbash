@@ -3,6 +3,7 @@ package dev.kitbash.api.history;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.error.ResourceNotFoundException;
 import dev.kitbash.api.generate.GenerateRequest;
 import dev.kitbash.api.store.Generation;
 import dev.kitbash.api.store.GenerationRepository;
@@ -10,7 +11,6 @@ import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
-import dev.kitbash.core.selection.SelectionValidationException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -136,13 +136,11 @@ public class GenerationService {
     // --- plumbing ----------------------------------------------------------
 
     private Generation requireOwned(UUID id, UUID owner) {
-        Generation generation = generations
-                .findById(id)
-                .orElseThrow(() -> new SelectionValidationException("id", "No generation with that id."));
+        Generation generation = generations.findById(id).orElseThrow(GenerationService::noSuchGeneration);
         if (generation.ownerId() == null || !generation.ownerId().equals(owner)) {
             // A history row is personal: "not yours" and "not there" are the same answer, or the
             // endpoint becomes a way to count somebody else's generations.
-            throw new SelectionValidationException("id", "No generation with that id.");
+            throw noSuchGeneration();
         }
         return generation;
     }
@@ -220,4 +218,19 @@ public class GenerationService {
             LockDiff drift,
             String originalCatalogDigest,
             String currentCatalogDigest) {}
+
+    /**
+     * One sentence for a generation nobody can find, wherever it is missed from.
+     *
+     * <p>Two call sites, one wording: "not found" and "not yours" are the same answer on purpose,
+     * because telling a caller which of the two it was tells them whether somebody else's id is
+     * real.
+     */
+    private static ResourceNotFoundException noSuchGeneration() {
+        return new ResourceNotFoundException(
+                "generation",
+                "No generation with that id.",
+                "Your own generations are listed at /api/v1/generations; history is kept for thirty "
+                        + "days, so an older one is gone rather than hidden.");
+    }
 }

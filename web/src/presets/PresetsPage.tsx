@@ -1,3 +1,5 @@
+import { asProblem } from '@/errors/problem';
+import { ProblemDetail } from '@/errors/ProblemDetail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ButtonLink } from '@/components/ui/button-link';
@@ -40,11 +42,15 @@ export function PresetsPage() {
   if (isError) {
     return (
       <div className="flex w-full max-w-5xl flex-col gap-3">
-        <p role="alert" className="text-sm text-destructive">
-          {error instanceof ApiError
-            ? (error.problem.detail ?? error.message)
-            : 'Presets are not reachable.'}
-        </p>
+        {/* The server's own envelope where there is one, so a 404 explains itself and a 403
+            says which role is missing. Our sentence only for a failure that never reached it. */}
+        {asProblem(error) ? (
+          <ProblemDetail error={error} className="text-sm" />
+        ) : (
+          <p role="alert" className="text-sm text-destructive">
+            Presets are not reachable.
+          </p>
+        )}
         {/* A deployment without a database serves the generator and nothing else (§10, §12), so
             this is a normal state rather than a broken one — and the wizard still works. */}
         <ButtonLink to={'/new'} variant="outline">
@@ -122,14 +128,7 @@ function PresetCard({ preset, onDelete }: { preset: Preset; onDelete: () => void
               {stale}
             </p>
           )}
-          {failure && (
-            <p role="alert" className="text-sm text-destructive">
-              {failure.problem.detail ?? failure.message}
-              {failure.problem.hint && (
-                <span className="block text-muted-foreground">{failure.problem.hint}</span>
-              )}
-            </p>
-          )}
+          {failure && <ProblemDetail error={failure} className="text-sm" />}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               disabled={busy || Boolean(stale)}

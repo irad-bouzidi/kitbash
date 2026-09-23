@@ -6,7 +6,6 @@ import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.recipe.Capability;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.resolve.Resolution;
-import dev.kitbash.core.selection.SelectionValidationException;
 import dev.kitbash.render.PebbleRenderStage;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -41,7 +40,7 @@ final class ValidateCommand {
             }
             GenerationError first = resolution.firstConflict();
             return first == null ? 1 : ErrorOutput.print(first, err);
-        } catch (SelectionValidationException | IllegalArgumentException | IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ErrorOutput.print(e.getMessage(), err);
         } catch (IOException e) {
             return ErrorOutput.print("Could not read the selection: " + e.getMessage(), err);

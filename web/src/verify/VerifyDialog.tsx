@@ -7,6 +7,7 @@ import {
   type GenerateRequest,
   type VerificationRun,
 } from '@/lib/api';
+import { ProblemDetail } from '@/errors/ProblemDetail';
 import { BuildLog } from '@/verify/BuildLog';
 
 /**
@@ -156,15 +157,17 @@ function Status({
  */
 function Refusal({ error }: { error: ApiError }) {
   return (
-    <div role="alert" className="rounded border border-destructive/40 p-3 text-sm">
-      <p className="text-destructive">{error.problem.detail ?? error.message}</p>
-      {typeof error.problem.queueDepth === 'number' && (
-        <p className="text-muted-foreground">
-          {error.problem.queueDepth} {error.problem.queueDepth === 1 ? 'build is' : 'builds are'}{' '}
-          waiting ahead of this one.
-        </p>
-      )}
-      {error.problem.hint && <p className="text-muted-foreground">{error.problem.hint}</p>}
+    <div className="rounded border border-destructive/40 p-3">
+      {/* The envelope verbatim (§39), plus the one number that is peculiar to this refusal and
+          that a user's decision turns on. */}
+      <ProblemDetail error={error} className="text-sm">
+        {typeof error.problem.queueDepth === 'number' && (
+          <p className="text-muted-foreground">
+            {error.problem.queueDepth} {error.problem.queueDepth === 1 ? 'build is' : 'builds are'}{' '}
+            waiting ahead of this one.
+          </p>
+        )}
+      </ProblemDetail>
     </div>
   );
 }

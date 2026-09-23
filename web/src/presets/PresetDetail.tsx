@@ -1,3 +1,5 @@
+import { ProblemDetail } from '@/errors/ProblemDetail';
+import { asProblem } from '@/errors/problem';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ButtonLink } from '@/components/ui/button-link';
@@ -31,9 +33,11 @@ export function PresetDetail() {
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (isError || !preset) {
-    return (
+    return asProblem(error) ? (
+      <ProblemDetail error={error} className="text-sm" />
+    ) : (
       <p role="alert" className="text-sm text-destructive">
-        {error instanceof ApiError ? (error.problem.detail ?? error.message) : 'No such preset.'}
+        No such preset.
       </p>
     );
   }
@@ -57,14 +61,7 @@ export function PresetDetail() {
           {preset.staleReason}
         </p>
       )}
-      {failure && (
-        <p role="alert" className="text-sm text-destructive">
-          {failure.problem.detail ?? failure.message}
-          {failure.problem.hint && (
-            <span className="block text-muted-foreground">{failure.problem.hint}</span>
-          )}
-        </p>
-      )}
+      {failure && <ProblemDetail error={failure} className="text-sm" />}
 
       <Card>
         <CardHeader>

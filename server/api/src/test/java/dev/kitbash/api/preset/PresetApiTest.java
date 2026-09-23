@@ -253,7 +253,10 @@ class PresetApiTest {
 
             // 404 rather than 403: a refusal that distinguishes "not yours" from "not there" is a
             // way to discover that somebody has a preset called secret-stack.
-            send(get("/api/v1/presets/" + priv).with(author("heidi")), 400);
+            // 404 since kitbash-39: "not there at all" is what this test is named after, and it
+            // is what the status now says. The body deliberately does not distinguish "private"
+            // from "absent" — telling them apart is a way to enumerate other people's ids.
+            send(get("/api/v1/presets/" + priv).with(author("heidi")), 404);
         }
 
         /**
@@ -297,8 +300,8 @@ class PresetApiTest {
                             .with(author("mallory"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(preset("judys-stack", "team", "track_latest")),
-                    400);
-            send(delete("/api/v1/presets/" + id).with(author("mallory")), 400);
+                    404);
+            send(delete("/api/v1/presets/" + id).with(author("mallory")), 404);
         }
     }
 

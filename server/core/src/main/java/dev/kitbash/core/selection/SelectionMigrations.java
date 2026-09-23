@@ -1,5 +1,6 @@
 package dev.kitbash.core.selection;
 
+import dev.kitbash.core.error.GenerationError;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.UnaryOperator;
@@ -30,17 +31,25 @@ public final class SelectionMigrations {
     public static SelectionEnvelope migrate(SelectionEnvelope envelope) {
         int version = envelope.schemaVersion();
         if (version < 1) {
-            throw new SelectionValidationException(
-                    "schemaVersion",
-                    "schemaVersion must be at least 1 (got: " + version + "). "
-                            + "Omit the field to mean the current version.");
+            // Typed since kitbash-39: this is a parse-stage rejection of a selection, so it
+            // carries the §14 envelope like every other one rather than a bare message with no
+            // code for a client to switch on.
+            throw GenerationError.invalidIdentifier(
+                            "schemaVersion",
+                            String.valueOf(version),
+                            "must be at least 1",
+                            "Omit the field entirely to mean the current version, which is what the " + "wizard sends.")
+                    .asException();
         }
         if (version > CURRENT_VERSION) {
-            throw new SelectionValidationException(
-                    "schemaVersion",
-                    "This selection was written by a newer Kitbash (schemaVersion " + version + "; this server "
-                            + "understands up to " + CURRENT_VERSION + "). Upgrade the server, or regenerate the "
-                            + "selection from the wizard.");
+            throw GenerationError.invalidIdentifier(
+                            "schemaVersion",
+                            String.valueOf(version),
+                            "is newer than this server understands (up to " + CURRENT_VERSION + ")",
+                            "Upgrade the server, or regenerate the selection from the wizard — a "
+                                    + "selection written by a newer Kitbash may name options this one has "
+                                    + "never heard of.")
+                    .asException();
         }
         SelectionEnvelope current = envelope;
         while (current.schemaVersion() < CURRENT_VERSION) {

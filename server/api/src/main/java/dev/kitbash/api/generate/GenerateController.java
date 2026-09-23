@@ -5,13 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.kitbash.api.history.GenerationRecorder;
 import dev.kitbash.api.security.Caller;
 import dev.kitbash.api.security.RateLimiter;
+import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.error.GenerationException;
 import dev.kitbash.core.hash.Sha256;
 import dev.kitbash.core.pipeline.GeneratedProject;
 import dev.kitbash.core.pipeline.GenerationPipeline;
 import dev.kitbash.core.selection.Selection;
 import dev.kitbash.core.selection.SelectionEnvelope;
-import dev.kitbash.core.selection.SelectionValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -88,7 +88,13 @@ public class GenerateController {
         try {
             request = json.readValue(selection, GenerateRequest.class);
         } catch (JsonProcessingException e) {
-            throw new SelectionValidationException("selection", "The 'selection' field is not a valid envelope.");
+            throw GenerationError.invalidIdentifier(
+                            "selection",
+                            "the form field",
+                            "is not a readable selection envelope",
+                            "Send the JSON the wizard produces: an object with projectName, options "
+                                    + "and variables. POST /api/v1/validate will say what is wrong with it.")
+                    .asException();
         }
         stream(request, httpRequest, response);
     }

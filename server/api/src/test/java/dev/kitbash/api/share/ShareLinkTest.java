@@ -140,9 +140,14 @@ class ShareLinkTest {
         @Test
         @DisplayName("a token nobody minted is not there, and neither is a path that is not a token")
         void refusesNonsense() throws Exception {
-            send(get("/api/v1/share/abcdefghjkm").with(jwt()), 400);
-            // Rejected on shape before the database is asked at all.
-            send(get("/api/v1/share/not-a-token-at-all").with(jwt()), 400);
+            // 404 since kitbash-39. A well-formed token for a link nobody minted is not a
+            // malformed request, and answering 400 told the caller they had sent something wrong
+            // when they had not.
+            send(get("/api/v1/share/abcdefghjkm").with(jwt()), 404);
+            // The same answer, though this one is rejected on shape before the database is asked
+            // at all — which is the point. A caller who could tell the two apart by status could
+            // use this endpoint to learn which token shapes are real.
+            send(get("/api/v1/share/not-a-token-at-all").with(jwt()), 404);
         }
 
         /**

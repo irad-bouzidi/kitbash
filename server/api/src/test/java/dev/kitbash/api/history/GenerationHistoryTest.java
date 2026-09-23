@@ -146,9 +146,9 @@ class GenerationHistoryTest {
             UUID id = onlyGeneration("carol");
 
             assertThat(send(get("/api/v1/generations").with(as("dave")), 200)).isEmpty();
-            // 400, not 403: distinguishing "not yours" from "not there" is a way to count
+            // 404, not 403: distinguishing "not yours" from "not there" is a way to count
             // somebody else's generations.
-            send(get("/api/v1/generations/" + id).with(as("dave")), 400);
+            send(get("/api/v1/generations/" + id).with(as("dave")), 404);
         }
 
         @Test
