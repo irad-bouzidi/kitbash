@@ -177,10 +177,29 @@ others finished in seconds.
 | `build/requested/` | The same, for a selection somebody asked about through `POST /api/v1/verify`. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
 | `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |
+| `build/verification.json` | The same run in the shape the wizard's badges need, with each cell's options. |
 
 The runner itself is `server/verify`, in Java, because `kitbash-37` has to construct a cell from
 a user's selection and serve its logs back — which wants a result model rather than a shell
 script's exit code.
+
+## What the wizard reads
+
+§12 has the results feeding two audiences: `status.html` for a person, and the wizard's badges for
+someone choosing. `verification.json` is the second, written from the same run as the page so the
+two can never disagree about a cell.
+
+It carries one thing the status page does not — **the options each cell was generated from** —
+because a badge decorates an option *pairing*, and a cell's outcome is meaningless for that purpose
+without knowing which pairings it covered. The API aggregates them: every unordered pair of chosen
+values gets the worst verdict of every cell containing it, which is what puts §36's warning on
+`backend=kotlin & typedClient=true` and on neither half alone.
+
+A shard writes its own twelfth and merging is addition, because no cell appears in two shards.
+
+The runner still has no database. §12 keeps it independent of the API, its auth and its
+persistence, so it publishes a document and the API reads it — which is why the nightly's results
+reach a user as badges rather than as rows warming the on-demand dedupe.
 
 ## On demand, for a combination nobody enumerated
 

@@ -3,6 +3,7 @@ package dev.kitbash.api.error;
 import dev.kitbash.api.security.RateLimitExceededException;
 import dev.kitbash.api.verify.AlreadyVerifyingException;
 import dev.kitbash.api.verify.QueueFullException;
+import dev.kitbash.api.verify.UnknownVerificationCellException;
 import dev.kitbash.api.verify.UnknownVerificationException;
 import dev.kitbash.core.error.ErrorCode;
 import dev.kitbash.core.error.GenerationError;
@@ -142,6 +143,19 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, "30")
                 .body(problem);
+    }
+
+    /** A cell whose log the published run does not carry (§14). */
+    @ExceptionHandler(UnknownVerificationCellException.class)
+    public ProblemDetail unknownVerificationCell(UnknownVerificationCellException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "The currently published verification run has no log for that cell. It may have "
+                        + "been replaced by a newer run.");
+        problem.setTitle("No log for that cell");
+        problem.setProperty("error", "VERIFY_CELL_NOT_FOUND");
+        problem.setProperty("cell", exception.cellId());
+        return problem;
     }
 
     /** An id for a run that does not exist (§14). */

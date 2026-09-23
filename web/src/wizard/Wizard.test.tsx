@@ -119,6 +119,24 @@ function stubApi(
           }),
         );
       }
+      // Badges (kitbash-38) are fetched on every wizard load. Routed explicitly, because the
+      // fallback below records the body it was called with — and a GET with no body recorded as
+      // the validate call made this suite fail for a reason nothing here is about.
+      if (String(url).endsWith('/verification')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              schemaVersion: 1,
+              catalogDigest: 'sha256:abc123',
+              generatedAt: null,
+              staleFor: null,
+              choices: [],
+              pairs: [],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
+      }
       validateBody = JSON.parse((init?.body as string) ?? '{}');
       return Promise.resolve(
         new Response(JSON.stringify(resolution), {

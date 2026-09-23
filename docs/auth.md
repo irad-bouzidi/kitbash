@@ -95,8 +95,14 @@ deduplicated.**
 
 A run is keyed by `(selection_hash, catalog_digest)` and the key is a partial unique index in the
 database, so two people asking the same question at the same moment produce **one** container and
-two answers. The second is instant. Most questions are already answered before they are asked,
-because the nightly matrix builds every enumerated combination and writes a row for each.
+two answers. The second is instant.
+
+The nightly matrix does **not** write rows here. §12 keeps it independent of the API and its
+persistence — it has no database connection, and that is what makes a red cell mean the generator
+is broken rather than the deployment. Its results reach a user as the wizard's badges
+(`GET /api/v1/verification`, `kitbash-38`) rather than as a warm dedupe, so the first person to
+verify an enumerated combination still pays for a container even though the nightly built it hours
+earlier.
 
 Two refusals share the 429 and mean different things, so they carry different bodies:
 
@@ -109,6 +115,17 @@ Two refusals share the 429 and mean different things, so they carry different bo
 A run that fails is **not** covered by the dedupe index. That asymmetry is on purpose — a failure
 is a result somebody may want to reproduce once a recipe is fixed — and there is a test for it so
 nobody tidies it away.
+
+`GET /api/v1/verification` and `GET /api/v1/verification/cells/{cell}/log` are the read-only half
+and need **no database**: it serves what the
+nightly published, so a deployment without persistence still tells a user which combinations are
+known to be red. Its entity tag covers the catalog digest *and* the run that produced the results —
+the catalog alone would let a client keep yesterday's badges through tonight's nightly, and the run
+alone would let it keep them across a catalog change.
+
+A cell's log is served only for a cell the **currently published run names**. That is the whole
+check: an id the results do not mention has no log worth serving, which happens to mean an id out
+of a URL can never become a path.
 
 The queue depth and the number of runs in containers are published as
 `kitbash_verify_queue_depth` and `kitbash_verify_running`. The 429 body tells one caller whether to

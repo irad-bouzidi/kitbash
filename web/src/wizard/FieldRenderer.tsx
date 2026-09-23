@@ -6,6 +6,9 @@ import { MultiSelectField } from '@/wizard/fields/MultiSelectField';
 import { StringField } from '@/wizard/fields/StringField';
 import { diagnosticsFor } from '@/wizard/useValidation';
 import { useSelectionStore, type SelectionValue } from '@/wizard/useSelection';
+import { PairingWarning, VerifiedLine } from '@/verify/VerificationBadge';
+import { redPairingsFor, verdictFor } from '@/verify/useVerification';
+import { useVerification } from '@/verify/useVerification';
 
 interface Props {
   option: CatalogOption;
@@ -24,6 +27,7 @@ interface Props {
  * particular behaviour, that behaviour belongs to its type, declared in the catalog.
  */
 export function FieldRenderer({ option, resolution, pattern, fieldError }: Props) {
+  const { data: verification } = useVerification();
   // The generated schema types every field as optional, because OpenAPI does. An option with no
   // id could not be rendered at all, so it is normalised once here rather than guarded at every
   // use — and the metadata tests assert the server never sends one.
@@ -38,6 +42,14 @@ export function FieldRenderer({ option, resolution, pattern, fieldError }: Props
   const disabled = disabledReason !== undefined;
 
   const onChange = (next: SelectionValue) => set(id, next);
+
+  // The badge is about the value that is chosen, so an option with nothing chosen has no badge —
+  // "not verified" belongs to a selection, not to an empty dropdown.
+  const chosen = badgeValue(value);
+  const selected = useSelectedValues();
+  const here = chosen === undefined ? undefined : { optionId: id, value: chosen };
+  const redPairings = here ? redPairingsFor(verification, here, selected) : [];
+  const verdict = here ? verdictFor(verification, here) : undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -60,6 +72,23 @@ export function FieldRenderer({ option, resolution, pattern, fieldError }: Props
       {diagnostics.map((diagnostic) => (
         <DiagnosticLine key={diagnostic.message} diagnostic={diagnostic} />
       ))}
+
+      {/* §9 puts the warning at the pairing, which is where the decision is being made. */}
+      {here && !disabled && (
+        <>
+          <PairingWarning
+            badges={redPairings}
+            labelFor={(key) => describePair(key, here.optionId)}
+          />
+          {redPairings.length === 0 && (
+            <VerifiedLine
+              badge={verdict}
+              generatedAt={verification?.generatedAt}
+              catalogDigest={verification?.catalogDigest}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 
@@ -160,4 +189,42 @@ function formatList(values: string[]): string {
   const last = values[values.length - 1] ?? '';
   if (values.length <= 1) return last;
   return `${values.slice(0, -1).join(', ')} or ${last}`;
+}
+
+/**
+ * Every value the user has currently chosen, as pairing keys understand them.
+ *
+ * Read from the store rather than passed down, because a pairing is between this control and
+ * *every other* one — threading the whole selection through every field's props would put the
+ * wizard's shape into each component's signature.
+ */
+function useSelectedValues() {
+  const values = useSelectionStore((state) => state.values);
+  return Object.entries(values)
+    .map(([optionId, value]) => ({ optionId, value: badgeValue(value) }))
+    .filter((entry): entry is { optionId: string; value: string } => entry.value !== undefined);
+}
+
+/**
+ * How a selected value appears in a badge key, or undefined when it is not a choice.
+ *
+ * `true` rather than the string "true" for flags, and a flag that is off is not a pairing anybody
+ * made — the server aggregates it the same way, and the two have to agree or every badge misses.
+ */
+function badgeValue(value: SelectionValue | undefined): string | undefined {
+  if (value === true) return 'true';
+  if (typeof value === 'string' && value !== '') return value;
+  return undefined;
+}
+
+/**
+ * The other half of a pairing, in words.
+ *
+ * The key is `optionId=value & optionId=value`, and the half worth naming is the one that is *not*
+ * this control — "with typedClient=true" reads as advice; repeating the control's own value reads
+ * as noise.
+ */
+function describePair(key: string, thisOption: string): string {
+  const other = key.split(' & ').find((half) => !half.startsWith(`${thisOption}=`));
+  return other ? `Together with ${other.replace('=', ' ')}, this` : 'This combination';
 }

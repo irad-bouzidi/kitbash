@@ -73,6 +73,9 @@ public final class MatrixMain {
                 .run(trigger, digest, cells);
 
         StatusPage.write(matrix, repository);
+        // The same run, in the shape the wizard's badges need (§12, kitbash-38). Written from the
+        // same results as the page, so a badge and the status page can never disagree about a cell.
+        VerificationResults.write(matrix, repository);
         report(matrix, repository, enumerate);
 
         System.exit(matrix.green() ? 0 : 1);

@@ -31,6 +31,9 @@ export type PreviewFile = components['schemas']['PreviewFile'];
 export type Replay = components['schemas']['ReplayResponse'];
 export type PresetRequest = components['schemas']['PresetRequest'];
 export type ValidationResponse = components['schemas']['ValidationResponse'];
+export type VerificationDocument = components['schemas']['VerificationDocument'];
+export type VerificationBadge = components['schemas']['Badge'];
+export type VerificationRun = components['schemas']['VerificationResponse'];
 export type Diagnostic = components['schemas']['Diagnostic'];
 export type ResolvedRecipe = components['schemas']['ResolvedRecipe'];
 
@@ -43,6 +46,10 @@ export interface ProblemDetail {
   hint?: string;
   recipe?: string;
   file?: string;
+  /** §38: a full verification queue says how many are ahead of you, not "try later". */
+  queueDepth?: number;
+  /** The run this caller already has, when the refusal is "one at a time". */
+  runId?: string;
 }
 
 export class ApiError extends Error {
@@ -273,4 +280,71 @@ export function fetchPreviewFile(selection: GenerateRequest, path: string): Prom
     method: 'POST',
     body: JSON.stringify(selection),
   });
+}
+
+/*
+ * Verification (§9, §12, kitbash-37, kitbash-38).
+ */
+
+/**
+ * What the nightly matrix found, for the badges §9 puts at an option pairing.
+ *
+ * A document of its own rather than a field on the metadata document: verification is a property
+ * of *combinations* rather than of choices, and it changes within a catalog digest while the
+ * metadata document does not. Its entity tag covers both the catalog and the run.
+ */
+export function fetchVerification(): Promise<VerificationDocument> {
+  return request<VerificationDocument>('/api/v1/verification');
+}
+
+/** Whether a run was started for this request, or an existing one answered it. */
+export interface VerifyClaim {
+  run: VerificationRun;
+  /** 202: a container started. 200: this was already answered, and the log is already here. */
+  started: boolean;
+}
+
+/**
+ * Asks for the current selection to be built.
+ *
+ * The status code is the answer, so it is read rather than discarded: 202 means minutes of a
+ * container are starting, 200 means somebody already asked and the result is in this response.
+ * Collapsing them would leave a user unable to tell why one answer took a second and another four
+ * minutes — which §38 asks for by name.
+ */
+export async function requestVerification(selection: GenerateRequest): Promise<VerifyClaim> {
+  const response = await fetch('/api/v1/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeader() },
+    body: JSON.stringify(selection),
+  });
+
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+
+  return { run: (await response.json()) as VerificationRun, started: response.status === 202 };
+}
+
+export function fetchVerificationRun(id: string): Promise<VerificationRun> {
+  return request<VerificationRun>(`/api/v1/verify/${id}`);
+}
+
+/**
+ * The log of a cell the nightly published.
+ *
+ * Text, not JSON — it is a build log. Served through the API rather than linked into the runner's
+ * filesystem for the same reason a run's log is: the question of who may read it belongs to the
+ * code that knows what a cell is.
+ */
+export async function fetchCellLog(cellId: string): Promise<string> {
+  const response = await fetch(`/api/v1/verification/cells/${encodeURIComponent(cellId)}/log`, {
+    headers: authorizationHeader(),
+  });
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => ({}))) as ProblemDetail;
+    throw new ApiError(problem, response.status);
+  }
+  return response.text();
 }

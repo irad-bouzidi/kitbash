@@ -76,6 +76,10 @@ kitbash:
     # someone will look at it in an hour", which is the same outcome delivered dishonestly.
     queue-depth: ${KITBASH_VERIFY_QUEUE_DEPTH:32}
     timeout-minutes: ${KITBASH_VERIFY_TIMEOUT_MINUTES:15}
+    # Where the nightly leaves what it found (§12, kitbash-38). Blank means the repository's own
+    # verification/build/verification.json, which is what a developer running both halves locally
+    # has; a deployment points this at wherever the matrix's artifact is unpacked.
+    results: ${KITBASH_VERIFY_RESULTS:}
 
 server:
   error:
