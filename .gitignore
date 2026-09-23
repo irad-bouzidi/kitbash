@@ -68,3 +68,7 @@ Thumbs.db
 # --- create-stack (kitbash-44) ---
 clients/*/dist/
 clients/*/tsconfig.tsbuildinfo
+
+# --- mobile reference (kitbash-45) ---
+reference/react-native-expo/mobile/.expo/
+reference/react-native-expo/mobile/dist/

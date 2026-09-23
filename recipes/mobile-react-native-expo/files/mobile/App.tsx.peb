@@ -1,0 +1,17 @@
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, StyleSheet } from 'react-native';
+
+import { {{ entityName }}sScreen } from './src/screens/{{ entityName }}sScreen';
+
+export default function App() {
+  return (
+    <SafeAreaView style={styles.app}>
+      <{{ entityName }}sScreen />
+      <StatusBar style="auto" />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  app: { backgroundColor: '#fff', flex: 1 },
+});

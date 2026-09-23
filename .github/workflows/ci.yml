@@ -383,6 +383,7 @@ jobs:
           docker build -t kitbash/verify-jvm:latest  -f verification/images/jvm/Dockerfile  .
           docker build -t kitbash/verify-node:latest -f verification/images/node/Dockerfile .
           docker build -t kitbash/verify-ci:latest   -f verification/images/ci/Dockerfile   .
+          docker build -t kitbash/verify-mobile:latest -f verification/images/mobile/Dockerfile .
 
       # The phase exit test: each cell generates a project and runs that stack's real build
       # and test commands, in a container, never on the API host (§12).

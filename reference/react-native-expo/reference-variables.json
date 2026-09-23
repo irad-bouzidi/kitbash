@@ -1,0 +1,42 @@
+{
+  "$comment": [
+    "The names in this reference project that become generator variables.",
+    "The equality test generates with exactly the selection below and asserts the result",
+    "equals this directory. That test is only meaningful if this file stays accurate, so",
+    "renaming anything below is a change to this file in the same commit.",
+    "",
+    "The mobile-alone case (§45): no backend is selected, so the recipe resolves on its own",
+    "and the API base URL points wherever app.json's `extra` says. That the app still builds",
+    "with nothing to talk to is the coexistence rule this reference encodes."
+  ],
+  "referenceProject": "react-native-expo",
+  "recipeIds": [
+    "base",
+    "mobile-react-native-expo"
+  ],
+  "selection": {
+    "schemaVersion": 1,
+    "projectName": "demo-mobile",
+    "options": {
+      "mobile": "mobile-react-native-expo"
+    },
+    "variables": {
+      "entityName": "Widget",
+      "entityTable": "widgets"
+    }
+  },
+  "literals": {
+    "Widget": "{{ entityName }}",
+    "widgets": "{{ entityTable }}",
+    "widget": "{{ entityName | camel }}",
+    "demo-mobile": "{{ projectName }}"
+  },
+  "excludeFromExtraction": [
+    "reference-variables.json",
+    "REFERENCE.md",
+    "mobile/node_modules/",
+    "mobile/dist/",
+    "mobile/.expo/",
+    "*.tsbuildinfo"
+  ]
+}

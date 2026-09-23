@@ -153,6 +153,9 @@ anybody noticing what.
 | `frontend/dist/` | Vite's build output. |
 | `frontend/coverage/` | Test coverage output. |
 | `frontend/.vite/` | Vite's local cache. |
+| `mobile/node_modules/` | Installed dependencies. Reproducible from the committed lockfile. |
+| `mobile/dist/` | Expo's exported bundle. Hermes bytecode, and the matrix produces it rather than comparing it. |
+| `mobile/.expo/` | Expo's local state: device history, export logs, a generated dev server port. |
 | `*.tsbuildinfo` | TypeScript's incremental build state. Machine-local and timestamped. |
 
 That is the whole list. Everything else in a reference project is compared byte for byte.

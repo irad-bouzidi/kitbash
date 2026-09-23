@@ -1,0 +1,138 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Button,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+import { ApiError, createWidget, deleteWidget, listWidgets, type Widget } from '../api/widgets';
+
+/**
+ * The vertical slice, on a phone: list, create and delete one entity against the real API.
+ *
+ * One screen is enough to prove the half of the stack that matters — a request, a response, an
+ * error path and a loading state. A second screen would repeat all four, and a navigator would add
+ * a dependency to demonstrate nothing this does not already.
+ */
+export function WidgetsScreen() {
+  const [widgets, setWidgets] = useState<Widget[]>([]);
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setWidgets(await listWidgets());
+      setError(null);
+    } catch (failure) {
+      setError(describe(failure));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function submit() {
+    setSaving(true);
+    try {
+      await createWidget({ name, quantity: Number(quantity) });
+      setName('');
+      setQuantity('1');
+      await refresh();
+    } catch (failure) {
+      setError(describe(failure));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: number) {
+    try {
+      await deleteWidget(id);
+      await refresh();
+    } catch (failure) {
+      setError(describe(failure));
+    }
+  }
+
+  return (
+    <View style={styles.screen}>
+      <Text style={styles.heading}>Widgets</Text>
+
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Name"
+          accessibilityLabel="Name"
+          maxLength={120}
+        />
+        <TextInput
+          style={styles.input}
+          value={quantity}
+          onChangeText={setQuantity}
+          placeholder="Quantity"
+          accessibilityLabel="Quantity"
+          keyboardType="number-pad"
+        />
+        <Button
+          title={saving ? 'Adding…' : 'Add widget'}
+          onPress={() => void submit()}
+          disabled={saving || name.trim() === ''}
+        />
+      </View>
+
+      {error !== null && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      )}
+
+      {loading ? (
+        <ActivityIndicator accessibilityLabel="Loading" />
+      ) : (
+        <FlatList
+          data={widgets}
+          keyExtractor={(widget) => String(widget.id)}
+          ListEmptyComponent={<Text style={styles.empty}>No widgets yet.</Text>}
+          renderItem={({ item }) => (
+            <View style={styles.row}>
+              <Text style={styles.rowText}>
+                {item.name} × {item.quantity}
+              </Text>
+              <Button title="Delete" onPress={() => void remove(item.id)} />
+            </View>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+/** The server's own words where there are any: it explains the failure better than we can. */
+function describe(failure: unknown): string {
+  if (failure instanceof ApiError) return failure.message;
+  return 'The API is not reachable. Is it running?';
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, gap: 16, padding: 24, paddingTop: 64 },
+  heading: { fontSize: 24, fontWeight: '600' },
+  form: { gap: 8 },
+  input: { borderColor: '#ccc', borderRadius: 6, borderWidth: 1, padding: 10 },
+  error: { color: '#b00020' },
+  empty: { color: '#666' },
+  row: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between', paddingVertical: 8 },
+  rowText: { flex: 1 },
+});

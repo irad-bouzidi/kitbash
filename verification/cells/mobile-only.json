@@ -1,0 +1,18 @@
+{
+  "id": "mobile-only",
+  "description": "§45's mobile-alone case: the app builds and its screen renders with no backend selected. A bundle and a component test — not that it runs on a device.",
+  "selection": "selections/phase5-mobile-only.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "mobile",
+      "workingDirectory": "mobile",
+      "commands": [
+        "npm ci",
+        "./node_modules/.bin/tsc --noEmit",
+        "npx jest",
+        "npx expo export --platform ios --output-dir dist"
+      ]
+    }
+  ]
+}

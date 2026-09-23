@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../_schema/recipe.schema.json
+#
+# The mobile slot, deferred out of v1 and opened here (§11, §17, §45).
+#
+# The reason to wait was never that mobile is hard to template. It is that mobile adds an
+# *ecosystem* to the verification matrix, and the matrix is what makes any of the catalog
+# trustworthy — a recipe nothing builds is a recipe nobody should trust. By now there is an image,
+# a sampling rule (§18) and a typed client to consume, so the cost is a cell rather than a project.
+id: mobile-react-native-expo
+version: 1.0.0
+frameworkVersion: "0.86"
+kind: mobile
+label: React Native (Expo)
+slot: mobile
+
+provides: [mobile-app]
+# Only `project-root`, exactly as the web frontend requires only that.
+#
+# §45 asks that mobile alone, mobile with a web frontend, and mobile with a backend each resolve
+# sensibly. Requiring `rest-api` here would make the first of those impossible to express — and a
+# mobile app with nothing to talk to still builds, which is what the reference project encodes.
+requires: [project-root]
+
+# No typed-client option, and the reason is a finding rather than a preference.
+#
+# §45 asks for `requires: [openapi-spec]` when a typed client is enabled, and the catalog cannot
+# honour that yet. The backend *provides* `openapi-spec` — it can describe itself — but the code
+# that actually produces the document lives in `frontend-react-vite`: a `dumpOpenApiDocument`
+# task, an `OpenApiDocumentTest` in both languages, and build patches for Gradle and Maven, all
+# gated on that recipe's own `typedClient` option.
+#
+# So a mobile typed client with no web frontend would have nothing to consume. Shipping the option
+# anyway would mean a selection that validates and produces no client — a promise the recipe
+# cannot keep, which is worse than not offering it.
+#
+# The fix is to move document production to whichever recipe provides the capability, so any
+# number of consumers can generate from it. That is a refactor of kitbash-33's build patches
+# across two languages and two build tools, and it is its own task.
+
+variables:
+  required: [entityName, entityTable]
+
+# §36's weekly bump, and why this recipe declares nothing for it.
+#
+# Every other recipe pins JVM coordinates, which Maven Central can be asked about by artifact. This
+# one pins an npm tree, and Expo's versions are not independent: `expo`, `react-native`, `react`
+# and `react-test-renderer` move together, and picking the latest of each is how a working app
+# stops installing. Expo publishes the compatible set through `npx expo install --check`, which is
+# a different question from "what is the newest version" and needs a different job.
+#
+# So the bump job skips this recipe by having nothing to find, and this comment is the reason
+# rather than an omission somebody has to reconstruct. The versions move when `expo install
+# --check` says they should.
+tracks: []
+
+files:
+  - from: files/**
+
+patches:
+  # The app's own line in the README's stack list. The marker belongs to `base`, and every recipe
+  # that contributes a line inserts at it in resolution order.
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:stack -->"
+    lines:
+      - "- **Mobile** — React Native with Expo, in `mobile/`."
+
+  - op: insertAtMarker
+    target: README.md
+    marker: "<!-- kitbash:start -->"
+    lines:
+      - "### The mobile app"
+      - ""
+      - "```bash"
+      - "cd mobile"
+      - "npm install"
+      - "npm start        # then press i or a, or scan the QR code with Expo Go"
+      - "```"
+      - ""
+      - "The API base URL is `expo.extra.apiBaseUrl` in `mobile/app.json`, not an environment"
+      - "variable: a mobile app has no environment at runtime, it is a bundle on a device."
+      - "`localhost` there means the simulator's own loopback — a phone on the same network needs"
+      - "the host's LAN address instead."
+
+  # Expo's build output and its local state. Neither belongs in a repository, and a generated
+  # project whose first `npm start` dirties `git status` teaches people to ignore it.
+  # appendLines, like every other recipe that contributes ignores: `.gitignore` carries no marker,
+  # and order in it is irrelevant, so a marker would be a contract with nothing on the other side.
+  - op: appendLines
+    target: .gitignore
+    lines:
+      - ""
+      - "# Expo"
+      - "mobile/.expo/"
+      - "mobile/dist/"
+      - "mobile/node_modules/"
