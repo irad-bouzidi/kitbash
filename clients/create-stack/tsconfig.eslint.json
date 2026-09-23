@@ -1,0 +1,10 @@
+{
+  "$comment": [
+    "Everything, for the linter. tsconfig.json covers src/ only because that is what ships;",
+    "type-aware lint rules need a project that also sees the tests and the config files, and",
+    "widening the build's tsconfig would put them in dist/."
+  ],
+  "extends": "./tsconfig.json",
+  "include": ["src", "test", "*.ts", "*.js"],
+  "compilerOptions": { "noEmit": true }
+}
