@@ -63,7 +63,8 @@ public class VerificationConfiguration {
             VerificationRunner runner,
             VerificationLogs logs,
             Catalog catalog,
-            Clock clock) {
-        return new VerificationService(runs, workers, runner, logs, catalog::digest, clock);
+            Clock clock,
+            VerificationMetrics outcomes) {
+        return new VerificationService(runs, workers, runner, logs, catalog::digest, clock, outcomes);
     }
 }

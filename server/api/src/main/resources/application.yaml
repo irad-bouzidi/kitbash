@@ -81,6 +81,21 @@ kitbash:
     # has; a deployment points this at wherever the matrix's artifact is unpacked.
     results: ${KITBASH_VERIFY_RESULTS:}
 
+# §41: structured JSON, so a production incident is greppable by field rather than by eye. ECS
+# because the generated projects already use it (§15) — one shape for the bootstrapper and for
+# what it produces means one set of dashboards works on both.
+#
+# Console only. Where the lines go afterwards is the deployment's business, and a file appender
+# here would be a second copy nobody rotates.
+logging:
+  structured:
+    format:
+      console: ${KITBASH_LOG_FORMAT:ecs}
+  level:
+    # One line per generation at info; the detail is at debug (§41). A service logging a line per
+    # stage at info is a service whose logs nobody reads during the incident they were kept for.
+    dev.kitbash: ${KITBASH_LOG_LEVEL:info}
+
 server:
   error:
     include-message: always

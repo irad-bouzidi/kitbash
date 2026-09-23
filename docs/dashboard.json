@@ -1,0 +1,115 @@
+{
+  "__comment": [
+    "The operator dashboard §41 asks to be checked in: the §14 metric list, plus error rate by type.",
+    "Grafana schema, because Prometheus and Grafana are what Micrometer and the actuator already",
+    "assume — a dashboard in a format nobody deploys is a document rather than a dashboard.",
+    "",
+    "Every query below is over metrics this repository actually emits. There is a test that asserts",
+    "that: a panel querying a metric nobody registers is a panel that reads 'No data' during the one",
+    "incident it was kept for, and nothing about it looks wrong until then."
+  ],
+  "title": "Kitbash",
+  "uid": "kitbash-operator",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Generations per minute, by outcome",
+      "description": "§14: generation duration and outcome. 'cached' is a hit served without rendering — it is a success that cost nothing, and folding it into 'succeeded' hides the cache working.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(kitbash_generations_seconds_count[5m])) * 60",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Generation duration",
+      "description": "§2 budgets generation in tens of milliseconds. The 99th percentile is the one that matters: a mean stays flat while the slowest selection doubles.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(kitbash_generations_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(kitbash_generations_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cache hit rate",
+      "description": "§27: the number that says whether determinism is holding in production. A rate that collapses means the output stopped being reproducible, which is worth noticing before a user reports two different zips for one selection.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(kitbash_cache_requests_total{result=\"hit\"}[30m])) / clamp_min(sum(rate(kitbash_cache_requests_total[30m])), 0.001)",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Rejections by type",
+      "description": "§14 and §39. The breakdown rather than the rate: a code that suddenly dominates is usually a catalog problem wearing a user's clothes — a spike in CAPABILITY_UNSATISFIED means a recipe declared a requires nothing provides.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (code) (rate(kitbash_rejections_total[15m])) * 60",
+          "legendFormat": "{{code}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Recipe usage",
+      "description": "§14. From the resolved lock rather than the selection, so a recipe the resolver added counts as used — counting selections would say a database is unpopular because nobody picks one on purpose.",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "topk(15, sum by (recipe) (increase(kitbash_recipes_used_total[24h])))",
+          "legendFormat": "{{recipe}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Matrix pass rate",
+      "description": "§14. Derived by the API from the results the nightly publishes (kitbash-38), because the matrix is a batch job with nothing scraping it. Which cell is red is on the status page; this is the trend.",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "kitbash_matrix_passed / clamp_min(kitbash_matrix_cells, 1)",
+          "legendFormat": "pass rate"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Verification queue and runs",
+      "description": "§12, §37. Depth says whether four workers is the right number; outcomes say whether the runs are working. A queue that is never deep and a run that always fails look identical on depth alone.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 14 },
+      "targets": [
+        { "expr": "kitbash_verify_queue_depth", "legendFormat": "waiting" },
+        { "expr": "kitbash_verify_running", "legendFormat": "in containers" },
+        {
+          "expr": "sum by (outcome) (increase(kitbash_verify_runs_total[1h]))",
+          "legendFormat": "{{outcome}} / h"
+        }
+      ]
+    }
+  ]
+}

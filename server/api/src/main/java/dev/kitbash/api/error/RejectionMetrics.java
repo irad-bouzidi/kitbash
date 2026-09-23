@@ -28,6 +28,10 @@ public class RejectionMetrics {
 
     public RejectionMetrics(MeterRegistry meters) {
         this.meters = meters;
+        // Called at construction since kitbash-41. It was written for this and never invoked, so
+        // every rejection series appeared only after its first rejection — which is the moment a
+        // dashboard is least useful, because "no data" and "none yet" look the same.
+        preRegister();
     }
 
     /** One rejection, by the code that named it and the stage it came out of. */
@@ -55,8 +59,13 @@ public class RejectionMetrics {
                 .increment();
     }
 
-    /** Every code, so a dashboard has a series before the first failure rather than after it. */
-    public void preRegister() {
+    /**
+     * Every code, so a dashboard has a series before the first failure rather than after it.
+     *
+     * <p>Private, and called from the constructor: an overridable method called there is a this-escape,
+     * which this build treats as an error.
+     */
+    private void preRegister() {
         for (ErrorCode code : ErrorCode.values()) {
             for (Stage stage : Stage.values()) {
                 Counter.builder("kitbash.rejections")

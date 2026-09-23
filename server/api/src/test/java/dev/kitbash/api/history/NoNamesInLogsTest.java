@@ -57,6 +57,9 @@ class NoNamesInLogsTest {
     @Autowired
     private MockMvc mvc;
 
+    @Autowired
+    private io.micrometer.core.instrument.MeterRegistry meters;
+
     @BeforeEach
     void captureEverything() {
         root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
@@ -142,5 +145,74 @@ class NoNamesInLogsTest {
                         + "line outlives the row it came from, because a log is shipped elsewhere and "
                         + "deleted by nothing this service does.")
                 .isEmpty();
+    }
+
+    /**
+     * The other half of §10's rule, and the one §41 names explicitly.
+     *
+     * <p>A metric is worse than a log line for this. A line is written once and ages out; a tag
+     * becomes a <b>time series</b>, which persists as a dimension in somebody else's monitoring
+     * system long after every request that created it is forgotten, and is queried by people who
+     * never saw the request.
+     */
+    @Test
+    @DisplayName("no metric anywhere carries a name, in its own name or in a tag")
+    void noNamesInMetrics() throws Exception {
+        mvc.perform(post("/api/v1/generate")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SELECTION))
+                .andReturn();
+
+        List<String> offending = meters.getMeters().stream()
+                .map(meter ->
+                        meter.getId().getName() + " " + meter.getId().getTags().toString())
+                .filter(descriptor -> descriptor.contains(PROJECT_NAME)
+                        || descriptor.contains(PACKAGE_NAME)
+                        || descriptor.contains("zarquon"))
+                .toList();
+
+        assertThat(offending)
+                .as("§10: metrics carry hashes and recipe ids only. A name in a tag is not a line "
+                        + "that ages out — it is a time series, kept on somebody else's retention "
+                        + "schedule and queried by people who never saw the request. §41 adds the "
+                        + "cardinality half: a tag whose values come from user input is a series "
+                        + "count nobody chose.")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("a request can be traced by an id it is given, and the id cannot forge a log line")
+    void correlationIdIsEchoedAndSanitised() throws Exception {
+        // Honoured, so this traces alongside anything already tracing in front of it.
+        assertThat(mvc.perform(get("/api/v1/metadata").with(jwt()).header("X-Correlation-Id", "abc-123"))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader("X-Correlation-Id"))
+                .isEqualTo("abc-123");
+
+        // Replaced, not rejected: the request is fine, its id is not. An id reaching every log
+        // line is caller-controlled input going somewhere grepped, shipped and kept.
+        //
+        // A space and a quote rather than a newline, deliberately. A newline is the attack worth
+        // preventing — it writes log lines that never happened — but MockMvc does not deliver one,
+        // so asserting against it proved nothing: the filter was replaced with one that accepts
+        // anything and this test stayed green. These characters survive the transport and are
+        // refused by the same rule.
+        assertThat(correlationIdFor("has spaces and \"quotes\""))
+                .as("an id is echoed into every log line, so it is not free-form caller input")
+                .satisfies(id -> assertThat(java.util.UUID.fromString(id)).isNotNull());
+
+        assertThat(correlationIdFor("x".repeat(500)))
+                .as("a megabyte of id is a megabyte on every line of the request")
+                .hasSize(36);
+    }
+
+    /** The id the server settled on for a request carrying this one. */
+    private String correlationIdFor(String offered) throws Exception {
+        return mvc.perform(get("/api/v1/metadata").with(jwt()).header("X-Correlation-Id", offered))
+                .andReturn()
+                .getResponse()
+                .getHeader("X-Correlation-Id");
     }
 }

@@ -10,6 +10,7 @@
 | [`reference-projects.md`](reference-projects.md) | How the projects under `/reference` are maintained, and every path the equality test ignores. |
 | [`recipe-format.md`](recipe-format.md) | The shape of a recipe: `recipe.yaml`, its `files/` tree, and the patch operations. |
 | [`errors.md`](errors.md) | Every §14 error code: what causes it, what fixes it, and where the rule is enforced. |
+| [`dashboard.json`](dashboard.json) | The operator dashboard: every §14 metric, and the privacy rule they operate under. |
 | [`cli.md`](cli.md) | The `kitbash` CLI. |
 | [`hooks.md`](hooks.md) | The repository's git hooks. |
 

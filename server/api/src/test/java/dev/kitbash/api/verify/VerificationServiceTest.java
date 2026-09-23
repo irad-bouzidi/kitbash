@@ -11,6 +11,7 @@ import dev.kitbash.api.store.VerificationStatus;
 import dev.kitbash.core.lock.Lock;
 import dev.kitbash.core.selection.OptionValue;
 import dev.kitbash.core.selection.Selection;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,7 +57,8 @@ class VerificationServiceTest {
     }
 
     private VerificationService service(VerificationWorkers workers) {
-        return new VerificationService(runs, workers, runner, logs, () -> DIGEST, CLOCK);
+        return new VerificationService(
+                runs, workers, runner, logs, () -> DIGEST, CLOCK, new VerificationMetrics(new SimpleMeterRegistry()));
     }
 
     private static VerificationWorkers workers(int poolSize, int perUser, int queueDepth) {
