@@ -79,6 +79,46 @@ The limiter's state is **in memory**. One internal team means one instance; if t
 more than one, the limits become per instance. That is a real behaviour change, and it is written
 down here rather than assumed away with a Redis that does not exist.
 
+## Verification is limited by concurrency, not by count
+
+`POST /api/v1/verify` is the one endpoint whose cost is measured in minutes rather than
+milliseconds, so it is the one with a different kind of limit. §18 opens it to every authenticated
+user and §12 says why that is affordable: **not because it is cheap, but because the work is
+deduplicated.**
+
+| Control | Default | Environment variable |
+| --- | --- | --- |
+| Workers (runs in containers at once) | 4 | `KITBASH_VERIFY_WORKERS` |
+| Per caller, in flight | 1 | `KITBASH_VERIFY_PER_USER` |
+| Queue depth before refusing | 32 | `KITBASH_VERIFY_QUEUE_DEPTH` |
+| Hard timeout on a run | 15 minutes | `KITBASH_VERIFY_TIMEOUT_MINUTES` |
+
+A run is keyed by `(selection_hash, catalog_digest)` and the key is a partial unique index in the
+database, so two people asking the same question at the same moment produce **one** container and
+two answers. The second is instant. Most questions are already answered before they are asked,
+because the nightly matrix builds every enumerated combination and writes a row for each.
+
+Two refusals share the 429 and mean different things, so they carry different bodies:
+
+- `VERIFY_ALREADY_RUNNING` names the run you already have, because the useful answer to "one at a
+  time" is *which one*.
+- `VERIFY_QUEUE_FULL` carries `queueDepth`. Refusing is deliberate: accepting the request and
+  queueing it for an hour is the same outcome delivered dishonestly, and the caller sits on a
+  spinner instead of deciding.
+
+A run that fails is **not** covered by the dedupe index. That asymmetry is on purpose — a failure
+is a result somebody may want to reproduce once a recipe is fixed — and there is a test for it so
+nobody tidies it away.
+
+The queue depth and the number of runs in containers are published as
+`kitbash_verify_queue_depth` and `kitbash_verify_running`. The 429 body tells one caller whether to
+wait; the gauges tell whoever runs this whether four workers is the right number, which is a
+different question.
+
+Logs are served through the API rather than as a link into the bucket, and they expire with
+everything else after thirty days (§10). The row outlives its log: after that, a run still has its
+verdict and no longer has its detail.
+
 ## Running it locally
 
 `docker compose up` starts a stub issuer beside everything else and signs you in without a prompt,

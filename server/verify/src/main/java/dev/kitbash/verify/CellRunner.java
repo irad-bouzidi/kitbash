@@ -35,6 +35,22 @@ public final class CellRunner {
     }
 
     public CellResult run(Cell cell) {
+        return run(cell, null);
+    }
+
+    /**
+     * One cell, finished by {@code deadline} or not at all.
+     *
+     * <p>{@code Containers} already kills a step that overruns, but its timeout is per step, and a
+     * cell of three steps could spend three times the budget while every individual step stayed
+     * inside it. {@code kitbash-37} promises a caller fifteen minutes for the whole run, so each
+     * step is given whatever is left of that and no more — which makes the deadline real rather
+     * than a per-step approximation of one.
+     *
+     * @param deadline when the run must be over, or null for the per-step timeout alone (the
+     *     matrix, which has a budget per shard rather than per cell)
+     */
+    public CellResult run(Cell cell, Instant deadline) {
         Instant started = Instant.now();
         Path log = repository.logFor(cell.id());
         String reproduce = "./verification/run-cell.sh " + cell.id();
@@ -63,7 +79,13 @@ public final class CellRunner {
                             log,
                             "%n[cell:%s] %s in %s%n".formatted(cell.id(), step.ecosystem(), step.workingDirectory()),
                             true);
-                    int exit = run(containers.commandFor(step, project, volume), repository.root(), log);
+                    Containers bounded = within(deadline);
+                    if (bounded == null) {
+                        String spent = "the run exceeded its deadline before the " + step.ecosystem() + " step";
+                        append(log, "%n[cell:%s] FAILED: %s%n".formatted(cell.id(), spent), true);
+                        return CellResult.failed(cell.id(), since(started), log, spent, reproduce);
+                    }
+                    int exit = run(bounded.commandFor(step, project, volume), repository.root(), log);
                     if (exit != 0) {
                         String failed = failedCommand(log, step, exit);
                         append(log, "%n[cell:%s] FAILED: %s%n".formatted(cell.id(), failed), true);
@@ -76,6 +98,26 @@ public final class CellRunner {
 
             return CellResult.passed(cell.id(), since(started), log, reproduce);
         }
+    }
+
+    /**
+     * The container limits for the next step, with its timeout cut to what is left of the run's
+     * budget — or null when there is nothing left and the step must not start at all.
+     *
+     * <p>A step started with one second remaining would be killed one second later and report a
+     * timeout of its own, which reads as "the build is slow" rather than "the run ran out". The
+     * distinction matters to whoever reads the log.
+     */
+    Containers within(Instant deadline) {
+        if (deadline == null) {
+            return containers;
+        }
+        long remaining = Duration.between(Instant.now(), deadline).toSeconds();
+        if (remaining <= 0) {
+            return null;
+        }
+        return new Containers(containers.images(), containers.cpus(), containers.memory(), (int)
+                Math.min(remaining, containers.timeoutSeconds()));
     }
 
     /**

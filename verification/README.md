@@ -174,12 +174,36 @@ others finished in seconds.
 | `images/ci/**` | `actionlint`, `check-jsonschema` and `osv-scanner`. The only image that inspects rather than builds. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `build/enumerated/` | The nightly's selections, written by the enumeration at run time. Output, not source. |
+| `build/requested/` | The same, for a selection somebody asked about through `POST /api/v1/verify`. |
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
 | `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |
 
 The runner itself is `server/verify`, in Java, because `kitbash-37` has to construct a cell from
 a user's selection and serve its logs back — which wants a result model rather than a shell
 script's exit code.
+
+## On demand, for a combination nobody enumerated
+
+`POST /api/v1/verify` answers "does my combination actually build?" and it runs **here**, through
+`CellRunner`, in the same images, under the same §13 limits. That is not a convenience: a user's
+selection must not be verified more gently than one the catalog happened to enumerate, or a green
+answer would mean something weaker than a green cell.
+
+The join is two small classes. `CellSteps` derives the build commands from a selection's options
+and is the *only* place that does — the nightly calls it too, so the two cannot drift into
+disagreeing about what "green" means. `RequestedCell` writes the requested selection under
+`build/requested/` and hands back an ordinary `Cell`, which is why `generate.sh`'s contract did not
+have to change.
+
+What is different is the deadline. The matrix has a budget per shard; an on-demand run has fifteen
+minutes promised to a person who is waiting, so `CellRunner.run(cell, deadline)` gives each step
+whatever is left of it rather than the full per-step timeout, and refuses to start a step that
+cannot finish. A step started with one second left would be killed one second later and report a
+timeout of its own, which reads as "the build is slow" rather than "the run ran out".
+
+Everything about *who* gets a container — the dedupe, the pool of four, one run per person, the
+queue that refuses rather than grows — is the API's, in `server/api/**/verify`. This directory's
+job is that the build is real.
 
 ## The one replaceable step
 

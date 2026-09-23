@@ -90,6 +90,34 @@
         }
       }
     },
+    "/api/v1/verify" : {
+      "post" : {
+        "tags" : [ "verification-controller" ],
+        "operationId" : "verify",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VerificationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/validate" : {
       "post" : {
         "tags" : [ "validate-controller" ],
@@ -390,6 +418,33 @@
         }
       }
     },
+    "/api/v1/verify/{id}" : {
+      "get" : {
+        "tags" : [ "verification-controller" ],
+        "operationId" : "status",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VerificationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/share/{token}" : {
       "get" : {
         "tags" : [ "share-controller" ],
@@ -627,6 +682,35 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "VerificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "log" : {
+            "type" : "string"
           }
         }
       },

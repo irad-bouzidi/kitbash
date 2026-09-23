@@ -15,10 +15,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * in-memory database in compatibility mode, say — would be testing a different database than the
  * one the migrations will meet.
  *
+ * <p>Public because it is shared beyond this package: {@code kitbash-37}'s dedupe is a property of
+ * the same schema and has to be tested against the same database.
+ *
  * <p>One container for the whole JVM rather than one per class. Starting Postgres takes a couple of
  * seconds; paying that per test class is what makes people stop writing the tests.
  */
-final class PostgresFixture {
+public final class PostgresFixture {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
@@ -26,7 +29,7 @@ final class PostgresFixture {
 
     private PostgresFixture() {}
 
-    static synchronized DataSource dataSource() {
+    public static synchronized DataSource dataSource() {
         if (dataSource == null) {
             POSTGRES.start();
             HikariConfig config = new HikariConfig();
@@ -40,12 +43,12 @@ final class PostgresFixture {
         return dataSource;
     }
 
-    static JdbcClient jdbc() {
+    public static JdbcClient jdbc() {
         return JdbcClient.create(dataSource());
     }
 
     /** Flyway, configured exactly as {@code application.yaml} configures it. */
-    static Flyway flyway() {
+    public static Flyway flyway() {
         return Flyway.configure()
                 .dataSource(dataSource())
                 .locations("classpath:db/migration")
@@ -53,7 +56,7 @@ final class PostgresFixture {
                 .load();
     }
 
-    static void migrate() {
+    public static void migrate() {
         flyway().migrate();
     }
 
@@ -62,7 +65,7 @@ final class PostgresFixture {
      * migration's own idempotency except the one test that does, and that one re-runs Flyway
      * rather than the schema.
      */
-    static void clean() {
+    public static void clean() {
         jdbc().sql("truncate preset, generation, share_link, verification_run cascade")
                 .update();
     }

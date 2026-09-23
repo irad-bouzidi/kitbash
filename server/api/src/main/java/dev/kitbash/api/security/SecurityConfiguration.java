@@ -101,6 +101,14 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/generations", "/api/v1/generations/**")
                         .authenticated()
 
+                        // Verification: any authenticated user, throttled by concurrency rather
+                        // than by role (§18). There is no "may verify" permission because there is
+                        // nothing to protect — a verification reads no data and writes no state a
+                        // caller can see. What it spends is machine time, and that is bounded by
+                        // the pool rather than rationed by who you are.
+                        .requestMatchers("/api/v1/verify", "/api/v1/verify/**")
+                        .authenticated()
+
                         // Everything else — including the OpenAPI document and anything added
                         // tomorrow — is closed until somebody opens it deliberately.
                         .anyRequest()
