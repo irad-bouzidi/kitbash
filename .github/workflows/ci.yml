@@ -315,6 +315,42 @@ jobs:
           ${{ github.event_name == 'schedule' && '-Pkitbash.enumerate=true' || '' }}
           -Pkitbash.shard=${{ matrix.shard }}
 
+      # §40: what the history set looked like last night, so tonight can say what changed. A run
+      # cannot compare itself to the previous one, so it publishes what it used and the step below
+      # does the diff — a stack that drops out because usage moved is information, and one that
+      # drops out because a recipe was renamed is a coverage hole that looks identical from inside
+      # a single run.
+      - name: Which history cells changed since the last nightly
+        if: github.event_name == 'schedule' && strategy.job-index == 0
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current=verification/build/history-cells.tsv
+          [ -f "$current" ] || { echo "No history cells this run."; exit 0; }
+
+          previous=$(gh run list --workflow=ci.yml --event=schedule --status=success \
+            --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
+          if [ -z "$previous" ]; then
+            echo "No previous nightly to compare against."
+            cat "$current"
+            exit 0
+          fi
+
+          mkdir -p /tmp/previous
+          gh run download "$previous" -n verification-matrix-0 -D /tmp/previous 2>/dev/null || true
+          if [ ! -f /tmp/previous/history-cells.tsv ]; then
+            echo "The previous nightly published no history set."
+            cat "$current"
+            exit 0
+          fi
+
+          echo "### History cells, against nightly $previous" >> "$GITHUB_STEP_SUMMARY"
+          echo '```diff' >> "$GITHUB_STEP_SUMMARY"
+          diff /tmp/previous/history-cells.tsv "$current" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the matrix logs and status page
         if: always()
         uses: actions/upload-artifact@v4

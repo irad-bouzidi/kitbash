@@ -276,6 +276,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/history/cells": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["cells"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/generations": {
         parameters: {
             query?: never;
@@ -568,6 +584,13 @@ export interface components {
             scope?: string;
             requiredBy?: string[];
         };
+        HistoryCellResponse: {
+            selectionHash?: string;
+            /** Format: int32 */
+            generations?: number;
+            selection?: components["schemas"]["JsonNode"];
+        };
+        JsonNode: unknown;
         LockDiff: {
             changed?: components["schemas"]["VersionChange"][];
             added?: components["schemas"]["VersionChange"][];
@@ -1034,6 +1057,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["MetadataDocument"];
+                };
+            };
+        };
+    };
+    cells: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["HistoryCellResponse"][];
                 };
             };
         };

@@ -549,6 +549,37 @@
         }
       }
     },
+    "/api/v1/history/cells" : {
+      "get" : {
+        "tags" : [ "history-cell-controller" ],
+        "operationId" : "cells",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryCellResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/generations" : {
       "get" : {
         "tags" : [ "generation-controller" ],
@@ -1313,6 +1344,22 @@
           }
         }
       },
+      "HistoryCellResponse" : {
+        "type" : "object",
+        "properties" : {
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "generations" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "JsonNode" : { },
       "LockDiff" : {
         "type" : "object",
         "properties" : {

@@ -79,6 +79,19 @@ The limiter's state is **in memory**. One internal team means one instance; if t
 more than one, the limits become per instance. That is a real behaviour change, and it is written
 down here rather than assumed away with a Redis that does not exist.
 
+## The nightly's input carries no names
+
+`GET /api/v1/history/cells` serves the twenty most-generated selections to the verification runner
+(§40). It is authenticated like everything else, and it carries **no project or package names**: §10
+draws that line, and the API replaces every variable with a neutral set before the list leaves it —
+by building a new envelope rather than filtering fields, so a variable added tomorrow does not
+arrive by default. `HistoryCellsTest` asserts that nothing identifying survives, against the whole
+serialised envelope rather than field by field.
+
+The failure this prevents is quiet: a name that leaks breaks nothing. The cell builds, the matrix is
+green, and a customer's package name sits in a CI log on somebody else's retention schedule until
+the day somebody looks.
+
 ## Verification is limited by concurrency, not by count
 
 `POST /api/v1/verify` is the one endpoint whose cost is measured in minutes rather than

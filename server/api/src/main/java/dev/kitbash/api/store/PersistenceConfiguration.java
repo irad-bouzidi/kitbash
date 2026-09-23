@@ -36,4 +36,10 @@ public class PersistenceConfiguration {
     public VerificationRunRepository verificationRunRepository(JdbcClient jdbc) {
         return new VerificationRunRepository(jdbc);
     }
+
+    /** kitbash-40's history cells, which exist only where there is history. */
+    @Bean
+    public dev.kitbash.api.history.HistoryCells historyCells(dev.kitbash.api.generate.PopularSelections popular) {
+        return new dev.kitbash.api.history.HistoryCells(popular);
+    }
 }

@@ -101,6 +101,13 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/generations", "/api/v1/generations/**")
                         .authenticated()
 
+                        // The nightly's input (§40). Authenticated like everything else, and it
+                        // carries no names — §10 strips them before they reach the response, and a
+                        // test asserts it — so this is a list of shapes rather than of anybody's
+                        // projects.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/history/cells")
+                        .authenticated()
+
                         // Verification: any authenticated user, throttled by concurrency rather
                         // than by role (§18). There is no "may verify" permission because there is
                         // nothing to protect — a verification reads no data and writes no state a
