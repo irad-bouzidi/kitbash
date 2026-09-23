@@ -55,6 +55,23 @@ public final class MatrixMain {
             System.exit(2);
         }
 
+        // §40: the enumerated cross-product plus the stacks people actually build. Additive and
+        // optional — a nightly that fell over because the API was unreachable would be a nightly
+        // that stops reporting the catalog is broken.
+        List<String> historyNotes = List.of();
+        if (enumerate) {
+            HistoryCells.Result history = HistoryCells.fetch(repository, catalog, cells);
+            historyNotes = history.notes();
+            if (!history.cells().isEmpty()) {
+                List<Cell> all = new java.util.ArrayList<>(cells);
+                all.addAll(history.cells());
+                // Added before sharding, so they count toward the budget and the shards absorb
+                // them (§35) rather than one runner taking twenty extra cells.
+                cells = List.copyOf(all);
+            }
+            HistoryCells.publish(repository, history.cells(), history.considered());
+        }
+
         String shard = flag(args, "--shard");
         int total = cells.size();
         if (shard != null) {
@@ -72,7 +89,7 @@ public final class MatrixMain {
                         new CellRunner(repository, Containers.standard()), System.out::println)
                 .run(trigger, digest, cells);
 
-        StatusPage.write(matrix, repository);
+        StatusPage.write(matrix, repository, historyNotes);
         // The same run, in the shape the wizard's badges need (§12, kitbash-38). Written from the
         // same results as the page, so a badge and the status page can never disagree about a cell.
         VerificationResults.write(matrix, repository);

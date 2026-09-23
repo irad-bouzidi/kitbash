@@ -178,6 +178,7 @@ others finished in seconds.
 | `run-cell.sh` | `run-cell.sh <cell-id>` — one cell, for reproducing a failure. |
 | `build/` | Output: `status.html`, `status.json` and a log per cell. Not checked in. |
 | `build/verification.json` | The same run in the shape the wizard's badges need, with each cell's options. |
+| `build/history-cells.tsv` | What §40 offered this run, with usage counts, for the next run to diff against. |
 
 The runner itself is `server/verify`, in Java, because `kitbash-37` has to construct a cell from
 a user's selection and serve its logs back — which wants a result model rather than a shell
@@ -200,6 +201,47 @@ A shard writes its own twelfth and merging is addition, because no cell appears 
 The runner still has no database. §12 keeps it independent of the API, its auth and its
 persistence, so it publishes a document and the API reads it — which is why the nightly's results
 reach a user as badges rather than as rows warming the on-demand dedupe.
+
+## The stacks people actually build
+
+§12 calls history-fed verification *the piece neither plan had*, and the gap it closes is specific:
+an enumerated matrix tests the **catalog's cross-product**, which is not the same set as the stacks
+a team relies on. A combination that is unusual on paper but is one team's house standard deserves
+nightly coverage more than a cell nobody has ever generated.
+
+So the nightly asks the API for the twenty most-generated selections and adds the ones the
+cross-product misses. Three rules, all of them about not making the nightly worse:
+
+**Nothing identifying crosses.** §10: *only hashes, recipe ids and selections cross into the runner
+— never project or package names.* The API replaces every variable with the enumeration's neutral
+set before the list leaves it, by **building a new envelope rather than removing fields** — a
+deny-list is a list somebody has to extend the next time a recipe declares a variable, and
+forgetting is silent. The consequence is that a history cell hashes differently from the generation
+it came from; the original hash travels beside it as a label.
+
+**Deduplication is by shape, not by hash.** Because of the above, a history cell's hash can never
+equal an enumerated cell's — comparing hashes would deduplicate nothing and the nightly would
+quietly double. The shape is the selected options, sorted.
+
+**A removed recipe is a catalog change, not a regression.** A popular stack naming a recipe this
+catalog no longer has is skipped with a note. Failing it would make every deletion look like a
+broken nightly.
+
+History cells are added **before sharding**, so they count toward the budget and the shards absorb
+them (§35) rather than one runner taking twenty extra cells. Their ids begin `h-`, which is how the
+status page labels them — §40 wants it obvious which failures affect real users.
+
+The whole thing is optional. §12's independence rule is about *running* a cell: nothing here touches
+a database and generation still goes through the CLI. Choosing which cells to run is a different
+question, and history is the only honest answer to it — but a nightly that fell over because the API
+was unreachable would be a nightly that stops reporting that the catalog is broken, which is the one
+thing it exists to do. No `KITBASH_HISTORY_URL`, no history cells, and the report says so.
+
+Each run writes `build/history-cells.tsv` — every stack that was offered, its usage count, and
+whether it ran. A run cannot compare itself to the previous one, so the workflow diffs it against
+the last nightly's artifact. A stack dropping out because usage moved is information; one dropping
+out because a recipe was renamed is a coverage hole, and from inside a single run the two look
+identical.
 
 ## On demand, for a combination nobody enumerated
 

@@ -119,4 +119,44 @@ public class GenerationRepository {
                 instant(row, "expires_at"),
                 row.getBoolean("kept"));
     }
+
+    /**
+     * The stacks people actually build, most-generated first (§10, kitbash-40).
+     *
+     * <p>{@code generation_selection_hash_idx} exists for this query and says so in the migration.
+     * §12 calls history-fed verification <i>the piece neither plan had</i>: an enumerated matrix
+     * tests the catalog's cross-product, which is not the same set as the stacks a team relies on,
+     * and a combination that is unusual on paper but is one team's house standard deserves nightly
+     * coverage more than a cell nobody has ever generated.
+     *
+     * <p>Only successful generations count. A row that failed is a selection somebody <em>tried</em>,
+     * and the matrix already has an opinion about those — putting them here would fill the nightly
+     * with combinations already known not to work.
+     *
+     * <p>{@code project_name} is not selected. §10 keeps it out of anything that leaves this table,
+     * and the way to keep a column out of a consumer is not to read it.
+     */
+    public List<PopularSelection> mostGenerated(int limit) {
+        return jdbc.sql(
+                        """
+                        select selection_hash, count(*) as generations, min(selection::text) as selection
+                        from generation
+                        where status = 'succeeded'
+                        group by selection_hash
+                        order by generations desc, selection_hash
+                        limit :limit
+                        """)
+                .param("limit", limit)
+                .query((row, number) -> new PopularSelection(
+                        row.getString("selection_hash"), row.getInt("generations"), row.getString("selection")))
+                .list();
+    }
+
+    /**
+     * One popular selection: how it was made, and how often.
+     *
+     * @param selection the envelope as stored, <b>names included</b> — stripping them is the
+     *     caller's job and is done in one place, where there is a test for it
+     */
+    public record PopularSelection(String selectionHash, int generations, String selection) {}
 }

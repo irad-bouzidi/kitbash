@@ -1,9 +1,12 @@
 package dev.kitbash.api.generate;
 
+import dev.kitbash.api.store.GenerationRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,8 +39,20 @@ public class PopularSelections {
     private final Map<String, Counter> counters = new ConcurrentHashMap<>();
     private final Counter overflow;
 
-    public PopularSelections(MeterRegistry meters) {
+    /**
+     * The durable half, when there is a database.
+     *
+     * <p>The counters above are this process's, and they start at zero every deploy — which is
+     * right for a dashboard and useless for a nightly that has to decide what to build tonight.
+     * §40 asks that there be <b>one definition of popular</b>, so both halves live behind this
+     * class: the metric answers "what is being generated now", {@link #top(int)} answers "what has
+     * been generated", and neither is a second ad-hoc query somewhere else.
+     */
+    private final ObjectProvider<GenerationRepository> history;
+
+    public PopularSelections(MeterRegistry meters, ObjectProvider<GenerationRepository> history) {
         this.meters = meters;
+        this.history = history;
         this.overflow = Counter.builder("kitbash.generations.byselection")
                 .tag("selection", "other")
                 .description("Generations of selections beyond the tracked set")
@@ -61,5 +76,16 @@ public class PopularSelections {
                     .register(meters));
         }
         counter.increment();
+    }
+
+    /**
+     * The most-generated selections, from history rather than from this process's counters.
+     *
+     * <p>Empty without a database, which is not a failure: a deployment with no persistence has no
+     * history to feed the nightly, and the enumerated matrix is the whole matrix there.
+     */
+    public List<GenerationRepository.PopularSelection> top(int limit) {
+        GenerationRepository repository = history.getIfAvailable();
+        return repository == null ? List.of() : repository.mostGenerated(limit);
     }
 }
