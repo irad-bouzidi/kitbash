@@ -445,6 +445,58 @@
         }
       }
     },
+    "/api/v1/verification" : {
+      "get" : {
+        "tags" : [ "verification-badge-controller" ],
+        "operationId" : "verification",
+        "parameters" : [ {
+          "name" : "If-None-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VerificationDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/verification/cells/{cellId}/log" : {
+      "get" : {
+        "tags" : [ "verification-badge-controller" ],
+        "operationId" : "cellLog",
+        "parameters" : [ {
+          "name" : "cellId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/share/{token}" : {
       "get" : {
         "tags" : [ "share-controller" ],
@@ -964,6 +1016,61 @@
           "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "Badge" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "passed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cell" : {
+            "type" : "string"
+          },
+          "failedStep" : {
+            "type" : "string"
+          }
+        }
+      },
+      "VerificationDocument" : {
+        "type" : "object",
+        "properties" : {
+          "schemaVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "catalogDigest" : {
+            "type" : "string"
+          },
+          "generatedAt" : {
+            "type" : "string"
+          },
+          "staleFor" : {
+            "type" : "string"
+          },
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Badge"
+            }
+          },
+          "pairs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Badge"
+            }
           }
         }
       },

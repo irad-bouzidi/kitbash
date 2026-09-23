@@ -24,9 +24,15 @@ import org.slf4j.LoggerFactory;
  * <p>§12 says on-demand verification is affordable for every authenticated user <em>not because it
  * is cheap, but because the work is deduplicated</em>. That sentence is this class: a run is keyed
  * by {@code (selection_hash, catalog_digest)}, so the second person to ask about the house stack
- * gets the first person's result without a container starting, and the nightly matrix has already
- * answered every enumerated combination before anyone asks. What is left to pay for is the
- * genuinely novel selection, which is the only case worth a container.
+ * gets the first person's result without a container starting.
+ *
+ * <p>One half of that claim is not yet true and is worth stating plainly rather than leaving as an
+ * assumption. The nightly matrix does <b>not</b> write rows here: §12 keeps it independent of the
+ * API and its persistence, so it has no connection and publishes a document instead
+ * ({@link VerificationBadges}). Its answers reach a user as badges, not as a warm dedupe — so the
+ * first person to ask about an enumerated combination still pays for a container, even though the
+ * nightly built it hours earlier. Closing that would mean giving the runner a database and losing
+ * the property that makes a red cell diagnosable, and it has not been worth the trade so far.
  *
  * <p>The dedupe is the database's, not this code's. Checking for an existing run and then inserting
  * is a race whose window is wide enough to lose under ordinary load, so the claim is a single

@@ -212,6 +212,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["verification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/verification/cells/{cellId}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["cellLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/share/{token}": {
         parameters: {
             query?: never;
@@ -440,6 +472,25 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             expiresAt?: string;
+        };
+        Badge: {
+            key?: string;
+            status?: string;
+            /** Format: int32 */
+            passed?: number;
+            /** Format: int32 */
+            failed?: number;
+            cell?: string;
+            failedStep?: string;
+        };
+        VerificationDocument: {
+            /** Format: int32 */
+            schemaVersion?: number;
+            catalogDigest?: string;
+            generatedAt?: string;
+            staleFor?: string;
+            choices?: components["schemas"]["Badge"][];
+            pairs?: components["schemas"]["Badge"][];
         };
         SelectionEnvelope: {
             /** Format: int32 */
@@ -895,6 +946,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["VerificationResponse"];
+                };
+            };
+        };
+    };
+    verification: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["VerificationDocument"];
+                };
+            };
+        };
+    };
+    cellLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cellId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
         };

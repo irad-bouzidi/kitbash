@@ -109,6 +109,12 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/verify", "/api/v1/verify/**")
                         .authenticated()
 
+                        // The badges are read on every wizard load and say only what the nightly
+                        // already published. Still authenticated, because §13 closes everything —
+                        // but no role, for the same reason reading the catalog needs none.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/verification", "/api/v1/verification/**")
+                        .authenticated()
+
                         // Everything else — including the OpenAPI document and anything added
                         // tomorrow — is closed until somebody opens it deliberately.
                         .anyRequest()

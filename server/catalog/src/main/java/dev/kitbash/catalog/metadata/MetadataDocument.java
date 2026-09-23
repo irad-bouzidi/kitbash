@@ -71,9 +71,21 @@ public record MetadataDocument(
     /**
      * One value an option can take.
      *
-     * <p>{@code verification} is the per-combination badge §12 feeds and {@code kitbash-38}
-     * renders. It is null everywhere today, and the field exists now so that adding it later is a
-     * server change rather than a client one.
+     * <p>{@code verification} was reserved by {@code kitbash-15} for the badge §12 feeds, and it is
+     * still null — because {@code kitbash-38} found the reservation was for the wrong shape, and
+     * left it rather than filling it with something misleading.
+     *
+     * <p>Two things settle it. Verification is a property of <b>combinations</b>, not of choices:
+     * Kotlin was not red in §36, Kotlin <i>with the typed client</i> was, while Kotlin with
+     * everything else stayed green — and a per-choice field could only have said "Kotlin: failed",
+     * which is alarming, unactionable and untrue. And this document is immutable per catalog
+     * digest, which is what makes its ETag honest; verification results change <i>within</i> a
+     * digest, because the nightly runs later than the deploy, so carrying them here would quietly
+     * turn a correct cache into a stale one.
+     *
+     * <p>Badges are therefore {@code GET /api/v1/verification}, with an entity tag over the catalog
+     * digest and the run that produced them. The field stays for now because removing it from a
+     * published document is a client-visible change worth making on purpose rather than in passing.
      */
     public record Choice(
             String value,

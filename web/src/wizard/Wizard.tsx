@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PreviewDialog } from '@/preview/PreviewDialog';
+import { VerifyDialog } from '@/verify/VerifyDialog';
 import { SavePresetDialog } from '@/presets/SavePresetDialog';
 import { ShareDialog } from '@/wizard/ShareDialog';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export function Wizard() {
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading the catalog…</p>;
   if (isError || !metadata) {
@@ -131,6 +133,20 @@ export function Wizard() {
           >
             Preview
           </Button>
+          {/*
+            §12 puts this in the bottom bar beside Preview: verifying is something you do to the
+            build you are about to take, at the moment you are about to take it. A separate page
+            would make it a thing you go and do, which is a thing nobody does.
+          */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={blocked}
+            title={blocked ? blockedReason : undefined}
+            onClick={() => setVerifying(true)}
+          >
+            Verify this build
+          </Button>
           <Button type="button" variant="outline" onClick={() => setSharing(true)}>
             Share
           </Button>
@@ -157,6 +173,7 @@ export function Wizard() {
       {saving && <SavePresetDialog envelope={envelope} onClose={() => setSaving(false)} />}
       {sharing && <ShareDialog envelope={envelope} onClose={() => setSharing(false)} />}
       {previewing && <PreviewDialog envelope={envelope} onClose={() => setPreviewing(false)} />}
+      {verifying && <VerifyDialog envelope={envelope} onClose={() => setVerifying(false)} />}
 
       {/* The digest is what makes a bug report actionable (§9). */}
       <footer className="pb-6 text-xs text-muted-foreground">
