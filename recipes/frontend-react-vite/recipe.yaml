@@ -389,13 +389,16 @@ patches:
       - "    outputs.upToDateWhen { false }"
       - "}"
       - ""
+      - "// `.set(...)` rather than `=`: these are Gradle `Property` values, and assignment only"
+      - "// compiles on some versions of the plugin. openapi-generator 7.25 stopped accepting it,"
+      - "// which turned a weekly bump red — `.set` works on both sides of that change."
       - "openApiGenerate {"
-      - '    generatorName = "typescript-fetch"'
-      - "    inputSpec = openApiDocument.asFile.absolutePath"
-      - "    outputDir = layout.projectDirectory.dir(\"frontend/src/lib/api\").asFile.absolutePath"
+      - '    generatorName.set("typescript-fetch")'
+      - "    inputSpec.set(openApiDocument.asFile.absolutePath)"
+      - "    outputDir.set(layout.projectDirectory.dir(\"frontend/src/lib/api\").asFile.absolutePath)"
       - "    // withoutRuntimeChecks: the server validates its own input and returns RFC 9457 when it"
       - "    // is wrong, so a second copy of the rules in the browser is two places to change."
-      - '    configOptions = mapOf("supportsES6" to "true", "withoutRuntimeChecks" to "true")'
+      - '    configOptions.set(mapOf("supportsES6" to "true", "withoutRuntimeChecks" to "true"))'
       - "}"
       - ""
       - "tasks.named(\"openApiGenerate\") { dependsOn(dumpOpenApiDocument) }"
