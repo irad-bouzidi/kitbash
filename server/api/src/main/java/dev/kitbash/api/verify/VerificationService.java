@@ -3,6 +3,7 @@ package dev.kitbash.api.verify;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.error.CorrelationIdFilter;
 import dev.kitbash.api.store.VerificationRun;
 import dev.kitbash.api.store.VerificationRunRepository;
 import dev.kitbash.api.store.VerificationStatus;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * Who gets a container, and who gets somebody else's answer (§12, kitbash-37).
@@ -59,19 +61,23 @@ public class VerificationService {
 
     private final Clock clock;
 
+    private final VerificationMetrics outcomes;
+
     public VerificationService(
             VerificationRunRepository runs,
             VerificationWorkers workers,
             VerificationRunner runner,
             VerificationLogs logs,
             Supplier<String> catalogDigest,
-            Clock clock) {
+            Clock clock,
+            VerificationMetrics outcomes) {
         this.runs = runs;
         this.workers = workers;
         this.runner = runner;
         this.logs = logs;
         this.catalogDigest = catalogDigest;
         this.clock = clock;
+        this.outcomes = outcomes;
     }
 
     /** Whether a run had to be started, or one already existed — the difference between 202 and 200. */
@@ -114,8 +120,15 @@ public class VerificationService {
             return new Claim(claimed, false);
         }
 
+        // §41: the thread from a request to the run it started. The id belongs to the request
+        // thread and the work happens on a worker, so it is captured here and logged on both sides
+        // rather than carried into the container — the container's output lands in the run's log,
+        // which this line already names.
+        String correlationId = CorrelationIdFilter.current();
+        log.info("Verification run={} started by request={} selection={}", id, correlationId, hash);
+
         try {
-            workers.submit(owner, id, () -> execute(claimed, selection));
+            workers.submit(owner, id, () -> execute(claimed, selection, correlationId));
         } catch (AlreadyVerifyingException | QueueFullException refused) {
             // The row was claimed and nothing will run it. Finishing it as `failed` is what takes
             // it out of the partial index; leaving it `pending` would make one refused request
@@ -143,7 +156,20 @@ public class VerificationService {
      * in the dedupe index forever, and every later request for that selection would be told to wait
      * for a container that stopped existing.
      */
-    private void execute(VerificationRun run, Selection selection) {
+    private void execute(VerificationRun run, Selection selection, String correlationId) {
+        // Restored on the worker thread, so every line this run produces carries the id of the
+        // request that asked for it — which is what makes "traced end to end" true across a queue.
+        if (correlationId != null) {
+            MDC.put(CorrelationIdFilter.MDC_KEY, correlationId);
+        }
+        try {
+            executeRun(run, selection);
+        } finally {
+            MDC.remove(CorrelationIdFilter.MDC_KEY);
+        }
+    }
+
+    private void executeRun(VerificationRun run, Selection selection) {
         runs.markRunning(run.id(), clock.instant());
         Instant deadline =
                 clock.instant().plus(Duration.ofMinutes(workers.properties().timeoutMinutes()));
@@ -158,6 +184,9 @@ public class VerificationService {
             log.error("Verification run {} could not be executed", run.id(), broken);
             String key = logs.put(run.id().toString(), "The verification runner could not start: " + broken);
             runs.finish(run.id(), VerificationStatus.FAILED, key, clock.instant(), expiry());
+            // Its own outcome. "The build failed" and "the runner could not start" are a user's
+            // problem and an operator's, and one graph for both hides whichever is rarer.
+            outcomes.recorded("unstartable");
             return;
         }
 
@@ -168,6 +197,14 @@ public class VerificationService {
                 key,
                 clock.instant(),
                 expiry());
+        // §14 asks for run outcomes beside the queue depth: a queue that is never deep and a run
+        // that always fails are the same graph until the outcomes are separated out.
+        outcomes.recorded(result.passed() ? "passed" : "failed");
+        log.info(
+                "Verification run={} finished outcome={} step={}",
+                run.id(),
+                result.passed() ? "passed" : "failed",
+                result.failedStep());
     }
 
     /** §10's uniform thirty days, applied to the row as well as to the object behind it. */

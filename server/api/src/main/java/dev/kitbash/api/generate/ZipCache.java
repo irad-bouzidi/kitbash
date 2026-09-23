@@ -47,8 +47,18 @@ public interface ZipCache {
     @Component
     class None implements ZipCache {
 
+        private final CacheMetrics metrics;
+
+        public None(CacheMetrics metrics) {
+            this.metrics = metrics;
+        }
+
         @Override
         public Optional<byte[]> find(String key) {
+            // Counted, because §41 wants the hit rate visible on every deployment rather than only
+            // on the ones with an object store. A deployment with no cache misses every time, and
+            // a graph saying so is the correct reading of "nothing is cached here".
+            metrics.miss();
             return Optional.empty();
         }
 

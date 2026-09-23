@@ -253,19 +253,42 @@ class ZipCacheTest {
             assertThat(cacheCount("hit")).isGreaterThan(hitsBefore);
         }
 
-        /** kitbash-40 reads this to decide which stacks the nightly matrix should prioritise. */
+        /**
+         * §41's cardinality rule, asserted as an absence.
+         *
+         * <p>kitbash-27 counted generations in a series tagged by selection hash. §41 does not
+         * admit that even bounded — <i>anything tagged by selection hash is not a metric, it is a
+         * log line</i> — so the series is gone and this asserts it stays gone. Which stacks are
+         * popular is answered from the `generation` table, where a hash is a column rather than a
+         * dimension.
+         */
         @Test
-        @DisplayName("generations are counted by selection hash, and by nothing that names anybody")
-        void countsPopularSelections() throws Exception {
+        @DisplayName("no metric is tagged by selection hash, however bounded it would be")
+        void countsNoSelectionHashes() throws Exception {
             generate("frank", SELECTION);
 
-            var counters = meters.find("kitbash.generations.byselection").counters();
-            assertThat(counters).isNotEmpty();
-            // §10: metrics carry hashes and recipe ids, never project or package names.
-            assertThat(counters)
-                    .allSatisfy(counter -> assertThat(counter.getId().getTags().toString())
-                            .doesNotContain("billing")
-                            .doesNotContain("com.acme"));
+            assertThat(meters.find("kitbash.generations.byselection").counters())
+                    .as("a tag whose values come from user input is a series count nobody chose")
+                    .isEmpty();
+            assertThat(meters.getMeters())
+                    .allSatisfy(meter -> assertThat(meter.getId().getTags())
+                            .noneMatch(tag -> tag.getKey().equals("selection")));
+        }
+
+        @Test
+        @DisplayName("a generation is timed with its outcome, and recipes are counted by id")
+        void countsGenerationsAndRecipes() throws Exception {
+            generate("frank", SELECTION);
+
+            // §14's two questions about a generation are asked together, so a failure rate cannot
+            // be computed from two meters that could be updated on different paths.
+            assertThat(meters.find("kitbash.generations").timers()).isNotEmpty().allSatisfy(timer -> assertThat(
+                            timer.getId().getTag("outcome"))
+                    .isNotBlank());
+
+            // A recipe id comes from a closed set the catalog defines, which is what makes it a
+            // safe dimension where a selection hash is not.
+            assertThat(meters.find("kitbash.recipes.used").counters()).isNotEmpty();
         }
     }
 }

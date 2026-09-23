@@ -1,7 +1,5 @@
 package dev.kitbash.api.generate;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -54,8 +52,7 @@ public class ObjectStoreZipCache implements ZipCache {
 
     private final S3Client s3;
     private final ObjectStoreProperties properties;
-    private final Counter hits;
-    private final Counter misses;
+    private final CacheMetrics metrics;
 
     /** Key to the size of the object behind it; absence means "not asked yet", not "not there". */
     private final Map<String, Integer> known =
@@ -66,20 +63,10 @@ public class ObjectStoreZipCache implements ZipCache {
                 }
             });
 
-    public ObjectStoreZipCache(S3Client s3, ObjectStoreProperties properties, MeterRegistry meters) {
+    public ObjectStoreZipCache(S3Client s3, ObjectStoreProperties properties, CacheMetrics metrics) {
         this.s3 = s3;
         this.properties = properties;
-        // §27: measure the hit rate from day one. It is the number that says whether determinism
-        // is actually holding in production — a rate that collapses means the output stopped being
-        // reproducible, and that is worth noticing before a user reports it.
-        this.hits = Counter.builder("kitbash.cache.requests")
-                .tag("result", "hit")
-                .description("Generations served from the zip cache")
-                .register(meters);
-        this.misses = Counter.builder("kitbash.cache.requests")
-                .tag("result", "miss")
-                .description("Generations that had to be rendered")
-                .register(meters);
+        this.metrics = metrics;
     }
 
     @Override
@@ -91,17 +78,17 @@ public class ObjectStoreZipCache implements ZipCache {
                     .build());
             byte[] zip = object.asByteArray();
             known.put(key, zip.length);
-            hits.increment();
+            metrics.hit();
             return Optional.of(zip);
         } catch (NoSuchKeyException absent) {
-            misses.increment();
+            metrics.miss();
             return Optional.empty();
         } catch (S3Exception unavailable) {
             // A cache that is down is a slow generator, not a broken one. Rendering is the
             // fallback and it is always correct, so this is logged and shrugged off rather than
             // turned into a 500 for something the user never asked for.
             log.warn("The zip cache could not be read ({}); rendering instead", unavailable.getMessage());
-            misses.increment();
+            metrics.miss();
             return Optional.empty();
         }
     }

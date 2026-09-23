@@ -79,6 +79,41 @@ The limiter's state is **in memory**. One internal team means one instance; if t
 more than one, the limits become per instance. That is a real behaviour change, and it is written
 down here rather than assumed away with a Redis that does not exist.
 
+## Logs and metrics carry no names
+
+§10 is unambiguous and §41 enforces it: **logs and metrics carry hashes and recipe ids only —
+never package or project names.** The two have different lifetimes, and that is the whole reason.
+A history row is deleted when its owner deletes it or when the sweep takes it. A log line is
+shipped somewhere else and deleted by nothing this service does; a metric tag is worse still,
+because it becomes a *time series* queried by people who never saw the request.
+
+`NoNamesInLogsTest` generates a project called `zarquon-ledger` in package `com.zarquon.ledger`
+and greps every log line **and every registered meter** for either. Its failure message says why
+the rule exists, because the rule is broken by one helpful `log.info("Generating {}", projectName)`
+added during a debugging session, and whoever hits it deserves the reasoning rather than a red
+square.
+
+§41 adds the cardinality half: **a recipe id is a safe dimension and a selection hash is not.** A
+recipe id comes from a closed set the catalog defines; a hash comes from user input, so the series
+count is whatever people generate. kitbash-27 had a counter tagged by selection hash, bounded at
+200 series as its mitigation; §41 does not admit a bounded exception, and the question it answered
+— which stacks are popular — is answered from the `generation` table, where a hash is a column.
+
+### Tracing a request
+
+Every request carries an `X-Correlation-Id`, generated if absent and echoed on the response. It is
+in the MDC, so the structured encoder puts it on every line without anything passing it around, and
+`VerificationService` restores it on the worker thread — so a verification run's lines carry the id
+of the request that asked for it, across the queue.
+
+An inbound id is honoured, so this traces alongside anything already tracing in front of it. It is
+also caller-controlled input that reaches every log line, so it is bounded to 64 characters of
+`[A-Za-z0-9._:-]` and **replaced rather than rejected** when it is not: the request is fine, its id
+is not.
+
+Logs are ECS JSON on the console (`KITBASH_LOG_FORMAT`), the same shape the generated projects use
+(§15) — one set of dashboards works on both. One line per generation at info, detail at debug.
+
 ## The nightly's input carries no names
 
 `GET /api/v1/history/cells` serves the twenty most-generated selections to the verification runner

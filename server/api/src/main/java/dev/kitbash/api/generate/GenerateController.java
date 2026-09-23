@@ -38,7 +38,7 @@ public class GenerateController {
     private final RateLimiter limiter;
     private final ZipCache cache;
     private final GenerationRecorder history;
-    private final PopularSelections popular;
+    private final GenerationMetrics metrics;
 
     public GenerateController(
             GenerationPipeline pipeline,
@@ -46,13 +46,13 @@ public class GenerateController {
             RateLimiter limiter,
             ZipCache cache,
             GenerationRecorder history,
-            PopularSelections popular) {
+            GenerationMetrics metrics) {
         this.pipeline = pipeline;
         this.json = json;
         this.limiter = limiter;
         this.cache = cache;
         this.history = history;
-        this.popular = popular;
+        this.metrics = metrics;
     }
 
     /**
@@ -120,12 +120,10 @@ public class GenerateController {
                     Caller.ownerId().orElse(null),
                     failure.error().code().name(),
                     elapsed(start));
+            metrics.generated(elapsed(start), "failed");
             throw failure;
         }
         String cacheKey = cacheKey(selection);
-        // Counted whether or not it is served from cache: kitbash-40 wants what people generate,
-        // and a popular selection is popular precisely because it keeps being asked for.
-        popular.record(selection.hash());
 
         Optional<byte[]> cached = cache.find(cacheKey);
         if (cached.isPresent()) {
@@ -145,6 +143,7 @@ public class GenerateController {
             // cost anything to produce, and it points at the artifact that served it rather than
             // at one this request would have made.
             history.servedFromCache(selection, Caller.ownerId().orElse(null), cacheKey, zip.length, elapsed(start));
+            metrics.generated(elapsed(start), "cached");
             return;
         }
 
@@ -165,6 +164,7 @@ public class GenerateController {
                     Caller.ownerId().orElse(null),
                     failure.error().code().name(),
                     elapsed(start));
+            metrics.generated(elapsed(start), "failed");
             throw failure;
         }
 
@@ -214,6 +214,11 @@ public class GenerateController {
                 cache.stores() ? cacheKey : null,
                 zipBytes,
                 elapsed(start));
+
+        // §14's two questions about a generation, asked together. `used` reads the *lock* rather
+        // than the selection, so a recipe the resolver added counts as used — which it was.
+        metrics.generated(elapsed(start), "succeeded");
+        metrics.used(project.lock());
     }
 
     private static java.time.Duration elapsed(long startNanos) {
