@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Expo
+mobile/.expo/
+mobile/dist/
+mobile/node_modules/

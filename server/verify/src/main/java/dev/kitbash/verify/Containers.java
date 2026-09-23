@@ -23,7 +23,11 @@ public record Containers(Map<String, String> images, String cpus, String memory,
     public static final Map<String, String> DEFAULT_IMAGES = Map.of(
             "jvm", "kitbash/verify-jvm:latest",
             "node", "kitbash/verify-node:latest",
-            "ci", "kitbash/verify-ci:latest");
+            "ci", "kitbash/verify-ci:latest",
+            // §45's ecosystem: Node and the Expo toolchain, and nothing native. A cell here
+            // bundles the JavaScript and runs the component tests; it cannot say the app runs on
+            // a device, and verification/README.md says so rather than letting a badge imply it.
+            "mobile", "kitbash/verify-mobile:latest");
 
     /**
      * Where each image puts the writable copy of the project.
@@ -33,14 +37,16 @@ public record Containers(Map<String, String> images, String cpus, String memory,
      * at a path the Node image never looks at, and the second step would quietly build the
      * original project.
      */
-    private static final Map<String, String> WORKSPACES = Map.of("jvm", "/workspace", "node", "/work", "ci", "/work");
+    private static final Map<String, String> WORKSPACES =
+            Map.of("jvm", "/workspace", "node", "/work", "ci", "/work", "mobile", "/work");
 
     public static Containers standard() {
         return new Containers(
                 Map.of(
                         "jvm", env("KITBASH_JVM_IMAGE", DEFAULT_IMAGES.get("jvm")),
                         "node", env("KITBASH_NODE_IMAGE", DEFAULT_IMAGES.get("node")),
-                        "ci", env("KITBASH_CI_IMAGE", DEFAULT_IMAGES.get("ci"))),
+                        "ci", env("KITBASH_CI_IMAGE", DEFAULT_IMAGES.get("ci")),
+                        "mobile", env("KITBASH_MOBILE_IMAGE", DEFAULT_IMAGES.get("mobile"))),
                 env("KITBASH_CELL_CPUS", "2"),
                 env("KITBASH_CELL_MEMORY", "4g"),
                 Integer.parseInt(env("KITBASH_CELL_TIMEOUT", "900")));

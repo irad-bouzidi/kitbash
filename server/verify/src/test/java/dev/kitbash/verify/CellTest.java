@@ -111,6 +111,14 @@ class CellTest {
                             "full-stack",
                             "full-stack-auth",
                             "full-stack-no-docker",
+                            // §45's two mobile cells: the app alone, and the app beside a backend
+                            // and a web frontend. Sampled rather than enumerated, following §18's
+                            // precedent for the standalone frontend — mobile is independent of the
+                            // build-tool and architecture axes, and enumerating it would multiply
+                            // the matrix by an ecosystem for combinations that differ in nothing
+                            // mobile touches.
+                            "mobile-only",
+                            "mobile-full-stack",
                             "full-stack-typed",
                             "full-stack-typed-kotlin",
                             "typed-client-contract");

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "projectName": "mobile-cell",
+  "options": { "mobile": "mobile-react-native-expo" },
+  "variables": { "entityName": "Widget", "entityTable": "widgets" }
+}

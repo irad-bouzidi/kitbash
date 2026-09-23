@@ -172,6 +172,7 @@ others finished in seconds.
 | `images/jvm/**` | JDK 21, warm Gradle, Kotlin and Maven caches, `unzip`, `git`. Nothing else. |
 | `images/node/**` | Node 24, pnpm with a warm store, `unzip`, `git`. Nothing else. |
 | `images/ci/**` | `actionlint`, `check-jsonschema` and `osv-scanner`. The only image that inspects rather than builds. |
+| `images/mobile/**` | Node 24, npm with a warm cache, the Expo toolchain. **Nothing native** — see below. |
 | `generate.sh` | Selection in, zip out. **The one replaceable step** — see below. |
 | `build/enumerated/` | The nightly's selections, written by the enumeration at run time. Output, not source. |
 | `build/requested/` | The same, for a selection somebody asked about through `POST /api/v1/verify`. |
@@ -242,6 +243,30 @@ whether it ran. A run cannot compare itself to the previous one, so the workflow
 the last nightly's artifact. A stack dropping out because usage moved is information; one dropping
 out because a recipe was renamed is a coverage hole, and from inside a single run the two look
 identical.
+
+## What a mobile cell proves, and what it does not
+
+The mobile image has **no Android SDK and no Xcode**, on purpose. A cell there runs `npm ci`,
+`tsc --noEmit`, `jest` and `expo export`: the TypeScript compiles, the screen renders and handles
+its states, and Metro produces a Hermes bundle.
+
+It does **not** prove the app launches on a device, that a gesture works, or that anything is laid
+out correctly. §45 asks for that boundary to be explicit, and the reason is that a green badge
+implying otherwise would be a claim the matrix cannot back.
+
+What the boundary buys is a cell that finishes in about thirty seconds. An emulator-backed cell
+needs a KVM-capable host, several gigabytes and minutes per run — for a signal nobody acts on
+anyway, because nobody fixes a layout bug from a nightly.
+
+The two cells are **sampled, not enumerated**, following §18's precedent for the standalone
+frontend: `mobile-only` and `mobile-full-stack`. Mobile is independent of the build-tool and
+architecture axes, so enumerating it would multiply a ninety-eight cell matrix by a whole ecosystem
+for combinations that differ in nothing mobile touches.
+
+npm rather than pnpm in this image alone. React Native resolves native modules by walking up from a
+package's real location, and pnpm's symlinked store breaks that walk for a class of libraries —
+a generated project needing `node-linker=hoisted` to work is one whose first `npm install`, the
+command every Expo document tells you to run, does something different from what CI did.
 
 ## On demand, for a combination nobody enumerated
 

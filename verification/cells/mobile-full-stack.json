@@ -1,0 +1,18 @@
+{
+  "id": "mobile-full-stack",
+  "description": "§45's coexistence case: a backend, a web frontend and a mobile app in one project. Each half builds, and neither owns a file the other wanted.",
+  "selection": "selections/phase5-mobile-full-stack.json",
+  "triggers": ["merge-request", "nightly"],
+  "steps": [
+    {
+      "ecosystem": "mobile",
+      "workingDirectory": "mobile",
+      "commands": [
+        "npm ci",
+        "./node_modules/.bin/tsc --noEmit",
+        "npx jest",
+        "npx expo export --platform ios --output-dir dist"
+      ]
+    }
+  ]
+}

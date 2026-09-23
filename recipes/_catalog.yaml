@@ -100,6 +100,12 @@ groups:
         label: Containers
         help: A compose file wiring the stack together, and a non-root image per service.
         defaultOn: true
+      - id: mobile
+        type: enum
+        label: Mobile app
+        help: >-
+          A React Native app in `mobile/`, sharing the backend's API. Optional and independent:
+          a project can have one, the other, or both.
       - id: codeowners
         type: boolean
         label: CODEOWNERS
