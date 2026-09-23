@@ -5,9 +5,15 @@ import java.time.Instant;
 
 @Schema(description = "A {{ entityName | camel }} as returned by the API")
 record {{ entityName }}Response(
-        @Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED) Long id,
-        @Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED) String name,
-        @Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED) int quantity,
+        @Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+        Long id,
+
+        @Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED)
+        String name,
+
+        @Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
+        int quantity,
+
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
 
     static {{ entityName }}Response from({{ entityName }} {{ entityName | camel }}) {

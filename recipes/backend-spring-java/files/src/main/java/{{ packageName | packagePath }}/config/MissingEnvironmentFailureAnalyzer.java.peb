@@ -20,8 +20,7 @@ public class MissingEnvironmentFailureAnalyzer extends AbstractFailureAnalyzer<M
                                         "    %-24s %s".formatted(name, RequiredEnvironmentValidator.describe(name)))
                                 .collect(Collectors.joining(System.lineSeparator())));
 
-        String action =
-                """
+        String action = """
                 Set them and start again. Either:
 
                     cp .env.example .env     and export it (or let your IDE load it), or

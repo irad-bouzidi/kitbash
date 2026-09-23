@@ -16,4 +16,5 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties(prefix = "demo")
-public record ApplicationProperties(@NotBlank String environmentName, @Positive int maxWidgetsPerPage) {}
+public record ApplicationProperties(
+        @NotBlank String environmentName, @Positive int maxWidgetsPerPage) {}

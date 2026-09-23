@@ -42,7 +42,7 @@ tracks:
   - version: "1.1.7"
     artifact: io.spring.dependency-management:io.spring.dependency-management.gradle.plugin
     label: Spring's dependency-management plugin
-  - version: "2.57.0"
+  - version: "2.98.0"
     artifact: com.palantir.javaformat:palantir-java-format
     label: palantir-java-format
   - version: "2.8.9"
@@ -106,7 +106,7 @@ patches:
     when: "capability('gradle-build')"
     marker: "# kitbash:versions"
     lines:
-      - 'palantir-java-format = "2.57.0"'
+      - 'palantir-java-format = "2.98.0"'
       - 'spring-boot = "3.5.5"'
       - 'spring-dependency-management = "1.1.7"'
 
@@ -188,7 +188,7 @@ patches:
     when: "capability('maven-build')"
     marker: "<!-- kitbash:versions -->"
     lines:
-      - "    <palantir-java-format.version>2.57.0</palantir-java-format.version>"
+      - "    <palantir-java-format.version>2.98.0</palantir-java-format.version>"
 
   - op: insertAtMarker
     target: pom.xml
