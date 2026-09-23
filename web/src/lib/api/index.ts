@@ -50,6 +50,14 @@ export interface ProblemDetail {
   queueDepth?: number;
   /** The run this caller already has, when the refusal is "one at a time". */
   runId?: string;
+  /** §9: the control this error belongs on, so it renders there rather than in a banner. */
+  field?: string;
+  /** The rule the value broke, shown beside the control rather than described in prose. */
+  rule?: string;
+  /** §39: the correlation id an unmapped failure carries, for quoting in a bug report. */
+  reference?: string;
+  /** Which of the three lookup resources was missing, for a 404. */
+  resource?: string;
 }
 
 export class ApiError extends Error {

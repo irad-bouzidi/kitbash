@@ -34,6 +34,10 @@ class GenerationErrorTest {
         return List.of(
                 GenerationError.unknownRecipe("backend-spring-jva", Set.of("backend-spring-java")),
                 GenerationError.capabilityUnsatisfied("rest-api", "frontend-react-vite", "backend"),
+                // A second CapabilityUnsatisfied, because `emptySelection` is a distinct factory a
+                // user reaches by pressing Generate with nothing chosen — and kitbash-39 found it
+                // was the one reachable envelope no test had ever looked at.
+                GenerationError.emptySelection(),
                 GenerationError.conflict("backend-spring-java", "backend-spring-kotlin", "backend"),
                 GenerationError.cycle(List.of("a", "b", "a")),
                 GenerationError.patchTargetMissing(
@@ -41,7 +45,10 @@ class GenerationErrorTest {
                 GenerationError.patchCollision(
                         "feature-auth-jwt", "application.yml", "mergeYaml", "spring.security", "base"),
                 GenerationError.invalidIdentifier(
-                        "packageName", "com.new.thing", "'new' is a Java keyword", "Rename it."),
+                        "packageName",
+                        "com.new.thing",
+                        "'new' is a Java keyword",
+                        "Rename the segment: 'com.newthing' or 'com.acme.thing' both work."),
                 GenerationError.pathEscape("base", "../../etc/passwd", "resolves outside the project root"),
                 GenerationError.limitExceeded("file count", 5000, 5001),
                 GenerationError.renderFailed("base", "files/README.md.peb", 12, "unknown variable 'projetName'"));
@@ -50,7 +57,10 @@ class GenerationErrorTest {
     @Test
     @DisplayName("every §14 code has a variant, and the renderer switch needs no default branch")
     void everyCodeHasAVariant() {
-        assertThat(oneOfEach()).map(GenerationError::code).containsExactlyInAnyOrder(ErrorCode.values());
+        // A set, not a list: `emptySelection` and `capabilityUnsatisfied` are two factories a user
+        // reaches by two different routes and they share a code, so "one sample per code" was never
+        // the rule — "no code without a sample" is.
+        assertThat(oneOfEach()).map(GenerationError::code).containsAll(java.util.Set.of(ErrorCode.values()));
         assertThat(oneOfEach()).map(GenerationErrorTest::render).doesNotContainNull();
         assertThat(GenerationError.class.getPermittedSubclasses()).hasSize(ErrorCode.values().length);
     }
@@ -63,6 +73,52 @@ class GenerationErrorTest {
             assertThat(error.hint()).isNotBlank();
             assertThat(error.stage()).isNotNull();
         });
+    }
+
+    /**
+     * The bar is the type's, so this checks the type refuses rather than that the samples pass.
+     *
+     * <p>{@code hintIsRequiredByTheType} settles whether a hint exists. This settles whether it
+     * says anything — and it is asserted against {@link ErrorDetail} rather than against the
+     * factories because {@code invalidIdentifier} takes its hint from the caller, at fourteen sites
+     * and counting. A sample-based check would only ever cover the samples somebody remembered.
+     */
+    @Test
+    @DisplayName("a hint that names no action is refused at construction, not reviewed for later")
+    void anEmptyHintIsRefused() {
+        assertThatThrownBy(() -> ErrorDetail.of(Stage.PLAN, "something broke", "Try again later."))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("next action");
+
+        assertThatThrownBy(() -> ErrorDetail.of(Stage.PLAN, "something broke", "Check your input and retry."))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("next action");
+
+        assertThatThrownBy(() -> ErrorDetail.of(Stage.PLAN, "something broke", "Rename it."))
+                .as("a hint is a sentence, not a word")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("too short");
+
+        assertThat(ErrorDetail.of(Stage.PLAN, "something broke", "Rename the segment: 'com.newthing' works.")
+                        .hint())
+                .isNotBlank();
+    }
+
+    /**
+     * §39 is absolute: no user-facing stack traces, ever.
+     *
+     * <p>The way one gets in is never deliberate — a factory concatenating {@code e.getMessage()}
+     * from a cause that was itself an exception's {@code toString()}. These are the marks that
+     * leaves.
+     */
+    @Test
+    @DisplayName("nothing a user reads carries a stack trace or a Java class name")
+    void noStackTracesInTheEnvelope() {
+        assertThat(oneOfEach()).allSatisfy(error -> assertThat(error.message() + " " + error.hint())
+                .as("%s", error.code())
+                .doesNotContain("java.lang.")
+                .doesNotContain("\tat ")
+                .doesNotContain("Exception:"));
     }
 
     @Test

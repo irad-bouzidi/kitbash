@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ProblemDetail } from '@/errors/ProblemDetail';
+import { fieldOf } from '@/errors/problem';
 import { PreviewDialog } from '@/preview/PreviewDialog';
 import { VerifyDialog } from '@/verify/VerifyDialog';
 import { SavePresetDialog } from '@/presets/SavePresetDialog';
@@ -64,7 +66,12 @@ export function Wizard() {
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
                 {(group.options ?? []).map((option) => (
-                  <FieldRenderer key={option.id} option={option} resolution={resolution} />
+                  <FieldRenderer
+                    key={option.id}
+                    option={option}
+                    resolution={resolution}
+                    requestError={downloadError}
+                  />
                 ))}
               </CardContent>
             </Card>
@@ -85,6 +92,7 @@ export function Wizard() {
                   resolution={resolution}
                   pattern={variable.pattern ?? undefined}
                   fieldError={variable.id ? fieldErrors[variable.id] : undefined}
+                  requestError={downloadError}
                 />
               ))}
             </CardContent>
@@ -114,15 +122,12 @@ export function Wizard() {
             .finally(() => setDownloading(false));
         }}
       >
-        {downloadError && (
-          <p role="alert" className="text-sm text-destructive">
-            {downloadError.problem.detail ?? downloadError.message}
-            {/* §14 puts the next action in the hint, which is the part worth showing. */}
-            {downloadError.problem.hint && (
-              <span className="block text-muted-foreground">{downloadError.problem.hint}</span>
-            )}
-          </p>
-        )}
+        {/* One component, because §39 wants the envelope rendered verbatim and seven copies of
+            "detail, and the hint if there is one" had already become five that showed it and two
+            that did not. */}
+        {/* In the bar only when it belongs to no control: an error naming a field is rendered on
+            that field instead, which is where §9 wants it and where the user is looking. */}
+        {!fieldOf(downloadError) && <ProblemDetail error={downloadError} />}
         <div className="flex items-center gap-2">
           <Button
             type="button"

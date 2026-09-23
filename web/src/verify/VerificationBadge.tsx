@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchCellLog, type VerificationBadge as Badge } from '@/lib/api';
 import { BuildLog } from '@/verify/BuildLog';
@@ -108,7 +109,14 @@ function CellLogLink({ cell }: { cell: string }) {
       >
         See the log
       </button>
-      {open && <CellLogDialog cell={cell} onClose={() => setOpen(false)} />}
+      {/*
+        Through a portal, because this button lives inside the warning paragraph and the dialog
+        contains a heading — an <h2> inside a <p> is invalid HTML, which React reports on every
+        render and a browser silently reparents. The portal puts the dialog where it belongs
+        without moving the button away from the pairing it explains.
+      */}
+      {open &&
+        createPortal(<CellLogDialog cell={cell} onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }

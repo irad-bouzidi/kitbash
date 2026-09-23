@@ -1,3 +1,4 @@
+import { ProblemDetail } from '@/errors/ProblemDetail';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -103,14 +104,7 @@ export function ShareDialog({
           </div>
         )}
 
-        {failure && (
-          <p role="alert" className="text-sm text-destructive">
-            {failure.problem.detail ?? failure.message}
-            {failure.problem.hint && (
-              <span className="block text-muted-foreground">{failure.problem.hint}</span>
-            )}
-          </p>
-        )}
+        {failure && <ProblemDetail error={failure} className="text-sm" />}
 
         <div className="flex justify-end">
           <Button variant="outline" onClick={onClose}>

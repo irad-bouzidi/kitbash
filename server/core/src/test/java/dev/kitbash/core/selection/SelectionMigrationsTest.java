@@ -3,6 +3,8 @@ package dev.kitbash.core.selection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.kitbash.core.error.ErrorCode;
+import dev.kitbash.core.error.GenerationException;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,18 +28,28 @@ class SelectionMigrationsTest {
     void refusesFutureVersions() {
         SelectionEnvelope fromTheFuture = new SelectionEnvelope(99, "svc", Map.of(), Map.of());
 
+        // Typed since kitbash-39: a rejected selection carries the §14 envelope wherever it is
+        // rejected, so the assertion is about the hint rather than about a message.
         assertThatThrownBy(() -> SelectionMigrations.migrate(fromTheFuture))
-                .isInstanceOf(SelectionValidationException.class)
-                .hasMessageContaining("newer Kitbash")
-                .hasMessageContaining("Upgrade the server");
+                .isInstanceOf(GenerationException.class)
+                .extracting(failure -> ((GenerationException) failure).error())
+                .satisfies(error -> {
+                    assertThat(error.code()).isEqualTo(ErrorCode.INVALID_IDENTIFIER);
+                    assertThat(error.message()).contains("newer than this server understands");
+                    assertThat(error.hint()).contains("Upgrade the server");
+                });
     }
 
     @Test
     @DisplayName("a nonsensical version is refused rather than treated as version 1")
     void refusesVersionsBelowOne() {
         assertThatThrownBy(() -> SelectionMigrations.migrate(new SelectionEnvelope(0, "svc", Map.of(), Map.of())))
-                .isInstanceOf(SelectionValidationException.class)
-                .hasMessageContaining("schemaVersion");
+                .isInstanceOf(GenerationException.class)
+                .extracting(failure -> ((GenerationException) failure).error())
+                .satisfies(error -> {
+                    assertThat(error.code()).isEqualTo(ErrorCode.INVALID_IDENTIFIER);
+                    assertThat(error.hint()).contains("Omit the field");
+                });
     }
 
     @Test

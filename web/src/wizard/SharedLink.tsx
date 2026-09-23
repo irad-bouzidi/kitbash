@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from 'react-router-dom';
-import { ApiError, fetchSharedSelection } from '@/lib/api';
+import { ProblemDetail } from '@/errors/ProblemDetail';
+import { asProblem } from '@/errors/problem';
+import { fetchSharedSelection } from '@/lib/api';
 import { wizardLink } from '@/presets/selectionLink';
 
 /**
@@ -24,14 +26,15 @@ export function SharedLink() {
   if (isError || !data?.selection) {
     return (
       <div className="flex w-full max-w-5xl flex-col gap-2">
-        <p role="alert" className="text-sm text-destructive">
-          {error instanceof ApiError
-            ? (error.problem.detail ?? error.message)
-            : 'That link cannot be opened.'}
-          {error instanceof ApiError && error.problem.hint && (
-            <span className="block text-muted-foreground">{error.problem.hint}</span>
-          )}
-        </p>
+        {/* The envelope when there is one; a sentence of our own only when there is not, which
+            means the network failed rather than the server having answered (§39). */}
+        {asProblem(error) ? (
+          <ProblemDetail error={error} className="text-sm" />
+        ) : (
+          <p role="alert" className="text-sm text-destructive">
+            That link cannot be opened.
+          </p>
+        )}
       </div>
     );
   }

@@ -6,6 +6,8 @@ import { MultiSelectField } from '@/wizard/fields/MultiSelectField';
 import { StringField } from '@/wizard/fields/StringField';
 import { diagnosticsFor } from '@/wizard/useValidation';
 import { useSelectionStore, type SelectionValue } from '@/wizard/useSelection';
+import { ProblemDetail } from '@/errors/ProblemDetail';
+import { fieldOf } from '@/errors/problem';
 import { PairingWarning, VerifiedLine } from '@/verify/VerificationBadge';
 import { redPairingsFor, verdictFor } from '@/verify/useVerification';
 import { useVerification } from '@/verify/useVerification';
@@ -16,6 +18,13 @@ interface Props {
   pattern?: string;
   /** From the runtime Zod schema: a value that does not match the rule the catalog ships. */
   fieldError?: string;
+  /**
+   * The last failed request, so an error that names an option lands on that option (§9, §39).
+   *
+   * Passed down rather than read from a store because it belongs to one action — pressing
+   * Generate — and a control should stop showing it the moment the next attempt starts.
+   */
+  requestError?: unknown;
 }
 
 /**
@@ -26,7 +35,7 @@ interface Props {
  * package name field" — is the exact failure this design exists to prevent: if an option needs
  * particular behaviour, that behaviour belongs to its type, declared in the catalog.
  */
-export function FieldRenderer({ option, resolution, pattern, fieldError }: Props) {
+export function FieldRenderer({ option, resolution, pattern, fieldError, requestError }: Props) {
   const { data: verification } = useVerification();
   // The generated schema types every field as optional, because OpenAPI does. An option with no
   // id could not be rendered at all, so it is normalised once here rather than guarded at every
@@ -36,8 +45,12 @@ export function FieldRenderer({ option, resolution, pattern, fieldError }: Props
   const set = useSelectionStore((state) => state.set);
 
   const diagnostics = diagnosticsFor(resolution, id);
+  // §9: an error that names an option belongs on that option's control. The server says which one
+  // through the envelope's `field`, so this is a lookup and not a guess — nothing here knows what
+  // any field means.
+  const serverError = fieldOf(requestError) === id ? requestError : undefined;
   const conflict = diagnostics.find((diagnostic) => diagnostic.code !== 'WARNING');
-  const invalid = conflict !== undefined || fieldError !== undefined;
+  const invalid = conflict !== undefined || fieldError !== undefined || serverError !== undefined;
   const disabledReason = unavailableReason(option, resolution);
   const disabled = disabledReason !== undefined;
 
@@ -72,6 +85,9 @@ export function FieldRenderer({ option, resolution, pattern, fieldError }: Props
       {diagnostics.map((diagnostic) => (
         <DiagnosticLine key={diagnostic.message} diagnostic={diagnostic} />
       ))}
+
+      {/* The rejected request, on the control that caused it rather than in the bottom bar. */}
+      {serverError !== undefined && <ProblemDetail error={serverError} className="text-xs" />}
 
       {/* §9 puts the warning at the pairing, which is where the decision is being made. */}
       {here && !disabled && (

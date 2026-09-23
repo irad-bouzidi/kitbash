@@ -4,7 +4,6 @@ import dev.kitbash.catalog.CatalogLoader;
 import dev.kitbash.core.error.GenerationException;
 import dev.kitbash.core.pipeline.GeneratedProject;
 import dev.kitbash.core.pipeline.GenerationPipeline;
-import dev.kitbash.core.selection.SelectionValidationException;
 import dev.kitbash.core.workspace.GeneratedFile;
 import dev.kitbash.render.PebbleRenderStage;
 import java.io.IOException;
@@ -43,9 +42,10 @@ final class GenerateCommand {
             return 0;
         } catch (GenerationException e) {
             return ErrorOutput.print(e.error(), err);
-        } catch (SelectionValidationException e) {
-            return ErrorOutput.print(e.getMessage(), err);
         } catch (IllegalArgumentException | IllegalStateException e) {
+            // Not a rejected selection: a missing file, an unreadable catalog, a bad flag. Those
+            // print as a sentence rather than as an envelope, because an envelope with no stage
+            // and no code would be the §14 shape with nothing in it.
             return ErrorOutput.print(e.getMessage(), err);
         } catch (IOException e) {
             return ErrorOutput.print("Could not write the project: " + e.getMessage(), err);

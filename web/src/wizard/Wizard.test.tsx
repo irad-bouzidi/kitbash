@@ -436,4 +436,89 @@ describe('Wizard', () => {
 
     expect(await screen.findByText(/sha256:abc123/)).toBeInTheDocument();
   });
+
+  it('puts a rejected request on the control it names, not in the bottom bar', async () => {
+    // §9 and §39 together: the server names the field in the envelope, so the error renders on
+    // that control. A banner would make the user hunt for which of nine choices it was about.
+    stubApi(
+      emptyResolution({
+        recipes: [
+          {
+            id: 'contraption-alpha',
+            label: 'Alpha',
+            kind: 'gadget',
+            recipeVersion: '1.0.0',
+            frameworkVersion: '9.9',
+            implied: false,
+          },
+        ],
+      }),
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: 'INVALID_IDENTIFIER',
+              stage: 'parse',
+              detail: "'thingName' is not valid: it must be lowercase",
+              hint: "Try 'a-thing' — lowercase letters and hyphens only.",
+              field: 'thingName',
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+    );
+    renderWizard();
+    // Validation is debounced and Generate stays disabled until it answers, so waiting for the
+    // resolved stack is waiting for the button to be real.
+    await within(await screen.findByTestId('stack-summary')).findByText('Alpha');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Generate' }));
+
+    await waitFor(() => expect(screen.getByTestId('problem-detail')).toBeInTheDocument());
+
+    // The envelope is inside the field's own container, beside the control it is about.
+    const field = screen.getByLabelText('Thing name').closest('div');
+    expect(within(field as HTMLElement).getByTestId('problem-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('problem-hint')).toHaveTextContent("Try 'a-thing'");
+
+    // And exactly once: rendering it on the control *and* in the bar says it twice.
+    expect(screen.getAllByTestId('problem-detail')).toHaveLength(1);
+  });
+
+  it('keeps an error that names no field in the bottom bar', async () => {
+    stubApi(
+      emptyResolution({
+        recipes: [
+          {
+            id: 'contraption-alpha',
+            label: 'Alpha',
+            kind: 'gadget',
+            recipeVersion: '1.0.0',
+            frameworkVersion: '9.9',
+            implied: false,
+          },
+        ],
+      }),
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: 'CYCLE',
+              stage: 'resolve',
+              detail: 'These recipes depend on each other in a cycle: a -> b -> a.',
+              hint: 'Break the cycle by removing one of the requires declarations.',
+            }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+    );
+    renderWizard();
+    await within(await screen.findByTestId('stack-summary')).findByText('Alpha');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Generate' }));
+
+    // A catalog cycle belongs to no control, so it stays where the action was taken.
+    await waitFor(() => expect(screen.getByTestId('problem-detail')).toBeInTheDocument());
+    expect(screen.getByTestId('problem-hint')).toHaveTextContent('Break the cycle');
+  });
 });

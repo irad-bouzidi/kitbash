@@ -2,6 +2,7 @@ package dev.kitbash.api.preset;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.api.error.ResourceNotFoundException;
 import dev.kitbash.api.generate.GenerateRequest;
 import dev.kitbash.api.security.Caller;
 import dev.kitbash.api.security.SecurityProperties;
@@ -13,7 +14,6 @@ import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.recipe.Catalog;
 import dev.kitbash.core.recipe.Recipe;
 import dev.kitbash.core.recipe.RecipeId;
-import dev.kitbash.core.selection.SelectionValidationException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -269,8 +269,12 @@ public class PresetService {
         return preset;
     }
 
-    private static SelectionValidationException notFound() {
-        return new SelectionValidationException("id", "No preset with that id.");
+    private static ResourceNotFoundException notFound() {
+        return new ResourceNotFoundException(
+                "preset",
+                "No preset with that id.",
+                "List /api/v1/presets to see the ones you can open; a preset deleted by its owner "
+                        + "is gone rather than hidden.");
     }
 
     /** One entry per name: the newest revision is the preset, the rest are its history. */
