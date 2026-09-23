@@ -47,6 +47,11 @@ tracks:
   - version: "1.5.0"
     artifact: com.pinterest.ktlint:ktlint-cli
     label: ktlint
+    holdBelow: "1.6.0"
+    because: >-
+      ktlint 1.6 and later need a newer Kotlin compiler embeddable than the Spotless we use ships,
+      and every Kotlin file fails with NoClassDefFoundError on ZipUtilKt. Lift this when Spotless
+      catches up; the first bump job to try it found this, which is what it is for.
   - version: "2.8.9"
     artifact: org.springdoc:springdoc-openapi-starter-webmvc-ui
     label: springdoc

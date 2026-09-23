@@ -35,7 +35,7 @@ public final class BumpMain {
 
         if (result.isEmpty()) {
             System.out.println("Every tracked version is already the latest release.");
-            write(repository, List.of(), problems, result.majors());
+            write(repository, List.of(), problems, result.majors(), result.held());
             System.exit(3);
         }
 
@@ -53,13 +53,17 @@ public final class BumpMain {
         }
 
         applied.forEach(bump -> System.out.println("  " + bump.describe()));
-        write(repository, applied, problems, result.majors());
+        write(repository, applied, problems, result.majors(), result.held());
         System.exit(applied.isEmpty() ? 3 : 0);
     }
 
     /** A file, because the workflow needs the same text in a pull request body or an issue. */
     private static void write(
-            Repository repository, List<Bump> applied, List<String> problems, Map<TrackedVersion, String> majors) {
+            Repository repository,
+            List<Bump> applied,
+            List<String> problems,
+            Map<TrackedVersion, String> majors,
+            Map<TrackedVersion, String> held) {
         StringBuilder summary = new StringBuilder();
         if (applied.isEmpty()) {
             summary.append("No version moved.\n");
@@ -80,6 +84,18 @@ public final class BumpMain {
             summary.append("\n**A major version is available, and this job does not take them**\n\n");
             majors.forEach((tracked, version) -> summary.append("- %s in `%s`: `%s` → `%s`%n"
                     .formatted(tracked.describe(), tracked.recipe(), tracked.version(), version)));
+        }
+
+        if (!held.isEmpty()) {
+            // A known incompatibility, recorded in the manifest rather than rediscovered weekly.
+            summary.append("\n**Held back by a declared ceiling**\n\n");
+            held.forEach((tracked, version) -> summary.append("- %s in `%s`: `%s` → `%s` — %s%n"
+                    .formatted(
+                            tracked.describe(),
+                            tracked.recipe(),
+                            tracked.version(),
+                            version,
+                            tracked.because() == null ? "no reason recorded" : tracked.because())));
         }
 
         if (!problems.isEmpty()) {

@@ -135,7 +135,20 @@
           "label": {
             "type": "string",
             "description": "What a human calls it, for the bump's own changelog."
+          },
+          "holdBelow": {
+            "type": "string",
+            "description": "A ceiling the bump job will not cross, for a known incompatibility. Requires `because`."
+          },
+          "because": {
+            "type": "string",
+            "description": "Why the ceiling is there, so the next person can tell whether it still applies."
           }
+        },
+        "dependentRequired": {
+          "holdBelow": [
+            "because"
+          ]
         }
       }
     }

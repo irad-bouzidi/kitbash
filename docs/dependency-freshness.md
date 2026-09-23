@@ -51,6 +51,24 @@ leave on. Majors are a decision; the job offers them and takes none.
 **Pre-releases.** `-RC1`, `-M2`, `-alpha`, `-SNAPSHOT` are somebody still deciding. `.Final` is the
 exception the JVM ecosystem insists on, and it means the opposite.
 
+**Anything a `holdBelow` names.** A version with a known incompatibility gets a ceiling and a
+reason, in the manifest:
+
+```yaml
+  - version: "1.5.0"
+    artifact: com.pinterest.ktlint:ktlint-cli
+    holdBelow: "1.6.0"
+    because: >-
+      ktlint 1.6 and later need a newer Kotlin compiler embeddable than the Spotless we use
+      ships, and every Kotlin file fails with NoClassDefFoundError on ZipUtilKt.
+```
+
+The job then reports it under "held back by a declared ceiling" rather than proposing it again
+every Monday — and the reason is written down, so the next person can tell whether it still
+applies. A ceiling is not a freeze: a project held below `1.6.0` still gets `1.5.9`.
+
+The first bump this job ever produced is what put that entry there.
+
 **npm dependencies**, for now. The frontend's `package.json` and its lockfile are not in `tracks`,
 so `pnpm` versions move when a person moves them. Adding them means driving `pnpm update` and
 committing a regenerated lockfile, which is a different shape of change from a literal replacement

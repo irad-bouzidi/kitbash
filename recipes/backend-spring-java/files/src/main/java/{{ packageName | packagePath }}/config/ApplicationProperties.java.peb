@@ -16,4 +16,5 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties(prefix = "{{ projectName }}")
-public record ApplicationProperties(@NotBlank String environmentName, @Positive int max{{ entityName }}sPerPage) {}
+public record ApplicationProperties(
+        @NotBlank String environmentName, @Positive int max{{ entityName }}sPerPage) {}

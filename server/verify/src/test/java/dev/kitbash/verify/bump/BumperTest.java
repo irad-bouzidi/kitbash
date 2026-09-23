@@ -177,6 +177,51 @@ class BumperTest {
     @DisplayName("planning")
     class Planning {
 
+        /**
+         * The first bump this job produced was red because ktlint 1.8 needs a newer Kotlin compiler
+         * than our Spotless ships. Without a ceiling it would be proposed again every Monday, and a
+         * job that is red every Monday is a job somebody switches off.
+         */
+        @Test
+        @DisplayName("a declared ceiling holds a known-bad upgrade back, and says why")
+        void honoursADeclaredCeiling(@TempDir Path root) throws IOException {
+            Files.createDirectories(root.resolve("kotlin"));
+            Files.writeString(
+                    root.resolve("kotlin").resolve("recipe.yaml"),
+                    "id: kotlin\n"
+                            + "tracks:\n"
+                            + "  - version: \"1.5.0\"\n"
+                            + "    artifact: com.pinterest.ktlint:ktlint-cli\n"
+                            + "    holdBelow: \"1.6.0\"\n"
+                            + "    because: needs a newer Spotless\n");
+
+            Bumper.Result result = new Bumper(root, tracked -> List.of("1.5.0", "1.8.0")).plan(new ArrayList<>());
+
+            assertThat(result.available()).isEmpty();
+            assertThat(result.held()).hasSize(1);
+            assertThat(result.held().keySet())
+                    .allSatisfy(tracked -> assertThat(tracked.because()).contains("Spotless"));
+        }
+
+        @Test
+        @DisplayName("a ceiling still lets through the versions below it")
+        void allowsUpgradesUnderTheCeiling(@TempDir Path root) throws IOException {
+            Files.createDirectories(root.resolve("kotlin"));
+            Files.writeString(
+                    root.resolve("kotlin").resolve("recipe.yaml"),
+                    "id: kotlin\n"
+                            + "tracks:\n"
+                            + "  - version: \"1.5.0\"\n"
+                            + "    artifact: com.pinterest.ktlint:ktlint-cli\n"
+                            + "    holdBelow: \"1.6.0\"\n"
+                            + "    because: needs a newer Spotless\n");
+
+            Bumper.Result result =
+                    new Bumper(root, tracked -> List.of("1.5.0", "1.5.9", "1.8.0")).plan(new ArrayList<>());
+
+            assertThat(result.available()).containsValue("1.5.9");
+        }
+
         @Test
         @DisplayName("one artifact failing does not stop the others being checked")
         void keepsGoingPastAFailure(@TempDir Path root) throws IOException {

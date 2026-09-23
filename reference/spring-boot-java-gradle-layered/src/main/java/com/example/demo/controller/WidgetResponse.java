@@ -6,9 +6,15 @@ import java.time.Instant;
 
 @Schema(description = "A widget as returned by the API")
 public record WidgetResponse(
-        @Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED) Long id,
-        @Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED) String name,
-        @Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED) int quantity,
+        @Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+        Long id,
+
+        @Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED)
+        String name,
+
+        @Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
+        int quantity,
+
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt) {
 
     public static WidgetResponse from(Widget widget) {

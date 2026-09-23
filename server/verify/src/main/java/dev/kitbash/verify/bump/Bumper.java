@@ -66,12 +66,14 @@ public final class Bumper {
         String version = null;
         String artifact = null;
         String label = null;
+        String holdBelow = null;
+        String because = null;
         boolean inside = false;
 
         for (String line : readLines(manifest)) {
             if (!line.startsWith(" ") && !line.startsWith("-")) {
                 if (inside && version != null) {
-                    tracked.add(new TrackedVersion(recipe, version, artifact, label));
+                    tracked.add(new TrackedVersion(recipe, version, artifact, label, holdBelow, because));
                     version = null;
                 }
                 inside = line.startsWith("tracks:");
@@ -83,24 +85,29 @@ public final class Bumper {
             Matcher entry = Pattern.compile("^\\s*- version: \"([^\"]+)\"\\s*$").matcher(line);
             if (entry.matches()) {
                 if (version != null) {
-                    tracked.add(new TrackedVersion(recipe, version, artifact, label));
+                    tracked.add(new TrackedVersion(recipe, version, artifact, label, holdBelow, because));
                 }
                 version = entry.group(1);
                 artifact = null;
                 label = null;
+                holdBelow = null;
+                because = null;
                 continue;
             }
-            Matcher field = Pattern.compile("^\\s*(artifact|label): (.+?)\\s*$").matcher(line);
+            Matcher field = Pattern.compile("^\\s*(artifact|label|holdBelow|because): (.+?)\\s*$")
+                    .matcher(line);
             if (field.matches()) {
-                if (field.group(1).equals("artifact")) {
-                    artifact = field.group(2);
-                } else {
-                    label = field.group(2);
+                String value = field.group(2).replaceAll("^[\"']|[\"']$", "");
+                switch (field.group(1)) {
+                    case "artifact" -> artifact = value;
+                    case "label" -> label = value;
+                    case "holdBelow" -> holdBelow = value;
+                    default -> because = value;
                 }
             }
         }
         if (inside && version != null) {
-            tracked.add(new TrackedVersion(recipe, version, artifact, label));
+            tracked.add(new TrackedVersion(recipe, version, artifact, label, holdBelow, because));
         }
         return tracked;
     }
@@ -115,6 +122,7 @@ public final class Bumper {
     public Result plan(List<String> problems) {
         Map<TrackedVersion, String> available = new LinkedHashMap<>();
         Map<TrackedVersion, String> majors = new LinkedHashMap<>();
+        Map<TrackedVersion, String> held = new LinkedHashMap<>();
         for (TrackedVersion tracked : tracked()) {
             try {
                 List<String> published = releases.of(tracked);
@@ -122,9 +130,19 @@ public final class Bumper {
                     problems.add(tracked.artifact() + " publishes no releases, only pre-releases");
                     continue;
                 }
-                String within = Versions.latestWithinMajor(tracked.version(), published);
+                // The ceiling filters the candidates rather than the answer. A hold means "not this
+                // version or above", not "no upgrade at all" — so a project held below 1.6 still
+                // gets 1.5.9, which is the difference between a ceiling and a freeze.
+                String blocked = Versions.latestWithinMajor(tracked.version(), published);
+                List<String> allowed = published.stream()
+                        .filter(candidate -> !tracked.isHeld(candidate))
+                        .toList();
+                String within = Versions.latestWithinMajor(tracked.version(), allowed);
                 if (within != null) {
                     available.put(tracked, within);
+                }
+                if (blocked != null && tracked.isHeld(blocked)) {
+                    held.put(tracked, blocked);
                 }
                 String major = Versions.majorUpgrade(tracked.version(), published);
                 if (major != null) {
@@ -137,7 +155,7 @@ public final class Bumper {
                 problems.add(tracked.artifact() + ": interrupted");
             }
         }
-        return new Result(available, majors);
+        return new Result(available, majors, held);
     }
 
     /** Applies one bump, returning how many files it touched, or zero if the literal was gone. */
@@ -180,8 +198,12 @@ public final class Bumper {
      *
      * @param available upgrades within the current major, which the job proposes
      * @param majors upgrades that cross a major, which it reports and leaves alone
+     * @param held upgrades a manifest declares a ceiling against, reported with the reason
      */
-    public record Result(Map<TrackedVersion, String> available, Map<TrackedVersion, String> majors) {
+    public record Result(
+            Map<TrackedVersion, String> available,
+            Map<TrackedVersion, String> majors,
+            Map<TrackedVersion, String> held) {
 
         public boolean isEmpty() {
             return available.isEmpty();
