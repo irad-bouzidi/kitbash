@@ -67,7 +67,7 @@ into a fresh workspace, so a container per command threw `node_modules` away bet
 had just installed into. The commands of one build share a filesystem; the script stops at the
 first failure and names it, so a four-command step still reports which of the four broke.
 
-Four of the seventeen cells today are the four §17 asks for: backend only, frontend only, both, and
+Four of the eighteen cells today are the four §17 asks for: backend only, frontend only, both, and
 both with containers declined. The frontend-only case is the one most likely to break silently,
 which is why it is a cell rather than an assumption.
 
@@ -81,12 +81,19 @@ trade being made on purpose.
 `CellTest.coversEveryPair` asserts it rather than trusting the list: deleting a cell to make the
 matrix faster fails with the name of the pair that stopped being built.
 
-The typed client (§33) brings the two cells that are different in kind. `full-stack-typed` is the
+The typed client (§33) brings the three cells that are different in kind. `full-stack-typed` is the
 first to set **`sharedWorkspace`**: its client is produced by the JVM build and consumed by the
 frontend build, which is two ecosystems and one working tree — so the steps share a Docker volume
 instead of each starting from a clean copy. Nothing §13 asks for is weakened: the volume is created
 per cell and destroyed with it, the project still arrives read-only at `/input`, and every limit is
 still per container.
+
+`full-stack-typed-kotlin` is the same cell with the Kotlin backend, and it is the one place the
+language axis is not covered pairwise. Everywhere else the two languages emit files from two
+directories and a cell proves one of them; here the client is derived from the backend's own types,
+so the languages genuinely produce different TypeScript. A Kotlin `val id: Long?` reaches the
+OpenAPI document where a Java `Long` does not — §36 found that with the Java cell green and
+twenty-four Kotlin cells of the nightly matrix red.
 
 `typed-client-contract` is the phase exit criterion, and **the only cell that passes by making
 something fail**: it renames a field on a backend DTO, regenerates the client, and requires

@@ -104,6 +104,18 @@ up permanently pinned to something nobody chose.
 Bumps are independent: one artifact that has moved host, or one library whose lookup fails, is
 reported and skipped while every other recipe is still updated.
 
+**A red bump is usually not the bump's fault.** So far every one has been a fragility the pinned
+versions were hiding. The clearest was springdoc 2.8.9 → 2.9.1: 2.9 started honouring Kotlin
+nullability in the OpenAPI document it serves, so a Kotlin `val id: Long?` on a response became
+`"type": ["integer", "null"]`, openapi-generator turned that into `id: number | null`, and
+twenty-four Kotlin cells stopped typechecking at the one call site that passes an id back. Nothing
+about springdoc was wrong. The response type had been lying about itself since §29, and the
+document had been covering for it.
+
+Read a red matrix that way first. The question to ask of a failing cell is not "which version do we
+hold back" but "what was already true here that nothing was checking" — a ceiling added in answer
+to the first question pins the catalog to a defect.
+
 ## The vulnerability scan
 
 §13 attaches a second duty to the same job:

@@ -38,7 +38,7 @@ public final class MatrixMain {
         List<Cell> cells;
         try {
             cells = only != null
-                    ? List.of(CellLoader.byId(repository.cells(), only))
+                    ? List.of(oneCell(repository, catalog, only))
                     : enumerate
                             ? Enumeration.cells(catalog, repository)
                             : CellLoader.forTrigger(repository.cells(), trigger);
@@ -76,6 +76,27 @@ public final class MatrixMain {
         report(matrix, repository, enumerate);
 
         System.exit(matrix.green() ? 0 : 1);
+    }
+
+    /**
+     * One cell by id, from the checked-in cells first and the enumeration second.
+     *
+     * <p>The matrix prints {@code run-cell.sh <id>} beside every failure, and most of the ids it
+     * can print belong to cells §35 derives from the catalog rather than to files in
+     * {@code verification/cells/}. Looking in both means the reproduction line the runner offers
+     * is one that actually runs — which was not true of the ninety-six enumerated cells, whose
+     * printed command answered "no cell named that" and listed the seventeen it was not.
+     */
+    static Cell oneCell(Repository repository, Catalog catalog, String id) {
+        try {
+            return CellLoader.byId(repository.cells(), id);
+        } catch (IllegalArgumentException notCheckedIn) {
+            return Enumeration.cells(catalog, repository).stream()
+                    .filter(cell -> cell.id().equals(id))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            notCheckedIn.getMessage() + " No cell derived from the catalog is named that either."));
+        }
     }
 
     /**

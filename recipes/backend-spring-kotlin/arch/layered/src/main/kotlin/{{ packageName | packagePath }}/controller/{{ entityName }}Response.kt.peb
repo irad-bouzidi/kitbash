@@ -6,8 +6,11 @@ import java.time.Instant
 
 @Schema(description = "A {{ entityName | camel }} as returned by the API")
 data class {{ entityName }}Response(
+    // Not `Long?`, although the entity's id is: a response is only ever built from a saved
+    // {{ entityName | camel }}. Declaring it nullable put `"null"` in the OpenAPI document's type for `id`, and
+    // every generated client then made callers handle an id that cannot be absent (§36).
     @field:Schema(example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
-    val id: Long?,
+    val id: Long,
     @field:Schema(example = "flux capacitor", requiredMode = Schema.RequiredMode.REQUIRED)
     val name: String,
     @field:Schema(example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -16,6 +19,12 @@ data class {{ entityName }}Response(
     val createdAt: Instant,
 ) {
     companion object {
-        fun from({{ entityName | camel }}: {{ entityName }}): {{ entityName }}Response = {{ entityName }}Response({{ entityName | camel }}.id, {{ entityName | camel }}.name, {{ entityName | camel }}.quantity, {{ entityName | camel }}.createdAt)
+        fun from({{ entityName | camel }}: {{ entityName }}): {{ entityName }}Response =
+            {{ entityName }}Response(
+                requireNotNull({{ entityName | camel }}.id) { "an unsaved {{ entityName | camel }} has nothing to return" },
+                {{ entityName | camel }}.name,
+                {{ entityName | camel }}.quantity,
+                {{ entityName | camel }}.createdAt,
+            )
     }
 }

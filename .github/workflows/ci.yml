@@ -279,7 +279,7 @@ jobs:
       # "what broke", and one shard's answer is a twelfth of it.
       fail-fast: false
       matrix:
-        # Six on a pull request, which shards seventeen cells into threes; the nightly enumerates
+        # Six on a pull request, which shards eighteen cells into threes; the nightly enumerates
         # ninety-eight and uses all twelve. Shard assignment is round-robin over sorted ids, so a
         # flaky cell is always in the same shard and can be rerun on its own.
         shard: ["1/6", "2/6", "3/6", "4/6", "5/6", "6/6"]

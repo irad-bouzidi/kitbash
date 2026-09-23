@@ -1,0 +1,19 @@
+{
+  "id": "full-stack-typed-kotlin",
+  "description": "full-stack-typed with the Kotlin backend: the generated client is derived from the backend's types, and Kotlin's nullability reaches the document that Java's does not.",
+  "selection": "selections/phase3-full-stack-typed-kotlin.json",
+  "triggers": ["merge-request", "nightly"],
+  "sharedWorkspace": true,
+  "steps": [
+    {
+      "ecosystem": "jvm",
+      "workingDirectory": ".",
+      "commands": ["./gradlew build --no-daemon", "./gradlew generateApiClient --no-daemon"]
+    },
+    {
+      "ecosystem": "node",
+      "workingDirectory": "frontend",
+      "commands": ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm typecheck", "pnpm test", "pnpm build"]
+    }
+  ]
+}
