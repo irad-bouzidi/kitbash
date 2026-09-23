@@ -83,6 +83,12 @@ class CellTest {
             // them landing in `config/` — so each is carried by reference projects plus the one
             // cell covering the combination no reference has: a browser half for auth, and
             // metrics without auth for observability.
+            //
+            // The typed client is the exception, and has a cell per language. It is the one
+            // feature whose output is derived from the backend's own types rather than copied
+            // from a directory, so the two languages genuinely produce different clients: a
+            // Kotlin `Long?` reaches the OpenAPI document where a Java `Long` does not, and the
+            // generated TypeScript differs accordingly. §36 found that with the Java cell green.
             assertThat(CellLoader.load(Repository.locate().cells()))
                     .extracting(Cell::id)
                     .containsExactlyInAnyOrder(
@@ -102,6 +108,7 @@ class CellTest {
                             "full-stack-auth",
                             "full-stack-no-docker",
                             "full-stack-typed",
+                            "full-stack-typed-kotlin",
                             "typed-client-contract");
         }
 

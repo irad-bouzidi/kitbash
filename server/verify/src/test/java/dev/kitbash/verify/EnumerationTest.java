@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.kitbash.core.recipe.Catalog;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -18,8 +19,9 @@ import org.junit.jupiter.api.Test;
 /** The full matrix, checked for the properties that make it worth running. */
 class EnumerationTest {
 
-    private static final List<Cell> CELLS =
-            Enumeration.cells(ReferenceProjects.loadCatalog().catalog(), Repository.locate());
+    private static final Catalog CATALOG = ReferenceProjects.loadCatalog().catalog();
+
+    private static final List<Cell> CELLS = Enumeration.cells(CATALOG, Repository.locate());
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -184,6 +186,42 @@ class EnumerationTest {
         void refusesNonsense() {
             assertThatThrownBy(() -> MatrixMain.shardOf(CELLS, "7/6")).isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> MatrixMain.shardOf(CELLS, "2")).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Every red cell prints {@code run-cell.sh <id>}, and for ninety-six of the ninety-eight cells
+     * that id names nothing in {@code verification/cells/}. A reproduction line is only worth
+     * printing if it runs, so the lookup behind it is asserted rather than assumed.
+     */
+    @Nested
+    @DisplayName("reproduction")
+    class Reproduction {
+
+        @Test
+        @DisplayName("an enumerated cell can be run by the id the matrix printed for it")
+        void resolvesAnEnumeratedId() {
+            Cell enumerated = CELLS.stream()
+                    .filter(cell -> cell.id().startsWith("e-"))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(MatrixMain.oneCell(Repository.locate(), CATALOG, enumerated.id())
+                            .id())
+                    .isEqualTo(enumerated.id());
+        }
+
+        @Test
+        @DisplayName("a checked-in cell still wins, and a mistyped id names both places it looked")
+        void resolvesACheckedInIdAndRefusesNonsense() {
+            assertThat(MatrixMain.oneCell(Repository.locate(), CATALOG, "full-stack")
+                            .id())
+                    .isEqualTo("full-stack");
+
+            assertThatThrownBy(() -> MatrixMain.oneCell(Repository.locate(), CATALOG, "no-such-cell"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("full-stack")
+                    .hasMessageContaining("derived from the catalog");
         }
     }
 
