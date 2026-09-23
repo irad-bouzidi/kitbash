@@ -189,46 +189,8 @@ public final class Enumeration {
                 // resolves against — the same rule the checked-in cells' paths follow.
                 repository.verification().relativize(file).toString(),
                 java.util.Set.of("nightly"),
-                options.containsKey("frontend") && Boolean.TRUE.equals(options.get("typedClient")),
-                steps(options));
-    }
-
-    private static List<Cell.Step> steps(Map<String, Object> options) {
-        List<Cell.Step> steps = new ArrayList<>();
-        if (options.containsKey("backend")) {
-            boolean maven = "build-maven".equals(options.get("buildTool"));
-            boolean typedClient = Boolean.TRUE.equals(options.get("typedClient"));
-            List<String> commands = new ArrayList<>();
-            // Maven generates the client inside one lifecycle, so the profile replaces the plain
-            // build rather than following it; Gradle's is a separate task after it.
-            commands.add(
-                    maven
-                            ? (typedClient ? "./mvnw -B -Pclient verify" : "./mvnw -B verify")
-                            : "./gradlew build --no-daemon");
-            if (typedClient && !maven) {
-                commands.add("./gradlew generateApiClient --no-daemon");
-            }
-            steps.add(new Cell.Step("jvm", ".", commands));
-        }
-        if (options.containsKey("frontend")) {
-            steps.add(new Cell.Step(
-                    "node",
-                    "frontend",
-                    List.of(
-                            "pnpm install --frozen-lockfile",
-                            "pnpm lint",
-                            "pnpm typecheck",
-                            "pnpm test",
-                            "pnpm build")));
-        }
-        steps.add(new Cell.Step(
-                "ci",
-                ".",
-                List.of(
-                        "ci-github".equals(options.get("ci"))
-                                ? "actionlint -no-color .github/workflows/ci.yml"
-                                : "check-jsonschema --builtin-schema vendor.gitlab-ci .gitlab-ci.yml")));
-        return steps;
+                CellSteps.sharedWorkspace(options),
+                CellSteps.forOptions(options));
     }
 
     /**

@@ -66,6 +66,17 @@ kitbash:
     share-per-minute: ${KITBASH_LIMIT_SHARE_PER_MINUTE:30}
     share-burst: ${KITBASH_LIMIT_SHARE_BURST:10}
 
+  # §12's controls on the one endpoint whose cost is measured in minutes. Concurrency rather than
+  # a quota, because §18 opens verification to everybody and what makes that affordable is the
+  # dedupe plus a bounded machine — not rationing the person who asked first.
+  verify:
+    workers: ${KITBASH_VERIFY_WORKERS:4}
+    per-user: ${KITBASH_VERIFY_PER_USER:1}
+    # Bounded on purpose. An unbounded queue turns "the machine is busy" into "accepted, and
+    # someone will look at it in an hour", which is the same outcome delivered dishonestly.
+    queue-depth: ${KITBASH_VERIFY_QUEUE_DEPTH:32}
+    timeout-minutes: ${KITBASH_VERIFY_TIMEOUT_MINUTES:15}
+
 server:
   error:
     include-message: always

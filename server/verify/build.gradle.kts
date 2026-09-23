@@ -5,6 +5,10 @@ plugins {
 // The matrix runner and the on-demand build-validation job. It drives the generator the
 // same way the CLI does — no Spring, no database — so a red cell means the generator is
 // broken rather than the deployment (§12).
+// See the note on `quietLogging` below: a logging binding must not travel to this module's
+// consumers, so it lives in a configuration only the two runnable tasks put on their classpath.
+val quietLogging: Configuration by configurations.creating
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":catalog"))
@@ -14,7 +18,13 @@ dependencies {
 
     // The matrix prints a report somebody reads in CI output. SLF4J's "no providers were found"
     // banner on stderr is noise in front of it, and the runner logs nothing through SLF4J itself.
-    runtimeOnly(libs.slf4j.nop)
+    //
+    // Its own configuration rather than `runtimeOnly`, because kitbash-37 made this module a
+    // dependency of `:api`, and a runtime dependency is inherited: the NOP binding reached Spring
+    // Boot's classpath and every context failed to start with "LoggerFactory is not a Logback
+    // LoggerContext". A binding is a choice the program at the top of the classpath makes, and the
+    // program at the top here is the matrix rather than the API.
+    quietLogging(libs.slf4j.nop)
 
     // The hostile-input corpus, shared rather than copied: §13's rules and the values that
     // probe them belong together wherever they are checked.
@@ -53,7 +63,7 @@ val runMatrix by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Generates each cell and builds it in an ecosystem container (§12)."
     mainClass = "dev.kitbash.verify.MatrixMain"
-    classpath = sourceSets.main.get().runtimeClasspath
+    classpath = sourceSets.main.get().runtimeClasspath + quietLogging
     // `-Pkitbash.cell=<id>` runs exactly one cell; it is what verification/run-cell.sh passes,
     // so reproducing a red cell runs the same code CI ran.
     val cell = providers.gradleProperty("kitbash.cell").orNull
@@ -82,7 +92,7 @@ val bumpVersions by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Bumps the versions recipes pin to the latest releases (§36)."
     mainClass = "dev.kitbash.verify.bump.BumpMain"
-    classpath = sourceSets.main.get().runtimeClasspath
+    classpath = sourceSets.main.get().runtimeClasspath + quietLogging
     // 3 means "nothing to do", which is the answer on most Mondays.
     isIgnoreExitValue = true
 }

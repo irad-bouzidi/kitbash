@@ -1,6 +1,9 @@
 package dev.kitbash.api.error;
 
 import dev.kitbash.api.security.RateLimitExceededException;
+import dev.kitbash.api.verify.AlreadyVerifyingException;
+import dev.kitbash.api.verify.QueueFullException;
+import dev.kitbash.api.verify.UnknownVerificationException;
 import dev.kitbash.core.error.ErrorCode;
 import dev.kitbash.core.error.GenerationError;
 import dev.kitbash.core.error.GenerationException;
@@ -94,6 +97,62 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
                 .body(problem);
+    }
+
+    /**
+     * The verification pool is busy (§12, §13, §14).
+     *
+     * <p>Two refusals, one status, two genuinely different next actions — which is why they are two
+     * exceptions rather than one with a flag. "Wait for the run you already have" and "come back
+     * when the queue is shorter" send a caller to different places, and a 429 that did not
+     * distinguish them would send both to the wrong one.
+     */
+    @ExceptionHandler(QueueFullException.class)
+    public ResponseEntity<ProblemDetail> queueFull(QueueFullException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Every verification worker is busy and the queue is full. Nothing was queued, "
+                        + "because being queued for an hour without being told is worse than being "
+                        + "refused now.");
+        problem.setTitle("The verification queue is full");
+        problem.setProperty("error", "VERIFY_QUEUE_FULL");
+        problem.setProperty("queueDepth", exception.depth());
+        problem.setProperty(
+                "hint",
+                "There are %d run%s waiting. Try again in a few minutes — or check whether the "
+                                .formatted(exception.depth(), exception.depth() == 1 ? "" : "s")
+                        + "nightly matrix has already built this combination, in which case asking "
+                        + "again will be answered instantly rather than queued.");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, "60")
+                .body(problem);
+    }
+
+    @ExceptionHandler(AlreadyVerifyingException.class)
+    public ResponseEntity<ProblemDetail> alreadyVerifying(AlreadyVerifyingException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "One verification at a time per person. A build takes minutes of a container, and "
+                        + "the limit is what keeps the pool open to everybody without a quota.");
+        problem.setTitle("A verification is already running for you");
+        problem.setProperty("error", "VERIFY_ALREADY_RUNNING");
+        problem.setProperty("runId", exception.inFlight().toString());
+        problem.setProperty(
+                "hint", "Poll /api/v1/verify/" + exception.inFlight() + " — that run is yours and is still going.");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, "30")
+                .body(problem);
+    }
+
+    /** An id for a run that does not exist (§14). */
+    @ExceptionHandler(UnknownVerificationException.class)
+    public ProblemDetail unknownVerification(UnknownVerificationException exception) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "There is no verification run with that id.");
+        problem.setTitle("Unknown verification run");
+        problem.setProperty("error", "VERIFY_NOT_FOUND");
+        problem.setProperty("runId", exception.id().toString());
+        return problem;
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

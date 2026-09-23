@@ -9,6 +9,11 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":catalog"))
     implementation(project(":render"))
+    // kitbash-37 drives the matrix runner rather than reimplementing it: a user's combination is
+    // built in the same images, under the same §13 limits, by the same code as the nightly. The
+    // alternative — a second runner in the API — is how the two would come to disagree about what
+    // "green" means.
+    implementation(project(":verify"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
