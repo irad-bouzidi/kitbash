@@ -67,7 +67,15 @@ The job then reports it under "held back by a declared ceiling" rather than prop
 every Monday — and the reason is written down, so the next person can tell whether it still
 applies. A ceiling is not a freeze: a project held below `1.6.0` still gets `1.5.9`.
 
-The first bump this job ever produced is what put that entry there.
+No `tracks` entry carries one today. The first one that did was a mistake worth recording: ktlint
+was held below 1.6 on the theory that it needed a newer Spotless than we had. The truth was the
+other way round — Spotless 7.2 *requires* ktlint 1.6 — so the ceiling pinned one half of a pair
+while the job moved the other half, and turned a bump that would have been green red.
+
+Two things follow. A ceiling is for a dependency that is incompatible with something that is not
+moving; two dependencies that must move together need no ceiling at all, because the job bumps
+everything onto one branch. And a `because` is a claim about the world, so it is worth being sure
+of it before writing it down — this one was wrong in the repository for two days.
 
 **npm dependencies**, for now. The frontend's `package.json` and its lockfile are not in `tracks`,
 so `pnpm` versions move when a person moves them. Adding them means driving `pnpm update` and
