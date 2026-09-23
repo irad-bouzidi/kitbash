@@ -32,7 +32,13 @@ final class CatalogLocator {
             }
             candidate = candidate.getParent();
         }
-        throw new IllegalStateException("No recipe catalog found. Looked for a 'recipes' directory at or above "
-                + Path.of("").toAbsolutePath() + ". Pass --catalog to name one.");
+        // A released binary ships its own recipes; inside the repository there are none beside
+        // the launcher and the search above found the working tree's. Last rather than first, so a
+        // developer running the CLI in the repository builds the catalog under review (§42).
+        return Distribution.embeddedCatalog()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No recipe catalog found. Looked for a 'recipes' directory at or above "
+                                + Path.of("").toAbsolutePath()
+                                + ", and beside the installed binary. Pass --catalog to name one."));
     }
 }

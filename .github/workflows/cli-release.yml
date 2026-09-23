@@ -1,0 +1,116 @@
+# The CLI, published on tag (§17, §42).
+#
+# §42 asks for this so offline generation is a product feature rather than an internal test
+# harness. The module has existed since kitbash-17 because the verification matrix calls it; this
+# is what makes it usable by someone who is not the matrix.
+name: CLI release
+
+on:
+  push:
+    tags: ["v*"]
+  # Buildable on demand, because a release pipeline nobody has run before the release is a release
+  # pipeline that fails during one.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # A jlink runtime links against the glibc of the machine that built it, so the
+          # distribution is built *inside* a container with the oldest glibc worth supporting
+          # rather than on whatever the runner happens to be. The first local build of this ran on
+          # a glibc 2.38 host and would not start on Debian 12 — which is the sort of thing a
+          # published binary should not teach its users.
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+            container: debian:12
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Build the self-contained distribution
+        working-directory: server
+        run: ./gradlew :cli:distributionArchive --no-daemon
+
+      - name: What it says it is
+        working-directory: server
+        run: |
+          set -euo pipefail
+          tar -xzf cli/build/distributions/kitbash-*.tgz -C "$RUNNER_TEMP"
+          # The binary reports the tool version and the catalog digest it carries (§8, §42): a CLI
+          # carries its catalog, so which catalog it carries is part of its identity.
+          "$RUNNER_TEMP/kitbash/bin/kitbash" --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kitbash-${{ matrix.platform }}
+          path: server/cli/build/distributions/kitbash-*.tgz
+          if-no-files-found: error
+
+  smoke:
+    name: smoke test (no JDK, no network)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kitbash-linux-x86_64
+          path: dist
+
+      # §42: "download the published artifact into a clean container, generate a project offline,
+      # and build it. Publishing something nobody has installed is not publishing." The artifact
+      # under test is the one the build job uploaded, not one rebuilt here.
+      - name: Build the JVM verification image
+        run: docker build -t kitbash/verify-jvm:latest -f verification/images/jvm/Dockerfile .
+
+      - name: Generate offline and build what came out
+        run: |
+          set -euo pipefail
+          # find rather than ls: shellcheck is right that parsing ls is fragile, and the archive
+          # name carries a version somebody will eventually put a character in.
+          archive=$(find dist -name 'kitbash-*.tgz' -type f | head -1)
+          ./server/cli/smoke-test.sh "$archive"
+
+  publish:
+    name: publish
+    needs: smoke
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kitbash-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum kitbash-*.tgz > SHA256SUMS
+          cat SHA256SUMS
+
+      # Only after the smoke test, which is the whole point of the ordering: an artifact nobody has
+      # installed is not a release.
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/* --generate-notes --repo "${{ github.repository }}"

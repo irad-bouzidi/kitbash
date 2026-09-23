@@ -11,7 +11,7 @@
 | [`recipe-format.md`](recipe-format.md) | The shape of a recipe: `recipe.yaml`, its `files/` tree, and the patch operations. |
 | [`errors.md`](errors.md) | Every §14 error code: what causes it, what fixes it, and where the rule is enforced. |
 | [`dashboard.json`](dashboard.json) | The operator dashboard: every §14 metric, and the privacy rule they operate under. |
-| [`cli.md`](cli.md) | The `kitbash` CLI. |
+| [`cli.md`](cli.md) | The `kitbash` CLI: installing the released binary, and what its two version numbers mean. |
 | [`hooks.md`](hooks.md) | The repository's git hooks. |
 
 Scope lives in [`../Project Bootstrapper — Unified Plan.md`](../Project%20Bootstrapper%20—%20Unified%20Plan.md);

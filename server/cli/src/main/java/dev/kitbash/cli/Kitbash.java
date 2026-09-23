@@ -28,6 +28,7 @@ public final class Kitbash {
               kitbash generate --selection <file> --out <dir> [--zip] [--catalog <dir>]
               kitbash validate --selection <file> [--catalog <dir>]
               kitbash catalog --json [--catalog <dir>]
+              kitbash --version
 
             Options:
               --selection <file>  The §7 selection envelope, as JSON.
@@ -54,6 +55,10 @@ public final class Kitbash {
             return args.isEmpty() ? 2 : 0;
         }
 
+        if (args.contains("--version")) {
+            return version(args, out, err);
+        }
+
         Arguments arguments;
         try {
             arguments = Arguments.parse(args);
@@ -69,5 +74,38 @@ public final class Kitbash {
             case VALIDATE -> new ValidateCommand().run(arguments, out, err);
             case CATALOG -> new CatalogCommand().run(arguments, out, err);
         };
+    }
+
+    /**
+     * Both halves of what this binary is (§8, §42).
+     *
+     * <p>The tool version alone does not identify a build: a CLI carries its catalog, so two
+     * installs of the same version built from different commits generate different projects. §8
+     * exposes the digest for the same reason the API does — it is what makes a bug report
+     * actionable — and §42 adds that a stale binary emitting a stale catalog should be visible
+     * rather than surprising.
+     *
+     * <p>The digest is computed from the recipes this run would actually use, including whatever
+     * {@code --catalog} points at. A digest recorded at build time would describe what was intended
+     * rather than what is there, and the two differ exactly when somebody needs to know.
+     */
+    private static int version(List<String> args, PrintStream out, PrintStream err) {
+        try {
+            Arguments arguments = Arguments.parseCatalogOnly(args);
+            java.nio.file.Path catalog = CatalogLocator.locate(arguments);
+            out.print(Distribution.describe(
+                    CatalogLocator.load(arguments).catalog().digest(), catalog));
+            return 0;
+        } catch (RuntimeException noCatalog) {
+            // Broadly, on purpose. A catalog can fail to load in more ways than it can fail to be
+            // found — a malformed manifest throws from `catalog`, not from here — and §39 is
+            // absolute that no user-facing stack traces, ever. `--version` is the command somebody
+            // runs *because* something is wrong, so it is the last place to hand them one.
+            //
+            // The version is still worth printing: "which binary is this" is answerable even when
+            // "which catalog does it carry" is not, and refusing both withholds the half that works.
+            out.printf("kitbash %s%ncatalog unavailable: %s%n", Distribution.version(), noCatalog.getMessage());
+            return 1;
+        }
     }
 }
