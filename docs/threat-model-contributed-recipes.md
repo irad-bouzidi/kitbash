@@ -353,9 +353,34 @@ than it sounds: every control here assumes a reviewer who can be held responsibl
 ## 8. What this task changed
 
 - this document, and [ADR 0004](adr/0004-contributed-recipes-accepted.md)
-- `server/sandbox` — the confined renderer, and the adversarial suite that is the sandbox's own
-  "done when"
-- `server/catalog` — the dual-source catalog, namespacing, and the two restrictions in 6.1 and 6.2
-- `server/api` — submission, review, approval, revocation, and the provenance the lock carries
-- `SchemaTest.theCatalogIsNotInTheDatabase`, which now asserts that the contributed tables are
-  exactly the ones this feature introduced, rather than that none exists
+- `RecipeId` — `@namespace/name`, with provenance carried in the identity rather than beside it
+  (§6.3)
+- `server/sandbox` — the confined renderer and `SandboxEscapeTest`, the adversarial suite that is
+  the sandbox's own "done when" (§6.4)
+- `ContributedRecipeRules` — the coordinate allowlist and the CI restriction, enforced at
+  submission (§6.1, §6.2)
+- `V3__contributed_recipes.sql`, `ContributedRecipeRepository`, `ContributedRecipeService` and
+  `/api/v1/contributed-recipes` — submit, review, approve, revoke, and the flagging of every
+  generation that used a withdrawn recipe
+- `DualSourceCatalog` — the composition and the `git:<d>+contributed:<d>` digest
+- `SchemaTest.theCatalogIsNotInTheDatabase`, which now names the two new tables exactly, so a third
+  still has to argue for itself
+
+### What is not wired yet
+
+Stated here rather than discovered later. `DualSourceCatalog` composes and is tested, but the
+application still builds its `Catalog` from git alone, so **an approved recipe is not yet
+generable**. Two things stand in the way, and neither is a detail:
+
+1. **The render stage has to route by provenance.** A contributed recipe's templates must go
+   through `SandboxedRenderer` while shipped ones keep rendering in process. Until that routing
+   exists, composing the catalog would put templates in front of the *unsandboxed* engine — which
+   is the one outcome worse than the feature not working, so the composition is deliberately left
+   unused rather than half-connected.
+2. **`Catalog` and `GenerationPipeline` are boot-time singletons** injected at fifteen sites, and
+   approval has to take effect without a restart. That needs a holder the consumers read through,
+   which is a refactor of its own and touches every one of those sites.
+
+Until both land, contributed recipes can be submitted, reviewed, approved and revoked, and the
+revocation flagging works — but nothing generates from one. That is the honest state, and it is
+the safe half to be stopped in.
