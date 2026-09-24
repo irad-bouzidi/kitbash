@@ -99,6 +99,7 @@ scope, out of scope, implementation notes, files and modules touched, and a sing
 | 46 | [`kitbash-46-gitlab-push-target`](phase-5-extension/kitbash-46-gitlab-push-target.md) | 5 |
 | 47 | [`kitbash-47-user-contributed-recipes`](phase-5-extension/kitbash-47-user-contributed-recipes.md) | 5 |
 | 48 | [`kitbash-48-contributed-recipe-generation`](phase-5-extension/kitbash-48-contributed-recipe-generation.md) | 5 |
+| 49 | [`kitbash-49-openapi-document-follows-the-capability`](phase-5-extension/kitbash-49-openapi-document-follows-the-capability.md) | 5 |
 
 ## Definition of done, every task
 
