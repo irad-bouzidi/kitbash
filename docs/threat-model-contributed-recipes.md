@@ -384,3 +384,7 @@ generable**. Two things stand in the way, and neither is a detail:
 Until both land, contributed recipes can be submitted, reviewed, approved and revoked, and the
 revocation flagging works — but nothing generates from one. That is the honest state, and it is
 the safe half to be stopped in.
+
+Both are [`kitbash-48`](tasks/phase-5-extension/kitbash-48-contributed-recipe-generation.md),
+written up rather than left as a comment, because `DualSourceCatalog` currently has no caller and
+code with no caller rots.

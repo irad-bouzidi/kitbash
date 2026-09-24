@@ -14,3 +14,4 @@ codebase, and picking the wrong one first costs a quarter.
 | 45 | [`kitbash-45-recipe-react-native-expo`](kitbash-45-recipe-react-native-expo.md) | 33 |
 | 46 | [`kitbash-46-gitlab-push-target`](kitbash-46-gitlab-push-target.md) | 24 |
 | 47 | [`kitbash-47-user-contributed-recipes`](kitbash-47-user-contributed-recipes.md) | 43 |
+| 48 | [`kitbash-48-contributed-recipe-generation`](kitbash-48-contributed-recipe-generation.md) | 47 |
