@@ -64,6 +64,34 @@ wrote one.
 Changing what the typed client generates, or the generator itself. This moves where the document
 comes from; `kitbash-33`'s choices about the client stand.
 
+## What was checked before starting
+
+Four findings from reading the resolver and the existing patches. The first makes the plan work;
+the other three are why this is not the small move it reads as.
+
+**`demands` implies, it does not merely constrain.** The resolver's rule 3 — *a recipe's own
+boolean option that declares `demands` adds that capability as a requirement when it is on, which
+implied expansion then satisfies* — means `demands: openapi-document` on `typedClient` pulls the
+producer in by itself, since it will be the capability's only provider. No consumer has to name it.
+That is the mechanism the whole design rests on, and it already exists.
+
+**The Maven `client` profile mixes producer and consumer in one `insertAtMarker`.** Today a single
+block emits both the surefire `kitbash.openapi.write` property (producer) and the
+`openapi-generator-maven-plugin` execution (consumer). Two recipes cannot both insert at
+`<!-- kitbash:profiles -->` without emitting two `<profile>` elements with the same id. So the
+producer must own the profile and place a marker **inside** its `<plugins>` for consumers to insert
+at — which is the documented pattern (*"another recipe will target it later"*), but it means the
+generated `pom.xml` grows a marker that has to be designed rather than moved.
+
+**Gradle's `openApiGenerate` is the plugin's singleton task.** The frontend configures it directly
+with `openApiGenerate { … }`. A second consumer cannot — there is one such task per project. Both
+consumers have to register their own `GenerateTask`, which means the *frontend's* generated build
+changes too, not just the mobile one, and `generateApiClient` has to depend on all of them.
+
+**The document path has to move.** It is `frontend/openapi.json` today, which is the wrong home the
+moment a project has a mobile client and no frontend. A neutral path — project root — is the
+smallest change, and it touches `inputSpec` on both build tools and the `.gitignore` entry.
+
 ## Implementation notes
 
 - Four combinations to keep green, not two: Java and Kotlin, each on Gradle and Maven. The build
