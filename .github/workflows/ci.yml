@@ -58,6 +58,48 @@ jobs:
           path: server/*/build/test-results/test/TEST-*.xml
           if-no-files-found: ignore
 
+  # The images nobody was building.
+  #
+  # `server/Dockerfile` broke the moment kitbash-47 added the `sandbox` module, because the
+  # Dockerfile lists the modules it copies and nothing told it about the seventh. Every job here
+  # stayed green — none of them builds this image — and the break surfaced only when somebody ran
+  # `docker compose up`. A Dockerfile no pipeline builds is a Dockerfile that rots.
+  images:
+    name: compose images build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Both, because they share a build context and a .dockerignore, and a mistake in either is
+      # invisible until somebody starts the stack.
+      - name: docker compose build
+        run: docker compose build server web
+
+      - name: The stack comes up healthy
+        run: |
+          docker compose up -d
+          # Every service that declares a healthcheck must reach `healthy`. `web` spent from
+          # kitbash-4 until 2026-09-24 permanently unhealthy — its probe asked for `localhost`,
+          # which resolves to ::1 first, while nginx listens on IPv4 only — and nothing noticed
+          # because nothing ever asserted this.
+          for attempt in $(seq 1 40); do
+            state=$(docker compose ps --format '{{.Service}}\t{{.Health}}')
+            echo "$state"
+            echo "$state" | grep -q 'starting' || break
+            sleep 6
+          done
+          if docker compose ps --format '{{.Service}}\t{{.Health}}' | grep -q 'unhealthy'; then
+            echo "::error::a service never became healthy"
+            docker compose ps
+            docker compose logs --tail 40
+            exit 1
+          fi
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   reference-build:
     # One job per JVM reference project. A reference project is the source of truth recipe
     # content is extracted from (§4), so if one stops building, every recipe derived from it

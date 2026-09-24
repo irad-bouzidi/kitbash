@@ -1,0 +1,41 @@
+# What must never reach an image build context.
+#
+# Both Dockerfiles build from the repository root, so without this file every local build
+# artifact is copied in. That is not merely slow: `server/Dockerfile` resolves the boot jar
+# with `api/build/libs/*.jar`, and a developer who has run `./gradlew build` locally also has
+# `api-0.1.0-SNAPSHOT-plain.jar` sitting there — which sorts *before* the boot jar, because `-`
+# is below `.` in ASCII. The image build then fails with "no main manifest attribute".
+#
+# The shape of that defect is worse than the defect: it passes in CI, where the checkout is
+# clean, and fails on the machine of anybody who has built the project. `docker compose up`
+# working depends on what is in your build directory.
+
+# Build output of every module, on both sides of the repo.
+**/build
+**/dist
+**/out
+.gradle
+**/.gradle
+**/node_modules
+**/.pnpm-store
+
+# Generated projects and verification scratch.
+verification/build
+/reference/*/build
+
+# Local and editor state.
+.git
+.github
+.idea
+.vscode
+**/*.iml
+**/.DS_Store
+
+# Test and coverage output.
+**/coverage
+**/test-results
+**/*.log
+
+# Nothing in here is needed to build an image, and some of it is large.
+docs
+.claude

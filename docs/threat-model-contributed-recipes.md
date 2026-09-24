@@ -320,13 +320,31 @@ namespace that fails exactly when somebody is investigating.
 Separate process, no network, read-only filesystem, hard memory and CPU caps, hard timeout, no
 access to the host catalog or the database — as §13 prescribes, for 3.1–3.3.
 
-**What the host has to permit.** The namespace comes from
-`unshare --map-root-user --net`, which needs unprivileged user namespaces. Ubuntu 24.04 blocks
-them by default through AppArmor, so a host there answers
-`unshare: write failed /proc/self/uid_map: Operation not permitted` and this feature is off until
-somebody sets `kernel.apparmor_restrict_unprivileged_userns=0`. That is a real operational cost and
-it belongs in the decision rather than in a runbook: the feature does not work everywhere, and on a
-host where it does not, it says so at boot and refuses.
+**What the host has to permit**, and this is a larger cost than it first looked. The namespace
+comes from `unshare --map-root-user --net`, which needs unprivileged user namespaces.
+
+- **On a VM or bare metal:** Ubuntu 24.04 blocks them by default through AppArmor, so the host
+  answers `unshare: write failed /proc/self/uid_map: Operation not permitted` until somebody sets
+  `kernel.apparmor_restrict_unprivileged_userns=0`.
+- **In a container — including the one `compose.yaml` starts — it does not work at all.** A
+  default Docker container answers `unshare(0x50000000): Operation not permitted`, and only
+  `--privileged` lifts it. Verified by running the shipped image.
+
+So on the standard containerised deployment **this feature is off**, and the boot log says so:
+
+```
+Contributed-recipe sandbox: UNAVAILABLE (unshare exited 1: unshare: unshare(0x50000000):
+Operation not permitted). Contributed recipes will be refused rather than rendered unconfined.
+Shipped recipes are unaffected.
+```
+
+That is the fail-closed rule behaving correctly, and it is also an uncomfortable position worth
+stating rather than burying: **turning the sandbox on inside a container costs more isolation than
+the sandbox provides.** A privileged container has given away the boundary that was already
+protecting the host in order to build a weaker one inside it. If contributed recipes are wanted in
+a containerised deployment, the honest answers are to run the generator on a VM where unprivileged
+namespaces are permitted, or to move the sandbox from a namespace to a container of its own — which
+is a different design, not a configuration change, and would be its own task.
 
 One addition the analysis produced: **the sandbox fails closed.** If the confinement it asks the
 operating system for is unavailable, a contributed recipe is refused rather than rendered
