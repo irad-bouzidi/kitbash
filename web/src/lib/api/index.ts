@@ -58,6 +58,10 @@ export interface ProblemDetail {
   reference?: string;
   /** Which of the three lookup resources was missing, for a 404. */
   resource?: string;
+  /** §46: the project a partial push created, so "created but not pushed" can name it. */
+  projectUrl?: string;
+  /** The project's path within its group, for the same message. */
+  path?: string;
 }
 
 export class ApiError extends Error {
@@ -355,4 +359,32 @@ export async function fetchCellLog(cellId: string): Promise<string> {
     throw new ApiError(problem, response.status);
   }
   return response.text();
+}
+
+/*
+ * The GitLab push target (§18, §46).
+ *
+ * A second way to take delivery of one thing, not a second thing: the zip stays the default and
+ * this posts exactly the selection the download would have generated.
+ */
+
+export type PushRequest = components['schemas']['PushRequest'];
+export type PushResponse = components['schemas']['PushResponse'];
+
+/**
+ * Creates a GitLab project and pushes the generated repository into it.
+ *
+ * The token travels with the request and is not stored. This server creates repositories on
+ * somebody's behalf, and a credential it keeps is one it has to protect, rotate and explain — the
+ * scope to give it is in docs/gitlab-push.md.
+ *
+ * A 502 here can mean the project was created and the push did not land; the problem document
+ * carries `projectUrl` so the caller can say which project that is rather than leaving an empty
+ * one behind with no explanation.
+ */
+export function pushToGitLab(push: PushRequest): Promise<PushResponse> {
+  return request<PushResponse>('/api/v1/push', {
+    method: 'POST',
+    body: JSON.stringify(push),
+  });
 }

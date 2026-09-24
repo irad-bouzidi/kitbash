@@ -23,6 +23,13 @@ RUN cd server && ./gradlew :api:bootJar --no-daemon && \
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
+# git, for kitbash-46's push target. The zip already contains a real repository with the commit in
+# it, so pushing is `git push` from that tree — no re-render, and the commit hash is preserved by
+# construction. Shelling out needs the binary, and a JRE image has none: without this line the
+# feature works on a developer's machine and fails in the container, which is the shape of defect
+# kitbash-42's smoke test was built to catch.
+RUN apk add --no-cache git
+
 RUN addgroup -S kitbash && adduser -S -G kitbash -H -s /sbin/nologin kitbash
 
 WORKDIR /app

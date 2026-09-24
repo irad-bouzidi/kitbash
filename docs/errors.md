@@ -133,8 +133,8 @@ and the manifest declaration that would fix it.
 
 ## Not generation errors
 
-Two kinds of failure are deliberately **not** `GenerationError` variants, because forcing them into
-one would put a lie in the envelope.
+Three kinds of failure are deliberately **not** `GenerationError` variants, because forcing them
+into one would put a lie in the envelope.
 
 ### `NOT_FOUND` · 404
 
@@ -156,6 +156,23 @@ exactly that and asks for a `reference` to be quoted. Every hit is logged at err
 under that reference.
 
 If you are reading this because you got one: nothing about your selection needs changing.
+
+### The push codes · 422 and 502
+
+`POST /api/v1/push` (§46) fails for reasons that belong to GitLab rather than to generation: a
+token, a group, a name, a network. None of them has a §6 stage — the pipeline had already finished
+successfully by the time any of them could happen — so none is a `GenerationError`.
+
+They keep the envelope's shape: an `error`, a message and a hint naming the next action.
+[`gitlab-push.md`](gitlab-push.md) lists them with what each one means in GitLab's terms; the short
+version is `TOKEN_REJECTED`, `GROUP_NOT_FOUND`, `GROUP_FORBIDDEN`, `PROJECT_EXISTS`,
+`PROJECT_REFUSED` and `GITLAB_UNREACHABLE`, all 422, all leaving nothing behind.
+
+`PUSH_PARTIAL` is the exception, and the reason this section exists. It is a **502**, because the
+project was created and the code did not reach it — neither a success nor a clean failure. Its
+envelope carries two extra properties, `projectUrl` and `path`, so the answer to *where did my
+empty repository come from?* is in the error rather than in a support conversation. Nothing is
+rolled back: deleting a project the user can already see is worse than telling them it is there.
 
 ## Where the vocabulary is enforced
 

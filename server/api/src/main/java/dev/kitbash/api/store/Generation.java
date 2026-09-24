@@ -28,4 +28,12 @@ public record Generation(
         Integer sizeBytes,
         Instant createdAt,
         Instant expiresAt,
-        boolean kept) {}
+        boolean kept,
+        /**
+         * Where this generation was pushed, when it was pushed anywhere (§46).
+         *
+         * <p>Nullable, and most rows will keep it null: §18 makes the zip the default and §46 says
+         * the push must not degrade it. A column rather than a table, because a push is not a
+         * separate event — it is how one generation was taken delivery of.
+         */
+        String pushedProjectUrl) {}

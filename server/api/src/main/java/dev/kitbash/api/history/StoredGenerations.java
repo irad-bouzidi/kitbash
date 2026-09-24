@@ -73,7 +73,8 @@ public class StoredGenerations implements GenerationRecorder {
                 (int) bytes,
                 now,
                 now.plus(RETENTION),
-                false));
+                false,
+                null));
     }
 
     /**
@@ -105,7 +106,8 @@ public class StoredGenerations implements GenerationRecorder {
                 (int) bytes,
                 now,
                 now.plus(RETENTION),
-                false));
+                false,
+                null));
     }
 
     @Override
@@ -132,7 +134,8 @@ public class StoredGenerations implements GenerationRecorder {
                 null,
                 now,
                 now.plus(RETENTION),
-                false));
+                false,
+                null));
     }
 
     /**

@@ -662,6 +662,34 @@
           }
         }
       }
+    },
+    "/api/v1/push" : {
+      "post" : {
+        "tags" : [ "push-controller" ],
+        "operationId" : "push",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PushRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PushResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components" : {
@@ -1047,6 +1075,9 @@
           "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "pushedProjectUrl" : {
+            "type" : "string"
           }
         }
       },
@@ -1383,6 +1414,46 @@
           },
           "empty" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "PushRequest" : {
+        "type" : "object",
+        "properties" : {
+          "selection" : {
+            "$ref" : "#/components/schemas/GenerateRequest"
+          },
+          "group" : {
+            "type" : "string"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PushResponse" : {
+        "type" : "object",
+        "properties" : {
+          "projectUrl" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "commitId" : {
+            "type" : "string"
+          },
+          "selectionHash" : {
+            "type" : "string"
+          },
+          "partial" : {
+            "type" : "boolean"
+          },
+          "detail" : {
+            "type" : "string"
           }
         }
       }

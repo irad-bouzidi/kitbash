@@ -122,6 +122,13 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/verification", "/api/v1/verification/**")
                         .authenticated()
 
+                        // Pushing creates a repository in somebody's group, which is a privilege
+                        // worth naming (§46) — but the privilege is the *caller's GitLab token*,
+                        // not a role here. This server creates nothing on its own authority, and a
+                        // role would imply it could.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/push")
+                        .authenticated()
+
                         // Everything else — including the OpenAPI document and anything added
                         // tomorrow — is closed until somebody opens it deliberately.
                         .anyRequest()

@@ -5,6 +5,7 @@ import { PreviewDialog } from '@/preview/PreviewDialog';
 import { VerifyDialog } from '@/verify/VerifyDialog';
 import { SavePresetDialog } from '@/presets/SavePresetDialog';
 import { ShareDialog } from '@/wizard/ShareDialog';
+import { PushDialog } from '@/wizard/PushDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError, downloadProject, type CatalogVariable, type MetadataDocument } from '@/lib/api';
@@ -34,6 +35,7 @@ export function Wizard() {
   const [sharing, setSharing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [pushing, setPushing] = useState(false);
 
   if (isPending) return <p className="text-sm text-muted-foreground">Loading the catalog…</p>;
   if (isError || !metadata) {
@@ -165,6 +167,21 @@ export function Wizard() {
             Save as preset
           </Button>
           <span className="flex-1" />
+          {/*
+            §46 puts this beside Generate, not instead of it. Generate stays the primary button
+            because the zip is the delivery that needs nothing — no forge, no token, no account —
+            and a push target that quietly became the default would make the simplest path the
+            one behind a credential.
+          */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={blocked}
+            title={blocked ? blockedReason : undefined}
+            onClick={() => setPushing(true)}
+          >
+            Push to GitLab
+          </Button>
           <Button
             type="submit"
             disabled={blocked || downloading}
@@ -177,6 +194,7 @@ export function Wizard() {
 
       {saving && <SavePresetDialog envelope={envelope} onClose={() => setSaving(false)} />}
       {sharing && <ShareDialog envelope={envelope} onClose={() => setSharing(false)} />}
+      {pushing && <PushDialog envelope={envelope} onClose={() => setPushing(false)} />}
       {previewing && <PreviewDialog envelope={envelope} onClose={() => setPreviewing(false)} />}
       {verifying && <VerifyDialog envelope={envelope} onClose={() => setVerifying(false)} />}
 

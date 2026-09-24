@@ -1,5 +1,7 @@
 package dev.kitbash.api.error;
 
+import dev.kitbash.api.push.PartialPushException;
+import dev.kitbash.api.push.PushRefusedException;
 import dev.kitbash.api.security.RateLimitExceededException;
 import dev.kitbash.api.verify.AlreadyVerifyingException;
 import dev.kitbash.api.verify.QueueFullException;
@@ -167,6 +169,50 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, "30")
                 .body(problem);
+    }
+
+    /**
+     * GitLab said no, and which no it was (§14, §46).
+     *
+     * <p>422 rather than 400 or 502: the request was well formed and this server understood it —
+     * what refused was the other end. A 400 would tell the caller they sent something wrong, and
+     * they did not.
+     */
+    @ExceptionHandler(PushRefusedException.class)
+    public ProblemDetail pushRefused(PushRefusedException exception) {
+        rejections.recordUntyped(exception.code(), null);
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
+        problem.setTitle("GitLab refused");
+        problem.setProperty("error", exception.code());
+        problem.setProperty("hint", exception.hint());
+        return problem;
+    }
+
+    /**
+     * The project exists and the code is not in it (§46).
+     *
+     * <p>Its own status and its own code, because it is neither a success nor a clean failure. The
+     * user now owns an empty repository they did not have a minute ago, and the one thing that
+     * helps is being told where it is — §46 requires the created project to be named rather than
+     * rolled back silently or folded into a generic error.
+     */
+    @ExceptionHandler(PartialPushException.class)
+    public ProblemDetail partialPush(PartialPushException exception) {
+        rejections.recordUntyped("PUSH_PARTIAL", null);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_GATEWAY,
+                "The project was created and the code did not reach it: " + exception.getMessage());
+        problem.setTitle("Created, but not pushed");
+        problem.setProperty("error", "PUSH_PARTIAL");
+        problem.setProperty("projectUrl", exception.projectUrl());
+        problem.setProperty("path", exception.path());
+        problem.setProperty(
+                "hint",
+                "The project is at " + exception.projectUrl() + " and is empty. Nothing was rolled "
+                        + "back, so download the zip and push it there by hand — or delete the project "
+                        + "and try again.");
+        return problem;
     }
 
     /** A cell whose log the published run does not carry (§14). */

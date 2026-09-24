@@ -319,7 +319,8 @@ class StoreTest {
                 163029,
                 createdAt,
                 createdAt.plus(Duration.ofDays(30)),
-                false);
+                false,
+                null);
     }
 
     private static VerificationRun run(VerificationStatus status) {
