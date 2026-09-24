@@ -35,7 +35,8 @@ requires: [project-root]
 #
 # The fix is to move document production to whichever recipe provides the capability, so any
 # number of consumers can generate from it. That is a refactor of kitbash-33's build patches
-# across two languages and two build tools, and it is its own task.
+# across two languages and two build tools, and it is its own task:
+# docs/tasks/phase-5-extension/kitbash-49-openapi-document-follows-the-capability.md
 
 variables:
   required: [entityName, entityTable]
