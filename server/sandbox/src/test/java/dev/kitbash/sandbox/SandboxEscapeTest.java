@@ -202,7 +202,12 @@ class SandboxEscapeTest {
                     .redirectErrorStream(true)
                     .start();
             String interfaces = new String(confined.getInputStream().readAllBytes()).trim();
-            confined.waitFor();
+            int exit = confined.waitFor();
+
+            // Checked before parsing. When the host refuses the namespace, `unshare` writes its
+            // reason to this stream, and parsing that as a number turns a clear "this host will
+            // not confine" into a NumberFormatException that says nothing.
+            assertThat(exit).as("unshare said: %s", interfaces).isZero();
 
             // One line: loopback, and it is down. A namespace with a route would have more.
             assertThat(Integer.parseInt(interfaces))

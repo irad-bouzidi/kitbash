@@ -320,6 +320,14 @@ namespace that fails exactly when somebody is investigating.
 Separate process, no network, read-only filesystem, hard memory and CPU caps, hard timeout, no
 access to the host catalog or the database — as §13 prescribes, for 3.1–3.3.
 
+**What the host has to permit.** The namespace comes from
+`unshare --map-root-user --net`, which needs unprivileged user namespaces. Ubuntu 24.04 blocks
+them by default through AppArmor, so a host there answers
+`unshare: write failed /proc/self/uid_map: Operation not permitted` and this feature is off until
+somebody sets `kernel.apparmor_restrict_unprivileged_userns=0`. That is a real operational cost and
+it belongs in the decision rather than in a runbook: the feature does not work everywhere, and on a
+host where it does not, it says so at boot and refuses.
+
 One addition the analysis produced: **the sandbox fails closed.** If the confinement it asks the
 operating system for is unavailable, a contributed recipe is refused rather than rendered
 unconfined. A sandbox that silently degrades to "a normal render" on a host that does not support
