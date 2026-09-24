@@ -35,6 +35,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The contributed-recipe sandbox confines its worker in an unprivileged user namespace
+      # (kitbash-47 §6.4), and Ubuntu 24.04 blocks those by default through AppArmor — the runner
+      # answers `unshare: write failed /proc/self/uid_map: Operation not permitted`.
+      #
+      # Granted here rather than worked around in the test. The suite refuses to run unconfined
+      # on purpose: a sandbox that quietly degrades is worse than none, so a host that cannot
+      # confine must make the tests fail rather than pass vacuously. That leaves exactly one
+      # honest option for CI, which is to be a host that can.
+      - name: Allow unprivileged user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: ./gradlew check
         working-directory: server
         run: ./gradlew check

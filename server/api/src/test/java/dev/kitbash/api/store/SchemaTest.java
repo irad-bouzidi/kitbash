@@ -48,6 +48,17 @@ class SchemaTest {
      * and this is the assertion that keeps that decision from eroding one convenient table at a
      * time. The catalog lives in git: reviewable, diffable, versioned with the code that renders
      * it. A database-backed catalog is a phase 5 question with real security weight (kitbash-47).
+     *
+     * <p>kitbash-47 asked that question and the answer was to build the feature, so this
+     * assertion has changed rather than held. What it guards now is narrower and still worth
+     * guarding: the two tables that feature introduced are named here <b>exactly</b>, so a third
+     * table describing a recipe still has to argue for itself in a diff somebody reads.
+     *
+     * <p>{@code contributed_recipe} is the one that crosses the line, and it crosses it in a
+     * particular shape — a submission somebody made and a reviewer approved, with both people
+     * recorded — rather than as a configuration screen for what the generator supports. Shipped
+     * recipes are still in git and still are not here. See
+     * {@code docs/adr/0004-contributed-recipes-accepted.md}.
      */
     @Test
     @DisplayName("no table describes the catalog, because the catalog is not in the database")
@@ -63,15 +74,21 @@ class SchemaTest {
                 .list();
 
         assertThat(tables)
-                .as("the §10 tables, and Flyway's own bookkeeping")
-                .containsExactly("flyway_schema_history", "generation", "preset", "share_link", "verification_run");
+                .as("the §10 tables, Flyway's bookkeeping, and kitbash-47's two")
+                .containsExactly(
+                        "contributed_recipe",
+                        "flyway_schema_history",
+                        "generation",
+                        "generation_flag",
+                        "preset",
+                        "share_link",
+                        "verification_run");
 
         assertThat(tables)
-                .as("a table describing what the system can do rather than what a user did")
-                .noneMatch(table -> table.contains("recipe")
-                        || table.contains("technology")
-                        || table.contains("architecture")
-                        || table.contains("catalog"));
+                .as("§10 rejected these three by name, and building kitbash-47 did not revive them: "
+                        + "a contributed recipe is a submission with a reviewer attached, not a catalog")
+                .noneMatch(table ->
+                        table.contains("technology") || table.contains("architecture") || table.contains("catalog"));
     }
 
     @Test

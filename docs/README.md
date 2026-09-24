@@ -15,6 +15,7 @@
 | [`cli.md`](cli.md) | The `kitbash` CLI: installing the released binary, and what its two version numbers mean. |
 | [`create-stack.md`](create-stack.md) | `npx create-stack`: the terminal client, and why it is a rendering problem rather than a second product. |
 | [`gitlab-push.md`](gitlab-push.md) | Pushing a build straight into a GitLab group: the token scope it asks for, and what happens when half of it works. |
+| [`threat-model-contributed-recipes.md`](threat-model-contributed-recipes.md) | Recipes the core team did not write: the six threats, the three the sandbox cannot reach, and the controls that do. |
 | [`hooks.md`](hooks.md) | The repository's git hooks. |
 
 Scope lives in [`../Project Bootstrapper — Unified Plan.md`](../Project%20Bootstrapper%20—%20Unified%20Plan.md);

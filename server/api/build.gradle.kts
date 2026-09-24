@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":catalog"))
     implementation(project(":render"))
+    implementation(project(":sandbox"))
     // kitbash-37 drives the matrix runner rather than reimplementing it: a user's combination is
     // built in the same images, under the same §13 limits, by the same code as the nightly. The
     // alternative — a second runner in the API — is how the two would come to disagree about what
@@ -43,7 +44,7 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.testcontainers.postgresql)
-    testImplementation(libs.testcontainers.minio)
+    testImplementation(libs.testcontainers.localstack)
     testImplementation(libs.postgresql)
     testImplementation(libs.flyway.postgresql)
     testImplementation(platform(libs.junit.bom))

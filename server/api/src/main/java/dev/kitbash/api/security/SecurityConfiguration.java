@@ -89,6 +89,21 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/presets/**")
                         .hasAuthority(roles.presetAuthorAuthority())
 
+                        // Contributed recipes (kitbash-47). Submitting is authoring, so it takes
+                        // the author role; approving and revoking put somebody else's templates
+                        // into everybody else's projects, so they take a role of their own. The
+                        // queue is readable by any authenticated user on purpose — a review
+                        // process nobody outside the reviewers can see is one nobody can audit.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/contributed-recipes/*/approve",
+                                "/api/v1/contributed-recipes/*/revoke")
+                        .hasAuthority(roles.recipeReviewerAuthority())
+                        .requestMatchers(HttpMethod.POST, "/api/v1/contributed-recipes")
+                        .hasAuthority(roles.presetAuthorAuthority())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/contributed-recipes")
+                        .authenticated()
+
                         // A share link is a capability within the team, not on the internet: §13
                         // closes every endpoint, so opening one still needs a token from the
                         // identity provider. What it does not need is a role, or to be its

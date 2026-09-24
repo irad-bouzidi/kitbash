@@ -1,0 +1,34 @@
+# The dependency coordinates a contributed recipe may add (threat model §3.4, §6.1).
+#
+# This file is the control. The threat is a coordinate nobody recognises — a typosquat one
+# character from a real one — and neither the osv-scanner pass nor a reviewer skim-reading a
+# manifest catches that reliably: the package is in no advisory database, and the difference is
+# a missing '.core'. So the trust decision is relocated here, to a small file that changes
+# rarely and is reviewed as a diff.
+#
+# `group:name` without versions, deliberately. Pinning versions would make this a second
+# dependency-freshness problem and it would rot; a version that moves is already §12's job.
+#
+# Adding a line is a merge request, and it should be reviewed as one. The threat model names
+# the failure mode: an allowlist that grows on the same merge request as the recipe needing it
+# has become a formality, and the control is then worse than absent because everybody believes
+# in it.
+
+# --- JVM: the Spring surface a feature recipe plausibly needs -------------------------------
+org.springframework.boot:spring-boot-starter-web
+org.springframework.boot:spring-boot-starter-validation
+org.springframework.boot:spring-boot-starter-actuator
+org.springframework.boot:spring-boot-starter-cache
+org.springframework.boot:spring-boot-starter-test
+
+# --- JVM: the libraries already in the shipped catalog --------------------------------------
+com.fasterxml.jackson.core:jackson-databind
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml
+org.flywaydb:flyway-core
+io.micrometer:micrometer-core
+org.slf4j:slf4j-api
+
+# --- Browser --------------------------------------------------------------------------------
+react
+react-dom
+zod

@@ -13,14 +13,20 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param rolesClaim the JWT claim holding the caller's groups or roles
  * @param presetAuthor the role a caller needs to write presets
  * @param publisher the role a caller needs to make a preset public
+ * @param recipeReviewer the role a caller needs to approve or revoke a contributed recipe
+ *     (kitbash-47). Its own role rather than reuse of {@code publisher}: publishing a preset
+ *     shares a selection, while approving a recipe puts somebody else's templates into everybody
+ *     else's generated projects, and the two should be grantable separately.
  */
 @ConfigurationProperties(prefix = "kitbash.security")
-public record SecurityProperties(String rolesClaim, String presetAuthor, String publisher) {
+public record SecurityProperties(String rolesClaim, String presetAuthor, String publisher, String recipeReviewer) {
 
     public SecurityProperties {
         rolesClaim = rolesClaim == null || rolesClaim.isBlank() ? "roles" : rolesClaim;
         presetAuthor = presetAuthor == null || presetAuthor.isBlank() ? "kitbash-author" : presetAuthor;
         publisher = publisher == null || publisher.isBlank() ? "kitbash-publisher" : publisher;
+        recipeReviewer =
+                recipeReviewer == null || recipeReviewer.isBlank() ? "kitbash-recipe-reviewer" : recipeReviewer;
     }
 
     /**
@@ -38,7 +44,11 @@ public record SecurityProperties(String rolesClaim, String presetAuthor, String 
         return "ROLE_" + publisher;
     }
 
+    public String recipeReviewerAuthority() {
+        return "ROLE_" + recipeReviewer;
+    }
+
     public List<String> knownRoles() {
-        return List.of(presetAuthor, publisher);
+        return List.of(presetAuthor, publisher, recipeReviewer);
     }
 }

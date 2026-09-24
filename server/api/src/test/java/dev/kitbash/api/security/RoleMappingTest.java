@@ -21,7 +21,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
  */
 class RoleMappingTest {
 
-    private final SecurityProperties roles = new SecurityProperties("roles", "kitbash-author", "kitbash-publisher");
+    private final SecurityProperties roles =
+            new SecurityProperties("roles", "kitbash-author", "kitbash-publisher", "kitbash-recipe-reviewer");
 
     @Test
     @DisplayName("roles in the configured claim become ROLE_ authorities")
@@ -38,7 +39,8 @@ class RoleMappingTest {
     @Test
     @DisplayName("a provider that names the claim differently is a configuration change")
     void readsWhicheverClaimIsConfigured() {
-        SecurityProperties groups = new SecurityProperties("groups", "kitbash-author", "kitbash-publisher");
+        SecurityProperties groups =
+                new SecurityProperties("groups", "kitbash-author", "kitbash-publisher", "kitbash-recipe-reviewer");
 
         assertThat(authorities(groups, Map.of("groups", List.of("kitbash-author"))))
                 .contains("ROLE_kitbash-author");

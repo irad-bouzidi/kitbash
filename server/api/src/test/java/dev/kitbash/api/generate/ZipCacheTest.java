@@ -25,13 +25,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.localstack.LocalStackContainer;
 
 /**
  * Determinism, cashed in (§4, §10, §13, §27).
  *
- * <p>Against a real MinIO, because the thing being tested is the interaction with an object store
+ * <p>Against a real object store, because the thing being tested is the interaction with one
  * — a fake would agree with itself about keys and lifecycle and prove nothing about either.
  *
  * <p>The test that carries §27's weight is {@link PhaseExit}: generate, save a preset, come back
@@ -47,23 +47,34 @@ class ZipCacheTest {
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     /**
-     * quay.io, not Docker Hub — the same reason compose.yaml gives: MinIO stopped publishing
-     * these tags there, so the image Testcontainers would reach for by default does not exist.
+     * LocalStack rather than MinIO, since 2026-09-24.
+     *
+     * <p>MinIO's community images are gone from both registries: {@code quay.io/minio/minio} and
+     * {@code minio/minio} on Docker Hub now answer an anonymous pull with
+     * {@code unauthorized: access to the requested resource is not authorized}. The previous
+     * comment here recorded half of that — Docker Hub had already stopped — and quay.io followed.
+     *
+     * <p>It took a while to see, because Testcontainers retries a failing pull until its own
+     * two-minute limit and then reports a {@code ConditionTimeoutException}, which reads like a
+     * slow registry rather than a closed one. The CI job pulls the image itself now, so the
+     * daemon's actual answer reaches the log.
+     *
+     * <p>What this test needs is an S3 endpoint that stores bytes, not MinIO specifically, so the
+     * substitution costs nothing. LocalStack is on Docker Hub and pulls anonymously.
      */
-    private static final MinIOContainer MINIO = new MinIOContainer(
-            org.testcontainers.utility.DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
-                    .asCompatibleSubstituteFor("minio/minio"));
+    private static final LocalStackContainer S3 =
+            new LocalStackContainer(org.testcontainers.utility.DockerImageName.parse("localstack/localstack:4.9.2"));
 
     @DynamicPropertySource
     static void services(DynamicPropertyRegistry registry) {
         POSTGRES.start();
-        MINIO.start();
+        S3.start();
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("kitbash.objectstore.endpoint", MINIO::getS3URL);
-        registry.add("kitbash.objectstore.access-key", MINIO::getUserName);
-        registry.add("kitbash.objectstore.secret-key", MINIO::getPassword);
+        registry.add("kitbash.objectstore.endpoint", () -> S3.getEndpoint().toString());
+        registry.add("kitbash.objectstore.access-key", S3::getAccessKey);
+        registry.add("kitbash.objectstore.secret-key", S3::getSecretKey);
         registry.add("kitbash.objectstore.bucket", () -> "kitbash-test-artifacts");
     }
 

@@ -18,21 +18,30 @@ services:
       timeout: 5s
       retries: 10
 
+  # Was MinIO until 2026-09-24, when its community images went behind authentication on
+  # both registries at once: quay.io/minio/minio and minio/minio on Docker Hub now answer an
+  # anonymous pull with "unauthorized". The comment this replaces recorded half of it — Docker
+  # Hub had already stopped — and a compose file that cannot pull is worse than no compose file.
+  #
+  # LocalStack is on Docker Hub, pulls anonymously, and speaks S3, which is all this ever needed:
+  # the server talks to an endpoint, not to MinIO. The service keeps its name so nothing that
+  # refers to it has to change.
   minio:
-    # quay.io, not Docker Hub: MinIO no longer publishes these tags there, and a
-    # compose file that cannot pull is worse than no compose file.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
+    image: localstack/localstack:4.9.2
     environment:
-      MINIO_ROOT_USER: kitbash
-      MINIO_ROOT_PASSWORD: kitbash-dev-secret
+      SERVICES: s3
+      # Any credentials are accepted; these are the ones the server is configured with, so the
+      # two agree without a second place to keep them in step.
+      AWS_ACCESS_KEY_ID: kitbash
+      AWS_SECRET_ACCESS_KEY: kitbash-dev-secret
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:4566"
     volumes:
-      - minio-data:/data
+      - minio-data:/var/lib/localstack
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # LocalStack's own readiness endpoint. `mc ready` went with MinIO, and a healthcheck that
+      # cannot run leaves the service permanently unhealthy rather than obviously broken.
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -99,7 +108,9 @@ services:
       KITBASH_DB_PASSWORD: kitbash
       # §10's zip cache. Determinism is what makes serving a hit verbatim safe, and the bucket's
       # own lifecycle rule is what expires it after thirty days.
-      KITBASH_S3_ENDPOINT: http://minio:9000
+      # 4566 is LocalStack's own port; the 9000 in the host mapping above is only for a
+      # browser or an aws-cli on the laptop, and does not apply inside this network.
+      KITBASH_S3_ENDPOINT: http://minio:4566
       KITBASH_S3_BUCKET: kitbash-artifacts
       KITBASH_S3_ACCESS_KEY: kitbash
       KITBASH_S3_SECRET_KEY: kitbash-dev-secret

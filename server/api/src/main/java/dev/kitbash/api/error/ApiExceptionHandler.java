@@ -1,5 +1,7 @@
 package dev.kitbash.api.error;
 
+import dev.kitbash.api.contributed.ReviewConflictException;
+import dev.kitbash.api.contributed.SubmissionRefusedException;
 import dev.kitbash.api.push.PartialPushException;
 import dev.kitbash.api.push.PushRefusedException;
 import dev.kitbash.api.security.RateLimitExceededException;
@@ -212,6 +214,64 @@ public class ApiExceptionHandler {
                 "The project is at " + exception.projectUrl() + " and is empty. Nothing was rolled "
                         + "back, so download the zip and push it there by hand — or delete the project "
                         + "and try again.");
+        return problem;
+    }
+
+    /**
+     * A submission that breaks one of the threat model's structural rules (§14, kitbash-47).
+     *
+     * <p>422 rather than 400: the request was well formed and the recipe is a real recipe. What
+     * failed is a policy decision, and the distinction matters to the contributor — there is
+     * nothing to fix in the encoding.
+     *
+     * <p>The envelope carries {@code refusals} as a list. §14 fixes the envelope's fields, and
+     * this adds rather than replaces: {@code detail} still reads as a sentence, and a client that
+     * wants to render one line per problem has them without splitting a string.
+     */
+    @ExceptionHandler(SubmissionRefusedException.class)
+    public ProblemDetail submissionRefused(SubmissionRefusedException exception) {
+        rejections.recordUntyped("CONTRIBUTED_RECIPE_REFUSED", null);
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
+        problem.setTitle("Recipe not accepted");
+        problem.setProperty("error", "CONTRIBUTED_RECIPE_REFUSED");
+        problem.setProperty("recipe", exception.recipeId());
+        problem.setProperty("refusals", exception.refusals());
+        problem.setProperty(
+                "hint",
+                "Every reason is listed rather than the first, so one pass fixes all of them. The "
+                        + "coordinate allowlist and the CI restriction are in "
+                        + "docs/threat-model-contributed-recipes.md §6.");
+        return problem;
+    }
+
+    /** Two reviewers and one submission, or one that is not where the caller thought (§14). */
+    @ExceptionHandler(ReviewConflictException.class)
+    public ProblemDetail reviewConflict(ReviewConflictException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+        problem.setTitle("The submission moved");
+        problem.setProperty("error", "REVIEW_CONFLICT");
+        problem.setProperty("hint", exception.hint());
+        return problem;
+    }
+
+    /**
+     * The sandbox refused, which is not the same as a recipe failing (§14, kitbash-47 §6.4).
+     *
+     * <p>{@code SANDBOX_UNAVAILABLE} is the one worth separating. It means this host cannot
+     * confine contributed recipes and so will not run them — a 503, because it is a property of
+     * the server that may change, not of the request. The others are 422: the recipe hit a cap or
+     * would not render, and it is the recipe that needs fixing.
+     */
+    @ExceptionHandler(dev.kitbash.sandbox.SandboxRefusedException.class)
+    public ProblemDetail sandboxRefused(dev.kitbash.sandbox.SandboxRefusedException exception) {
+        boolean hostCannot = "SANDBOX_UNAVAILABLE".equals(exception.code());
+        rejections.recordUntyped(exception.code(), null);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                hostCannot ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
+        problem.setTitle(hostCannot ? "Contributed recipes are not available here" : "The sandbox stopped it");
+        problem.setProperty("error", exception.code());
+        problem.setProperty("hint", exception.hint());
         return problem;
     }
 
