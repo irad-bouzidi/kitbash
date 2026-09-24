@@ -374,25 +374,36 @@ than it sounds: every control here assumes a reviewer who can be held responsibl
 - `SchemaTest.theCatalogIsNotInTheDatabase`, which now names the two new tables exactly, so a third
   still has to argue for itself
 
-### What is not wired yet
+### How a contributed recipe reaches a generated project
 
-Stated here rather than discovered later. `DualSourceCatalog` composes and is tested, but the
-application still builds its `Catalog` from git alone, so **an approved recipe is not yet
-generable**. Two things stand in the way, and neither is a detail:
+`ContributedRenderStage` routes stage 4 by provenance: a shipped recipe's templates render in
+process, a contributed recipe's render in the sandbox, one subprocess per recipe. What comes back
+is a finished string, which `Renderer` then treats exactly like its own output — the `.peb` strip,
+the rendered-path check, the binary guard and the plan-order collection are one code path for
+both, because two would drift on precisely the checks that matter most for untrusted input.
 
-1. **The render stage has to route by provenance.** A contributed recipe's templates must go
-   through `SandboxedRenderer` while shipped ones keep rendering in process. Until that routing
-   exists, composing the catalog would put templates in front of the *unsandboxed* engine — which
-   is the one outcome worse than the feature not working, so the composition is deliberately left
-   unused rather than half-connected.
-2. **`Catalog` and `GenerationPipeline` are boot-time singletons** injected at fifteen sites, and
-   approval has to take effect without a restart. That needs a holder the consumers read through,
-   which is a refactor of its own and touches every one of those sites.
+The split buys more than "the sandbox ran it". `Renderer` builds one template registry per pass and
+that registry is what an `include` can reach; entries rendered elsewhere are **left out of it**, so
+a contributed template is not merely routed away from the in-process engine but is not loadable by
+it. The converse is stronger than [§3.1](#31-template-engine-escape) asked for: each contributed
+recipe is sent to the sandbox with only its own templates, so it cannot include another contributed
+recipe's either.
 
-Until both land, contributed recipes can be submitted, reviewed, approved and revoked, and the
-revocation flagging works — but nothing generates from one. That is the honest state, and it is
-the safe half to be stopped in.
+**Contributed recipes may not carry patches.** A `mergeYaml` body or an `appendLines` entry is a
+template too, and rendering one in process would leave a hole exactly where somebody would look for
+it. A second sandbox protocol for patch content is not worth building until a contributed recipe
+needs one — but "not built yet" fails loudly here rather than falling through to the engine this
+design exists to keep them away from.
 
-Both are [`kitbash-48`](tasks/phase-5-extension/kitbash-48-contributed-recipe-generation.md),
-written up rather than left as a comment, because `DualSourceCatalog` currently has no caller and
-code with no caller rots.
+**Disclosure is written by the generator, not by the recipe.** A project built with contributed
+recipes says so above its README's `kitbash:stack` marker, listing them by namespaced id. Since a
+contributed recipe cannot carry patches it could not add its own line, and it should not be able
+to: disclosure an author can word, shorten or forget is not disclosure. The lock needs no
+equivalent — [§6.3](#63-contributed-recipe-ids-are-namespaced-everywhere) put the namespace inside
+the id, so every contributed recipe is already visible there.
+
+**Approval takes effect without a restart.** `LiveCatalog` recomposes the catalog from the approved
+rows and is refreshed at exactly two moments — after approval and after revocation — because those
+are the only two at which visibility changes. `GenerationPipeline` reads it through a supplier and
+holds the result for the whole of a generation, so a swap between two requests is invisible and a
+swap during one cannot happen.

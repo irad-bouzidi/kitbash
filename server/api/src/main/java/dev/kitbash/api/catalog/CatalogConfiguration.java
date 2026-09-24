@@ -42,14 +42,51 @@ public class CatalogConfiguration {
         return loaded;
     }
 
+    /**
+     * The catalog as it is now.
+     *
+     * <p>Since kitbash-48 this is a view over {@link dev.kitbash.api.contributed.LiveCatalog} when
+     * there is one — approving a contributed recipe has to take effect without a restart, and this
+     * bean is injected in a handful of places that must not go stale. Without persistence there
+     * are no contributed recipes and it is the git catalog, unchanged.
+     *
+     * <p>{@code ObjectProvider} rather than an optional dependency, because the holder lives
+     * behind the {@code persistence} profile and this configuration does not.
+     */
     @Bean
-    public Catalog catalog(CatalogLoader.LoadedCatalog loadedCatalog) {
-        return loadedCatalog.catalog();
+    public Catalog catalog(
+            CatalogLoader.LoadedCatalog loadedCatalog,
+            org.springframework.beans.factory.ObjectProvider<dev.kitbash.api.contributed.LiveCatalog> live) {
+        return live.getIfAvailable() == null
+                ? loadedCatalog.catalog()
+                : live.getObject().catalog();
     }
 
+    /**
+     * The pipeline, over suppliers rather than values (kitbash-48).
+     *
+     * <p>One bean for the life of the process that nevertheless sees an approval, because it asks
+     * the holder each time rather than holding a catalog. The alternative was to make nine
+     * controllers fetch a fresh pipeline, which is the same indirection spread over nine places to
+     * forget it.
+     *
+     * <p>The render stage is routed by provenance when contributed recipes are possible: shipped
+     * templates in process, contributed ones in the sandbox. Without persistence there can be no
+     * contributed recipe, so the plain stage is correct and costs nothing.
+     */
     @Bean
-    public GenerationPipeline generationPipeline(CatalogLoader.LoadedCatalog loadedCatalog) {
-        return GenerationPipeline.over(loadedCatalog.catalog(), loadedCatalog.content(), new PebbleRenderStage());
+    public GenerationPipeline generationPipeline(
+            CatalogLoader.LoadedCatalog loadedCatalog,
+            org.springframework.beans.factory.ObjectProvider<dev.kitbash.api.contributed.LiveCatalog> live,
+            org.springframework.beans.factory.ObjectProvider<dev.kitbash.sandbox.SandboxedRenderer> sandbox) {
+        dev.kitbash.api.contributed.LiveCatalog holder = live.getIfAvailable();
+        dev.kitbash.core.pipeline.RenderStage stage = sandbox.getIfAvailable() == null
+                ? new PebbleRenderStage()
+                : new dev.kitbash.sandbox.ContributedRenderStage(sandbox.getObject());
+
+        return holder == null
+                ? GenerationPipeline.over(loadedCatalog.catalog(), loadedCatalog.content(), stage)
+                : GenerationPipeline.over(holder::catalog, holder::content, stage);
     }
 
     /**

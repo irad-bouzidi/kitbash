@@ -87,7 +87,15 @@ public final class TemplateVariables {
         return builder.build();
     }
 
-    Map<String, Object> asMap() {
+    /**
+     * The whole map, for a caller that has to send it somewhere the engine cannot follow.
+     *
+     * <p>Public since kitbash-48, for exactly one caller: the sandbox, which renders a contributed
+     * recipe in another process and has to serialise these across. §13's rule that the map holds
+     * validated primitives only is what makes that possible at all — JSON cannot carry a live
+     * object, so the boundary enforces the rule rather than merely preserving it.
+     */
+    public Map<String, Object> asMap() {
         return values;
     }
 
