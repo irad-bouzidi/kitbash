@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../_schema/recipe.schema.json
 id: backend-spring-kotlin
 version: 1.0.0
-frameworkVersion: "3.5.5"
+frameworkVersion: "3.5.16"
 kind: backend
 label: Spring Boot (Kotlin)
 slot: backend
@@ -35,7 +35,7 @@ options:
 # bump replaces every occurrence of it inside this directory at once, which is what
 # makes a Spring Boot bump land as one coherent change rather than four.
 tracks:
-  - version: "3.5.5"
+  - version: "3.5.16"
     artifact: org.springframework.boot:spring-boot-starter-parent
     label: Spring Boot
   - version: "1.1.7"
@@ -47,7 +47,7 @@ tracks:
   # Spotless and ktlint are already at their latest, so there is nothing to bump *to* — which is
   # what makes this a ceiling rather than a pair that should move together. 2.3.21 is green;
   # bisected in a verification container, because the host's warm Gradle cache said otherwise.
-  - version: "2.1.21"
+  - version: "2.3.21"
     artifact: org.jetbrains.kotlin:kotlin-stdlib
     label: Kotlin
     holdBelow: "2.4.0"
@@ -60,13 +60,13 @@ tracks:
   # is no ceiling here. There was one, briefly, holding ktlint below 1.6; it pinned one half of a
   # pair while the other half moved, and turned a green bump red. That is the failure §36's
   # "group bumps sensibly" is warning about, and a ceiling is the wrong tool for it.
-  - version: "1.5.0"
+  - version: "1.8.0"
     artifact: com.pinterest.ktlint:ktlint-cli
     label: ktlint
-  - version: "2.8.9"
+  - version: "2.9.1"
     artifact: org.springdoc:springdoc-openapi-starter-webmvc-ui
     label: springdoc
-  - version: "1.4.1"
+  - version: "1.5.0"
     artifact: com.tngtech.archunit:archunit-junit5
     label: ArchUnit
 
@@ -121,9 +121,9 @@ patches:
     when: "capability('gradle-build')"
     marker: "# kitbash:versions"
     lines:
-      - 'ktlint = "1.5.0"'
-      - 'kotlin = "2.1.21"'
-      - 'spring-boot = "3.5.5"'
+      - 'ktlint = "1.8.0"'
+      - 'kotlin = "2.3.21"'
+      - 'spring-boot = "3.5.16"'
       - 'spring-dependency-management = "1.1.7"'
 
   - op: insertAtMarker
@@ -187,7 +187,7 @@ patches:
       - "  <parent>"
       - "    <groupId>org.springframework.boot</groupId>"
       - "    <artifactId>spring-boot-starter-parent</artifactId>"
-      - "    <version>3.5.5</version>"
+      - "    <version>3.5.16</version>"
       - "    <relativePath/>"
       - "  </parent>"
 
@@ -196,8 +196,8 @@ patches:
     when: "capability('maven-build')"
     marker: "<!-- kitbash:versions -->"
     lines:
-      - "    <kotlin.version>2.1.21</kotlin.version>"
-      - "    <ktlint.version>1.5.0</ktlint.version>"
+      - "    <kotlin.version>2.3.21</kotlin.version>"
+      - "    <ktlint.version>1.8.0</ktlint.version>"
 
   - op: insertAtMarker
     target: pom.xml
@@ -295,7 +295,7 @@ patches:
   - op: addDependency
     target: .
     configuration: implementation
-    coordinate: org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9
+    coordinate: org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1
     versionRef: springdoc-openapi-webmvc
   # Jackson cannot see a Kotlin data class's constructor parameters or its nullability without
   # this module, and a request body would deserialise with nulls in non-null fields.
@@ -328,7 +328,7 @@ patches:
   - op: addDependency
     target: .
     configuration: testImplementation
-    coordinate: com.tngtech.archunit:archunit-junit5:1.4.1
+    coordinate: com.tngtech.archunit:archunit-junit5:1.5.0
     versionRef: archunit
 
   - op: appendLines
