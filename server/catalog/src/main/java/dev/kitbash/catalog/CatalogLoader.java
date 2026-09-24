@@ -130,6 +130,20 @@ public final class CatalogLoader {
                     "Add a recipe.yaml, or move the directory out of the recipe tree if it is not one.");
         }
         Recipe recipe = reader.read(manifest, displayPath);
+        if (recipe.id().contributed()) {
+            // The git half of the catalog cannot hold a namespaced id, and saying so by name
+            // matters more than it looks: without this the failure below would be "id is
+            // '@ns/name' but the directory is called 'name'", which reads like a rename will fix
+            // it. It will not — an '@' here means a contributed recipe was committed to the tree
+            // that exists precisely so its contents are reviewed as code (§10, kitbash-47).
+            throw new RecipeLoadException(
+                    displayPath,
+                    "id",
+                    "is '" + recipe.id() + "', and a namespaced id belongs to a contributed recipe.",
+                    "Recipes under /recipes are shipped ones and their ids are unnamespaced. Submit "
+                            + "a contributed recipe through POST /api/v1/contributed-recipes, or drop "
+                            + "the '@namespace/' prefix to ship this one with the catalog.");
+        }
         if (!recipe.id().value().equals(directory.getFileName().toString())) {
             throw new RecipeLoadException(
                     displayPath,

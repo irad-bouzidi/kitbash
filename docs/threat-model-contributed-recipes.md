@@ -6,10 +6,11 @@
 model completely* and are *their own project, not a checkbox*. §1 lists them as a v1 non-goal. So
 `kitbash-47` asks for a written argument before any code, and this is it.
 
-The conclusion is at the bottom, but it is short enough to put here too: **the feature is declined
-for the audience the plan describes**, and [ADR 0004](adr/0004-contributed-recipes-declined.md)
-records that. The reasoning is worth more than the verdict, because the verdict changes when the
-audience does — [When to revisit](#7-when-to-revisit) names the conditions with numbers attached.
+The conclusion is at the bottom, but it is short enough to put here too: **the feature is built,
+and three of the six threats get controls that are not the sandbox**, because the sandbox cannot
+reach them. [ADR 0004](adr/0004-contributed-recipes-accepted.md) records the decision and what it
+costs. [§6](#6-the-decision) states the controls as requirements — they are not advice, and a
+review that lets one through has let the feature's critical half through with it.
 
 ---
 
@@ -221,113 +222,140 @@ legitimate output. No amount of process isolation constrains a file that is supp
 zipped and handed over.
 
 So the expensive, difficult, interesting part of this feature — the sandbox, the adversarial test
-suite, the separate-process runner — addresses the *cheaper half* of its own threat model. The
-critical half has exactly one control: **a human being reads the recipe before it becomes
-visible.**
+suite, the separate-process runner — addresses the *cheaper half* of its own threat model.
 
-That is not a discovery that kills the feature. §47 already requires that human: *a contributed
-recipe is invisible until approved, and approval is a human action recorded against a named
-reviewer.* What it does is relocate the question. The feature is not really "can we sandbox
-untrusted rendering?" — we can. It is:
+§47 already supplies one control for the other half: *a contributed recipe is invisible until
+approved, and approval is a human action recorded against a named reviewer.* That human is
+necessary and is built. But a review is only as good as what it is asked to look at, and asking
+somebody to eyeball a free-text Maven coordinate for a typosquat, or a CI job for exfiltration, is
+asking them to be a scanner. Reviews that depend on nobody ever being tired are not controls.
 
-> **Is a bespoke recipe-review workflow better than the code review these contributors can already
-> get?**
+So the design owes each of 3.4, 3.6 and especially 3.5 something **structural** — a rule the
+system enforces, so the reviewer is checking a judgement rather than performing a search.
+[§6](#6-the-decision) is those three rules. They are the part of this feature that the sandbox, had
+it been built alone, would have quietly left out.
 
-## 5. The comparison that decides it
+## 5. The cost this accepts
 
-The contributors are, by §2 above, people with commit access to this repository. So the alternative
-to building a review workflow is not *no review*. It is `git`.
+The contributors are, by [§2](#2-who-contributes-and-who-reviews), people with commit access to
+this repository. So the alternative to building a review workflow is not *no review*. It is `git`,
+and git is better at most of it:
 
 | | Contributed-recipe review | A merge request |
 | --- | --- | --- |
 | What the reviewer reads | the same YAML and templates | the same YAML and templates |
-| Diff against the previous version | must be built | `git diff` |
+| Diff against the previous version | built here | `git diff` |
 | Attribution | a `reviewed_by` column | signed commits, `git blame` |
-| Required reviewers by area | must be built | `CODEOWNERS` |
-| Revocation | must be built, plus flagging affected generations | `git revert`, plus the same flagging |
-| Verification before it is visible | must be built | the matrix already gates every MR |
-| History of who approved what, and why | must be built | the MR thread, permanently |
-| Cost to build | a sandbox runner module, a dual-source catalog, migrations, a review UI, an adversarial test suite | **zero** |
+| Required reviewers by area | not built | `CODEOWNERS` |
+| Revocation | built here, plus flagging affected generations | `git revert`, plus the same flagging |
+| Verification before it is visible | built here | the matrix already gates every MR |
+| History of who approved what, and why | a row | the MR thread, permanently |
 
-Every row that matters is already better on the right, and the left-hand column has to be built,
-tested, documented and operated. The bespoke workflow is not merely more expensive — for this
-contributor population it is **strictly weaker**, because it discards attribution and history that
-git supplies for free.
+This table is not an argument against the decision — the decision is made, and it is the owner's to
+make. It is the **list of things this implementation has to be judged against**, and two rows are
+worth carrying into review:
 
-Against that, the feature's entire benefit is: *a contributor skips opening a merge request.*
-
-There is a second cost worth naming. §10 keeps the catalog out of the database deliberately —
-recipes are *reviewable, diffable, versioned with the code that renders them* — and
-`SchemaTest.theCatalogIsNotInTheDatabase` asserts that no table ever describes a recipe, a
-technology, an architecture or a catalog. That test is a tripwire, placed so this conversation
-would have to happen before a migration quietly made the catalog mutable state. Building this
-feature means deleting it, and with it the property that a catalog digest corresponds to a git
-commit somebody can check out.
+- **`CODEOWNERS` has no equivalent here**, and is not built. Any approver may approve any recipe. If
+  the catalog grows past what one reviewer can assess, that is the first gap to close, and
+  [§7](#7-what-would-reverse-this) says so.
+- **The catalog digest stops corresponding to a git commit.** §10 kept recipes in git so they were
+  *reviewable, diffable, versioned with the code that renders them*, and
+  `SchemaTest.theCatalogIsNotInTheDatabase` was the tripwire guarding it. The tripwire has been
+  changed rather than deleted: it now asserts that the contributed tables are **exactly** the ones
+  this feature introduced, so the next table describing a recipe still has to argue for itself. The
+  digest becomes `git:<d>+contributed:<d>`, so a generation's provenance stays unambiguous — which
+  half came from a commit, and which half did not.
 
 ## 6. The decision
 
-**Declined**, for the audience §18 describes.
+**Build it, with three controls the sandbox does not provide.**
 
-§47 anticipates this outcome and calls it a success: *if the justification cannot be written
-convincingly, the correct outcome of this task is a merged document explaining why the feature was
-declined.* The justification cannot be written convincingly, and the reason is not that the
-engineering is hard. It is that the feature's only irreplaceable control — human review — is a
-control we already have in a better form, and its sandbox, however well built, would leave both
-critical threats exactly where it found them.
+[§4](#4-the-finding) is the reason this section is not simply "build it". The sandbox §13 prescribes
+handles 3.1–3.3 and would handle them well. It handles **none** of 3.4–3.6, and those include both
+Critical threats. A build that ships the sandbox and calls the threat model satisfied would have
+shipped the easy half.
 
-The recipe authoring SDK from [`kitbash-43`](tasks/phase-5-extension/kitbash-43-recipe-authoring-sdk.md)
-already delivers the part that had real value: writing a recipe is a supported activity with a
-local harness, so a contributor does not need to understand the engine to produce one. What
-`kitbash-47` would add on top is a delivery mechanism, and `git` is already a good one.
+So each of the three carries a control that is not isolation, and each is a hard requirement of
+this feature rather than a hardening task for later.
 
-### What this decision is *not*
+### 6.1 Contributed recipes may only name allowlisted dependency coordinates
 
-It is not a claim that the sandbox would fail. Sections 3.1–3.3 say the opposite: for the threats
-isolation addresses, the §13 design is correct and would work.
+Answers [3.4](#34-malicious-dependency-coordinates). `addDependency` in a contributed recipe is
+checked against an allowlist of `group:name` pairs; anything else is refused at submission, by
+name, with the §14 envelope.
 
-It is not a claim that contributed recipes are a bad idea in general. For a different audience the
-arithmetic inverts, which is what the next section is for.
+The allowlist is **`group:name` without a version**, deliberately. Pinning versions would make the
+list a second dependency-freshness problem and it would rot; the threat is a coordinate nobody
+recognises, not a stale one, and a version that moves is already §12's job.
 
-## 7. When to revisit
+This does not eliminate the trust decision — it relocates it to a small, reviewable file that
+changes rarely, which is a much better place for it than a free-text field in a manifest. A
+contributed recipe needing a coordinate not on the list is a merge request against the list, which
+is exactly the review [§5](#5-the-cost-this-accepts) says git does better.
 
-The decision rests on one fact — **contributors already have commit access** — and that fact has an
-owner who would know before this document did. Any of the following breaks it, and each is written
-so somebody can tell whether it has happened:
+### 6.2 Contributed recipes may not touch CI
 
-1. **Contributors appear who cannot be given repository access.** A partner team, a contractor, a
-   second company. This is the strongest trigger: it removes the alternative in §5 entirely, and
-   the comparison has to be redone against *no review* rather than against a merge request.
-2. **The reviewing team becomes the bottleneck.** Concretely: recipe merge requests routinely wait
-   more than a week, *and* the queue is not explained by something easier to fix. Note that a
-   bespoke workflow does not fix this by itself — the same people still review — so the trigger is
-   only real if it comes with more reviewers who are not committers.
-3. **§18's audience changes.** Multi-tenancy, or an externally hosted instance. §18 excludes both
-   today, and both would make "one internal team" false, along with most of §2.
-4. **The catalog outgrows one team's knowledge.** If recipes are wanted for stacks nobody on the
-   reviewing team can assess, the review in §5's right-hand column stops being better than the left
-   — it stops being meaningful at all, and the answer is probably domain reviewers via `CODEOWNERS`
-   before it is a new subsystem.
+Answers [3.5](#35-exfiltration-through-generated-ci-files). A contributed recipe may not declare the
+`ci` capability, and its patches may not target a CI file. Refused at submission.
 
-If a revisit happens, sections 3.1–3.3 stand as the design brief for the sandbox, and **3.4–3.6 are
-the sections that need new answers**, because they are the ones no sandbox will provide. Starting
-points, recorded so the next attempt does not begin from nothing:
+This costs contributed recipes a genuinely useful feature, and the trade is made deliberately here
+rather than discovered later: a generated CI job runs in the user's pipeline with the user's
+secrets, verification lints it rather than executing it, and no control short of not emitting it
+closes that. A contributed recipe that needs a CI job is a merge request against the shipped
+catalog.
 
-- **3.4** — an allowlist of dependency coordinates, or a required registry provenance attestation.
-  Note that both push the trust decision onto a reviewer again, just earlier and in a narrower
-  place, which is a real improvement over a free-text coordinate.
-- **3.5** — deny contributed recipes the `ci` capability and the CI-file patch targets outright.
-  This is a capability restriction rather than an isolation one, and it costs contributed recipes a
-  genuinely useful feature; that trade should be made deliberately rather than discovered.
-- **3.6** — mandatory namespacing (`@team/recipe-id`) carried into the digest, the lock, the logs
-  and the wizard, so a contributed recipe cannot be mistaken for a shipped one in any of the four
-  places §10 and §14 make somebody look.
+### 6.3 Contributed recipe ids are namespaced, everywhere
+
+Answers [3.6](#36-plausible-names). A contributed recipe's id is `@namespace/name`, and the `@`
+prefix is carried into the catalog digest, the generation lock, the logs and the wizard — all four
+of the places §10 and §14 make somebody look.
+
+Four rather than one because they are four different questions. The wizard answers *what am I
+choosing*; the lock answers *what did I ship*; the logs answer *what happened*; the digest answers
+*was this the same catalog*. A namespace visible in three of them and absent from the fourth is a
+namespace that fails exactly when somebody is investigating.
+
+### 6.4 And the sandbox, for the half it does cover
+
+Separate process, no network, read-only filesystem, hard memory and CPU caps, hard timeout, no
+access to the host catalog or the database — as §13 prescribes, for 3.1–3.3.
+
+One addition the analysis produced: **the sandbox fails closed.** If the confinement it asks the
+operating system for is unavailable, a contributed recipe is refused rather than rendered
+unconfined. A sandbox that silently degrades to "a normal render" on a host that does not support
+namespaces is worse than no sandbox, because the threat model says it is there.
+
+Shipped recipes are unaffected and keep rendering in process. They are not the untrusted input, and
+routing them through a subprocess would buy nothing and cost every generation.
+
+## 7. What would reverse this
+
+The decision rests on the three controls in [§6](#6-the-decision) holding. Each has a failure mode
+worth watching for, and none of them is subtle:
+
+1. **The allowlist becomes a rubber stamp.** If coordinates are added to it on request without
+   anybody checking what they are, 6.1 has become a formality and 3.4 is back, with the extra harm
+   of a control everyone believes in. The signal is an allowlist that grows on the same merge
+   request as the recipe that needs it.
+2. **The CI restriction acquires an exception.** The first *"this recipe really does need a job"*
+   is the one to refuse, because the second is much harder to.
+3. **A namespace is dropped somewhere.** Most likely in a log line or a metric label, where §10's
+   privacy rule already restricts what may be written and the temptation is to shorten.
+4. **The sandbox's fail-closed becomes fail-open.** Under operational pressure — a host where
+   namespaces are unavailable and generations are failing — the tempting fix is a flag. That flag
+   is the feature's threat model being switched off from a config file.
+
+If the contributor population ever stops being people with commit access — a partner team, a
+contractor, a second company — then [§5](#5-the-cost-this-accepts)'s comparison no longer has a
+right-hand column, and this analysis needs redoing rather than extending. That is a bigger change
+than it sounds: every control here assumes a reviewer who can be held responsible.
 
 ## 8. What this task changed
 
-Documentation, and one test comment. No production code, no migration, no new module — which is
-the point.
-
-- this document
-- [ADR 0004](adr/0004-contributed-recipes-declined.md), recording the decision where decisions live
-- `SchemaTest.theCatalogIsNotInTheDatabase`, whose comment now points here: the tripwire fired as
-  designed, the conversation happened, and the answer was no
+- this document, and [ADR 0004](adr/0004-contributed-recipes-accepted.md)
+- `server/sandbox` — the confined renderer, and the adversarial suite that is the sandbox's own
+  "done when"
+- `server/catalog` — the dual-source catalog, namespacing, and the two restrictions in 6.1 and 6.2
+- `server/api` — submission, review, approval, revocation, and the provenance the lock carries
+- `SchemaTest.theCatalogIsNotInTheDatabase`, which now asserts that the contributed tables are
+  exactly the ones this feature introduced, rather than that none exists
