@@ -33,12 +33,27 @@ wrote one.
 
 ## Scope
 
-- Move `dumpOpenApiDocument`, `OpenApiDocumentTest` (Java and Kotlin) and the Gradle and Maven
-  build patches out of `frontend-react-vite` and into the backends that declare
-  `provides: [openapi-spec]`.
-- Gate them on the capability being **consumed** rather than on `frontend-react-vite`'s
-  `typedClient` option, so a project with a mobile client and no web frontend still gets a
-  document.
+> **Corrected before starting.** The first version of this section said to move document
+> production *into the backends* and gate it on the capability being **consumed**. That cannot be
+> expressed: `provides` in `recipe.schema.json` is a flat `capabilityList` with no `when`, so a
+> recipe provides a capability unconditionally or not at all, and there is no way for a backend to
+> say "I produce a document when somebody wants one". Gating on `typedClient || mobileTypedClient`
+> instead would hardcode two consumers' option ids into both backends, which is the coupling the
+> capability system exists to remove.
+>
+> So the shape below is a **dedicated recipe** rather than a move. It reaches the same place —
+> any number of consumers can generate from one document — through the mechanism the catalog
+> already has.
+
+- A new recipe, `openapi-document`: `provides: [openapi-document]`, `requires: [openapi-spec]`.
+  It carries what `frontend-react-vite` carries today — `OpenApiDocumentTest` in both languages
+  (gated on `capability('java-sources')` / `capability('kotlin-sources')`, as now) and the
+  `dumpOpenApiDocument` build patches for Gradle and Maven.
+- Consumers declare `requires: [openapi-document]`. The resolver implies the producer, which is
+  exactly what `requires` is for — a selection constraint, not an ordering one — so a mobile app
+  with no web frontend pulls the document in by itself.
+- `frontend-react-vite` keeps its `typedClient` option and its fourteen `when: "typedClient…"`
+  patch gates go with the files that move. What it stops carrying is the production.
 - Give `mobile-react-native-expo` its typed-client option with `requires: [openapi-spec]`, as §45
   asked for, replacing the hand-written client.
 - A matrix cell for mobile-with-typed-client, and the `kitbash-33` contract extended to it: change
@@ -54,6 +69,13 @@ comes from; `kitbash-33`'s choices about the client stand.
 - Four combinations to keep green, not two: Java and Kotlin, each on Gradle and Maven. The build
   patches differ per build tool and the document test differs per language, which is why this
   reads as a small move and is not one.
+- **The reference projects do not carry `OpenApiDocumentTest`** — checked. So this touches recipe
+  content only and the `kitbash-19` equality test has nothing to say about it, which removes the
+  largest risk a recipe refactor usually carries.
+- `demands: openapi-spec` on `typedClient` becomes `demands: openapi-document`. Worth doing in the
+  same change: leaving it pointing at the old capability would let a selection validate and then
+  produce a client with nothing to generate from, which is the failure the `demands` keyword was
+  added to prevent.
 - Watch for the document being produced twice when both a web and a mobile client are selected.
   Two consumers of one capability is the case this exists to support, so the producing recipe has
   to emit once regardless of how many ask.
