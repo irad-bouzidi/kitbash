@@ -26,4 +26,12 @@ public record GenerationResponse(
         boolean kept,
         boolean exactlyReproducible,
         Instant createdAt,
-        Instant expiresAt) {}
+        Instant expiresAt,
+        /**
+         * Where this generation was pushed, when it was (§46).
+         *
+         * <p>Null for the usual case — the zip is the default and stays it. When it is set, it is
+         * the thing a user is looking for: they came back to history to find where the project
+         * went, and the URL is the answer.
+         */
+        String pushedProjectUrl) {}

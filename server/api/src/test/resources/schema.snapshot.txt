@@ -14,6 +14,7 @@ columns
   generation.created_at : timestamp with time zone not null
   generation.expires_at : timestamp with time zone
   generation.kept : boolean not null default false
+  generation.pushed_project_url : text
   preset.id : uuid not null
   preset.owner_id : uuid not null
   preset.name : text not null

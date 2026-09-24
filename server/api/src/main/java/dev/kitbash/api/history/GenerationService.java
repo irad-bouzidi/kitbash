@@ -162,7 +162,8 @@ public class GenerationService {
                 // somebody clicks: a button that might fail is worse than one that says why.
                 LockDiff.between(locked, currentVersionsOf(locked.keySet())).isEmpty(),
                 generation.createdAt(),
-                generation.expiresAt());
+                generation.expiresAt(),
+                generation.pushedProjectUrl());
     }
 
     private Map<String, String> lockOf(Generation generation) {

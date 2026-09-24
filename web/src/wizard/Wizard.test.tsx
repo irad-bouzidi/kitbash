@@ -521,4 +521,40 @@ describe('Wizard', () => {
     await waitFor(() => expect(screen.getByTestId('problem-detail')).toBeInTheDocument());
     expect(screen.getByTestId('problem-hint')).toHaveTextContent('Break the cycle');
   });
+
+  /**
+   * §46: *the wizard's bottom bar gains a push action beside Generate; Generate remains the
+   * primary.* Both halves are asserted, because the half that is easy to lose is the second one —
+   * a push target that became the default would put the simplest delivery behind a credential.
+   */
+  it('offers a push beside Generate without displacing it', async () => {
+    stubApi(
+      emptyResolution({
+        recipes: [
+          {
+            id: 'contraption-alpha',
+            label: 'Alpha',
+            kind: 'gadget',
+            recipeVersion: '1.0.0',
+            frameworkVersion: '9.9',
+            implied: false,
+          },
+        ],
+      }),
+    );
+    renderWizard();
+    await within(await screen.findByTestId('stack-summary')).findByText('Alpha');
+
+    // Generate is the submit button of the form; the push is not, which is what "primary" means
+    // here — Enter in the wizard still generates.
+    expect(screen.getByRole('button', { name: 'Generate' })).toHaveAttribute('type', 'submit');
+    const push = screen.getByRole('button', { name: 'Push to GitLab' });
+    expect(push).toHaveAttribute('type', 'button');
+    expect(
+      within(screen.getByTestId('download-form')).getByRole('button', { name: 'Push to GitLab' }),
+    ).toBe(push);
+
+    await userEvent.setup().click(push);
+    expect(await screen.findByTestId('push-dialog')).toBeInTheDocument();
+  });
 });

@@ -117,7 +117,8 @@ public class GenerationRepository {
                 (Integer) row.getObject("size_bytes"),
                 instant(row, "created_at"),
                 instant(row, "expires_at"),
-                row.getBoolean("kept"));
+                row.getBoolean("kept"),
+                row.getString("pushed_project_url"));
     }
 
     /**
@@ -159,4 +160,18 @@ public class GenerationRepository {
      *     caller's job and is done in one place, where there is a test for it
      */
     public record PopularSelection(String selectionHash, int generations, String selection) {}
+
+    /**
+     * Records where a generation was pushed (§46).
+     *
+     * <p>An update rather than a column on the insert, because the order is what it is: the row
+     * exists the moment the project is generated, and a push happens after — or not at all, which
+     * is the usual case.
+     */
+    public int markPushed(UUID id, String projectUrl) {
+        return jdbc.sql("update generation set pushed_project_url = :url where id = :id")
+                .param("id", id)
+                .param("url", projectUrl)
+                .update();
+    }
 }
