@@ -23,5 +23,16 @@ COPY --from=build /build/dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# 127.0.0.1 rather than localhost, and the difference is the whole healthcheck.
+#
+# The image's /etc/hosts maps `localhost` to both 127.0.0.1 and ::1, wget tries the IPv6 address
+# first, and nginx listens on `80` — IPv4 only. So this probe answered "connection refused" on
+# every run since kitbash-4 and the container has never once reported healthy: `docker compose ps`
+# has shown `unhealthy` for the whole life of this file, and anything that waited on
+# `service_healthy` would have waited forever.
+#
+# Naming the family is the fix rather than adding `listen [::]:80`, because what this asks is "is
+# the server I just started answering", and that question should not depend on a resolver's
+# preference order.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
-    CMD wget -q -O- http://localhost/ >/dev/null || exit 1
+    CMD wget -q -O- http://127.0.0.1/ >/dev/null || exit 1
