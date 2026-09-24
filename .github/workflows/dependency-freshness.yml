@@ -105,13 +105,27 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate a project to scan
+      # Two projects, because no single selection carries both dependency trees in a form
+      # osv-scanner can read. The Gradle full-stack has the browser's `pnpm-lock.yaml`; the JVM
+      # half needs Maven, because a generated Gradle project has no lockfile at all — no
+      # `gradle.lockfile`, no `verification-metadata.xml` — and a `build.gradle.kts` is not
+      # something a scanner can resolve.
+      #
+      # This is what the job was missing. It scanned only the Gradle project and passed
+      # `--lockfile=pom.xml`, a file that project does not contain, so the JVM tree — every Spring,
+      # Flyway and Jackson coordinate the catalog pins — has never been scanned at all. The
+      # coordinates are the same in both build tools, so scanning the Maven variant covers them.
+      - name: Generate the projects to scan
         working-directory: server
         run: |
           ./gradlew --quiet :cli:installDist
           ./cli/build/install/kitbash/bin/kitbash generate \
             --selection ../verification/selections/phase3-full-stack-typed.json \
-            --out "$RUNNER_TEMP/scanned" \
+            --out "$RUNNER_TEMP/scanned-node" \
+            --catalog ../recipes
+          ./cli/build/install/kitbash/bin/kitbash generate \
+            --selection ../verification/selections/phase3-spring-java-maven.json \
+            --out "$RUNNER_TEMP/scanned-jvm" \
             --catalog ../recipes
 
       - name: Build the linting image
@@ -120,14 +134,43 @@ jobs:
       # Findings do not fail the job: a known vulnerability in a transitive test dependency is
       # something a reviewer weighs, not something that should block a security *fix* landing in
       # the same bump.
+      # Findings do not fail the job: a known vulnerability in a transitive test dependency is
+      # something a reviewer weighs, not something that should block a security *fix* landing in
+      # the same bump. Scanning *nothing* does fail it — see the guard below.
       - name: osv-scanner
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          docker run --rm -v "$RUNNER_TEMP/scanned:/input:ro" kitbash/verify-ci:latest \
-            sh -c 'osv-scanner scan source --lockfile=pom.xml --lockfile=frontend/pnpm-lock.yaml \
-              --format markdown . 2>/dev/null | grep -v "^Fetching"' \
-            > "$RUNNER_TEMP/out/scan.md" || true
-          tail -40 "$RUNNER_TEMP/out/scan.md"
+          scan() {
+            docker run --rm -v "$1:/input:ro" kitbash/verify-ci:latest \
+              sh -c "osv-scanner scan source --lockfile=$2 --format markdown /input 2>&1 \
+                | grep -v '^Fetching'"
+          }
+          {
+            echo "### JVM (Maven, $(basename "$RUNNER_TEMP")/scanned-jvm)"
+            scan "$RUNNER_TEMP/scanned-jvm" "/input/pom.xml" || echo "the JVM scan failed"
+            echo
+            echo "### Browser (pnpm)"
+            scan "$RUNNER_TEMP/scanned-node" "/input/frontend/pnpm-lock.yaml" || echo "the browser scan failed"
+          } > "$RUNNER_TEMP/out/scan.md"
+          cat "$RUNNER_TEMP/out/scan.md"
+
+      # The guard that would have caught this a month ago.
+      #
+      # §13 attaches a duty to this job — "so this does not become an efficient distributor of
+      # known-vulnerable dependencies" — and a scan that reads no manifest satisfies it exactly as
+      # well as no scan at all, while looking identical in the report: an empty code block that
+      # reads as "nothing found". So an empty result is now a failure, because the difference
+      # between "clean" and "did not run" is the whole value of the control.
+      - name: The scan must have scanned something
+        run: |
+          if ! grep -qiE 'scanned .*(file|lockfile|package)|no issues|vulnerabilit|package.*source' \
+               "$RUNNER_TEMP/out/scan.md"; then
+            echo "::error::osv-scanner produced no recognisable result. It was asked for lockfiles" \
+                 "that may not exist in the generated projects, which is how this job spent" \
+                 "kitbash-36 scanning nothing. Output was:"
+            cat "$RUNNER_TEMP/out/scan.md"
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -194,14 +237,23 @@ jobs:
       - name: Assemble the report
         id: report
         run: |
+          # `-s` rather than a bare redirect: `tail` on a file that exists but is empty succeeds
+          # and prints nothing, so the old version rendered an empty code block that read as
+          # "scanned, found nothing". It had been doing that for every bump — the scan was
+          # reading no manifest at all — and the report was the reason nobody noticed.
           {
             cat artifacts/bump-summary/bump-summary.md 2>/dev/null || echo "No summary was produced."
             echo
             echo "## Vulnerability scan"
             echo
-            echo '```'
-            tail -30 artifacts/vulnerability-scan/scan.md 2>/dev/null || echo "The scan did not run."
-            echo '```'
+            if [ -s artifacts/vulnerability-scan/scan.md ]; then
+              echo '```'
+              tail -40 artifacts/vulnerability-scan/scan.md
+              echo '```'
+            else
+              echo "**The scan produced no output.** That is a fault in this job, not a clean bill"
+              echo "of health — see the scan job's log."
+            fi
             echo
             echo "[Matrix run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           } > report.md
@@ -265,9 +317,15 @@ jobs:
             echo
             echo "### Failing cells"
             echo
-            jq -r '.cells[] | select(.outcome != "PASSED") | "- `\(.cell)` — \(.failedStep)"' \
-              artifacts/freshness-matrix-*/status.json 2>/dev/null | sort -u | head -30 \
-              | grep . || echo "See the matrix run for the shard that failed."
+            # Same trap as the scan block: with `head` in the pipeline the exit status is
+            # head's, not grep's, so `|| echo` never fired and a shard that died before writing
+            # status.json produced an empty section rather than a pointer to the run.
+            cells=$(jq -r '.cells[] | select(.outcome != "PASSED") | "- `\(.cell)` — \(.failedStep)"' \
+              artifacts/freshness-matrix-*/status.json 2>/dev/null | sort -u | head -30)
+            if [ -n "$cells" ]; then echo "$cells"; else
+              echo "No cell reported a failure, so a shard failed before it could write one."
+              echo "See the matrix run."
+            fi
             echo
             cat report.md
           } > issue.md

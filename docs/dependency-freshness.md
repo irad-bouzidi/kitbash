@@ -122,10 +122,28 @@ to the first question pins the catalog to a defect.
 
 > so this does not become an efficient distributor of known-vulnerable dependencies.
 
-Every run generates a full-stack project and scans its dependency trees with `osv-scanner` — the
-Maven side from `pom.xml`, the browser side from `pnpm-lock.yaml` — and attaches the findings to
-whatever it opens. Findings do not fail the job: a known issue in a transitive test dependency is
-something a reviewer weighs, and failing on it would block the very bump that fixes it.
+Every run generates **two** projects and scans both: the JVM tree from a Maven project's `pom.xml`,
+the browser tree from a Gradle full-stack project's `frontend/pnpm-lock.yaml`. Findings do not fail
+the job — a known issue in a transitive test dependency is something a reviewer weighs, and failing
+on it would block the very bump that fixes it.
+
+Two projects because no single selection carries both in a form a scanner can read. A generated
+Gradle project has **no lockfile at all** — no `gradle.lockfile`, no `verification-metadata.xml` —
+and a `build.gradle.kts` is not something `osv-scanner` can resolve. The coordinates are identical
+in both build tools, so the Maven variant covers the JVM half.
+
+### It scanned nothing, for a month
+
+Worth recording rather than quietly fixing. From `kitbash-36` until 2026-09-24 this step scanned a
+**Gradle** project while passing `--lockfile=pom.xml` — a file that project does not contain. The
+JVM tree, which is every coordinate the catalog pins, was never scanned. The job stayed green, the
+artifact uploaded, and the merge request rendered an empty code block that read as *scanned, found
+nothing*.
+
+Two things now stop that recurring. The scan **fails** when it produces no recognisable result,
+because the difference between "clean" and "did not run" is the whole value of the control. And the
+report says so explicitly instead of printing an empty block — the old version used
+`tail … || echo`, and `tail` on an empty file succeeds, so the fallback never fired.
 
 ## What it needs from the repository
 
