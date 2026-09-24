@@ -27,6 +27,16 @@ public class PersistenceConfiguration {
         return new GenerationRepository(jdbc);
     }
 
+    /**
+     * The one repository that holds what the system can do rather than what a user did (§10,
+     * kitbash-47). Registered beside the others because it is the same kind of object; the
+     * exception it represents is argued in ADR 0004, not hidden here.
+     */
+    @Bean
+    public ContributedRecipeRepository contributedRecipeRepository(JdbcClient jdbc) {
+        return new ContributedRecipeRepository(jdbc);
+    }
+
     @Bean
     public ShareLinkRepository shareLinkRepository(JdbcClient jdbc) {
         return new ShareLinkRepository(jdbc);
