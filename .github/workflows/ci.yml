@@ -35,24 +35,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Pulled here rather than left to Testcontainers, which gives a pull two minutes and then
-      # fails the suite. quay.io is where MinIO publishes these tags — Docker Hub stopped, which
-      # ZipCacheTest's comment explains — and it is slow enough from these runners to blow that
-      # window: three consecutive runs of #58 failed on it with a ConditionTimeoutException while
-      # every other job passed.
-      #
-      # `docker pull` has no such cap, and three attempts cover a registry having a bad minute. If
-      # it still fails the step is skipped rather than fatal, so the suite fails on the test that
-      # actually needs the image and says so, instead of on a workflow step nobody was looking at.
-      - name: Pre-pull the MinIO image
-        continue-on-error: true
-        run: |
-          for attempt in 1 2 3; do
-            docker pull quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z && exit 0
-            echo "attempt $attempt failed; retrying"
-            sleep 15
-          done
-
       - name: ./gradlew check
         working-directory: server
         run: ./gradlew check

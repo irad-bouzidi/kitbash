@@ -43,6 +43,7 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 testcontainers-minio = { module = "org.testcontainers:minio" }
+testcontainers-localstack = { module = "org.testcontainers:localstack" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

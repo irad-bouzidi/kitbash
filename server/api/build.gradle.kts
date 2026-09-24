@@ -44,7 +44,7 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.testcontainers.postgresql)
-    testImplementation(libs.testcontainers.minio)
+    testImplementation(libs.testcontainers.localstack)
     testImplementation(libs.postgresql)
     testImplementation(libs.flyway.postgresql)
     testImplementation(platform(libs.junit.bom))
