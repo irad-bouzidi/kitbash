@@ -12,3 +12,4 @@ Format: `NNNN-kebab-title.md`.
 | [0001](0001-foundational-stack-choices.md) | Foundational stack choices | Accepted |
 | [0002](0002-ci-on-both-gitlab-and-github.md) | CI on both GitLab and GitHub | Accepted |
 | [0003](0003-jackson-in-core-for-format-aware-patching.md) | Jackson in `core`, so patches can be format-aware | Accepted |
+| [0004](0004-contributed-recipes-declined.md) | User-contributed recipes are declined, and the catalog stays in git | Accepted |

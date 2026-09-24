@@ -48,6 +48,14 @@ class SchemaTest {
      * and this is the assertion that keeps that decision from eroding one convenient table at a
      * time. The catalog lives in git: reviewable, diffable, versioned with the code that renders
      * it. A database-backed catalog is a phase 5 question with real security weight (kitbash-47).
+     *
+     * <p>That question has now been asked and answered. kitbash-47 found that the sandbox §13
+     * prescribes addresses the cheaper half of its own threat model — isolation protects the
+     * generator host, while the two critical threats attack the generated project through the
+     * generator's legitimate output — and that the one control which does address them, human
+     * review, is something a merge request already supplies with attribution and history attached.
+     * So the feature was declined and this tripwire stays, which is why the assertion below is
+     * unchanged: see {@code docs/adr/0004-contributed-recipes-declined.md}.
      */
     @Test
     @DisplayName("no table describes the catalog, because the catalog is not in the database")
