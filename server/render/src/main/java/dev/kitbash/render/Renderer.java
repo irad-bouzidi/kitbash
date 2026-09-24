@@ -47,15 +47,37 @@ public final class Renderer {
      */
     public static Workspace render(
             FilePlan plan, TemplateVariables variables, Map<RecipeId, TemplateVariables> perRecipe) {
+        return render(plan, variables, perRecipe, Map.of());
+    }
+
+    /**
+     * The same, for a caller that has already evaluated some of the templates elsewhere.
+     *
+     * <p>{@code alreadyRendered} maps a template name to its output, and exists for kitbash-48:
+     * a contributed recipe's templates are evaluated in the sandbox, in another process, and
+     * arrive here as finished strings. Everything after evaluation — stripping the {@code .peb}
+     * suffix, checking the rendered path, the binary guard, plan-order collection — is the same
+     * for both, and is deliberately not written twice.
+     *
+     * <p>The load-bearing half is {@link #registryFor}: an entry whose output is supplied here is
+     * <b>left out of the in-process registry entirely</b>. So a contributed template is not merely
+     * routed away from the engine, it is not loadable by it — and neither is it reachable by an
+     * {@code include} from a shipped template, or from another recipe's.
+     */
+    public static Workspace render(
+            FilePlan plan,
+            TemplateVariables variables,
+            Map<RecipeId, TemplateVariables> perRecipe,
+            Map<String, String> alreadyRendered) {
         List<FileEntry> entries = plan.effectiveEntries();
-        TemplateEngine engine = TemplateEngine.over(registryFor(entries));
+        TemplateEngine engine = TemplateEngine.over(registryFor(entries, alreadyRendered));
 
         List<Rendered> rendered = new ArrayList<>(entries.size());
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Rendered>> futures = new ArrayList<>(entries.size());
             for (FileEntry entry : entries) {
-                futures.add(executor.submit(
-                        () -> renderOne(engine, entry, perRecipe.getOrDefault(entry.owner(), variables))));
+                futures.add(executor.submit(() ->
+                        renderOne(engine, entry, perRecipe.getOrDefault(entry.owner(), variables), alreadyRendered)));
             }
             for (Future<Rendered> future : futures) {
                 rendered.add(await(future));
@@ -70,9 +92,13 @@ public final class Renderer {
     /** One entry's rendered path and body. Public only in the sense that the pipeline drives it. */
     private record Rendered(String path, GeneratedFile file) {}
 
-    private static Rendered renderOne(TemplateEngine engine, FileEntry entry, TemplateVariables variables) {
+    private static Rendered renderOne(
+            TemplateEngine engine, FileEntry entry, TemplateVariables variables, Map<String, String> alreadyRendered) {
         String recipeId = entry.owner().value();
-        String path = stripTemplateSuffix(engine.render(pathTemplateName(entry), recipeId, variables));
+        String path =
+                stripTemplateSuffix(evaluate(engine, pathTemplateName(entry), recipeId, variables, alreadyRendered));
+        // Checked whoever rendered it. A path that came back from the sandbox is a path an
+        // untrusted template chose, so it earns this more than a shipped one does.
         requireSafe(recipeId, path);
 
         byte[] raw = entry.read();
@@ -86,7 +112,7 @@ public final class Renderer {
                             recipeId, entry.path(), 0, "the file is binary but is marked as a template")
                     .asException();
         }
-        String body = engine.render(bodyTemplateName(entry), recipeId, variables);
+        String body = evaluate(engine, bodyTemplateName(entry), recipeId, variables, alreadyRendered);
         return new Rendered(
                 path,
                 new GeneratedFile(
@@ -97,9 +123,16 @@ public final class Renderer {
      * Every template this pass may load: the entries' path templates, and the bodies of the ones
      * marked as templates. Nothing else is reachable, which is what closes {@code include} (§13).
      */
-    private static TemplateRegistry registryFor(List<FileEntry> entries) {
+    private static TemplateRegistry registryFor(List<FileEntry> entries, Map<String, String> alreadyRendered) {
         Map<String, String> sources = new LinkedHashMap<>();
         for (FileEntry entry : entries) {
+            if (alreadyRendered.containsKey(pathTemplateName(entry))) {
+                // Rendered elsewhere, so not loadable here. This is the line that makes
+                // "contributed templates never reach the in-process engine" true rather than
+                // merely intended — without it they would still be in the registry, and an
+                // include from any other template could pull one in.
+                continue;
+            }
             sources.put(pathTemplateName(entry), entry.path());
             if (entry.templated()) {
                 sources.put(bodyTemplateName(entry), new String(entry.read(), StandardCharsets.UTF_8));
@@ -108,11 +141,22 @@ public final class Renderer {
         return TemplateRegistry.of(sources);
     }
 
-    private static String pathTemplateName(FileEntry entry) {
+    /** Whatever the sandbox returned, or the engine if this template is ours to evaluate. */
+    private static String evaluate(
+            TemplateEngine engine,
+            String templateName,
+            String recipeId,
+            TemplateVariables variables,
+            Map<String, String> alreadyRendered) {
+        String supplied = alreadyRendered.get(templateName);
+        return supplied != null ? supplied : engine.render(templateName, recipeId, variables);
+    }
+
+    public static String pathTemplateName(FileEntry entry) {
         return entry.owner().value() + "::" + entry.path() + "::path";
     }
 
-    private static String bodyTemplateName(FileEntry entry) {
+    public static String bodyTemplateName(FileEntry entry) {
         return entry.owner().value() + "::" + entry.path();
     }
 

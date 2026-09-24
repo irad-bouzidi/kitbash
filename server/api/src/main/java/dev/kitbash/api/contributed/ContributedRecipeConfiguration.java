@@ -47,6 +47,23 @@ public class ContributedRecipeConfiguration {
         return new ContributedRecipeRules(allowed);
     }
 
+    /**
+     * The holder, behind the persistence profile because contributed recipes are rows.
+     *
+     * <p>Refreshed once at construction so a restart picks up everything already approved — the
+     * rows outlive the process, and a catalog that only learned about them at the next approval
+     * would silently drop every recipe after every deploy.
+     */
+    @Bean
+    @org.springframework.context.annotation.Profile("persistence")
+    public LiveCatalog liveCatalog(
+            dev.kitbash.catalog.CatalogLoader.LoadedCatalog shipped,
+            dev.kitbash.api.store.ContributedRecipeRepository recipes) {
+        LiveCatalog live = new LiveCatalog(shipped, recipes);
+        live.refresh();
+        return live;
+    }
+
     @Bean
     public Confinement confinement() {
         Confinement confinement = Confinement.probe();

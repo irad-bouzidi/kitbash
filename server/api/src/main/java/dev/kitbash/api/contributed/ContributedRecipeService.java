@@ -40,11 +40,14 @@ public class ContributedRecipeService {
 
     private final ContributedRecipeRepository recipes;
     private final ContributedRecipeRules rules;
+    private final LiveCatalog live;
     private final Clock clock;
 
-    public ContributedRecipeService(ContributedRecipeRepository recipes, ContributedRecipeRules rules, Clock clock) {
+    public ContributedRecipeService(
+            ContributedRecipeRepository recipes, ContributedRecipeRules rules, LiveCatalog live, Clock clock) {
         this.recipes = recipes;
         this.rules = rules;
+        this.live = live;
         this.clock = clock;
     }
 
@@ -128,6 +131,9 @@ public class ContributedRecipeService {
                             + "again. Reload the queue to see where it is.");
         }
         ContributedRecipe approved = recipes.findById(id).orElseThrow();
+        // The moment it becomes generable. Immediately rather than on the next boot, which is
+        // kitbash-48's "without restarting the server".
+        live.refresh();
         log.info("Contributed recipe approved: recipe={} submission={}", approved.recipeId(), id);
         return approved;
     }
@@ -151,6 +157,11 @@ public class ContributedRecipeService {
                     "That submission is already revoked.",
                     "Nothing changed. The generations that used it were flagged when it was first " + "revoked.");
         }
+
+        // Out of the catalog first, then the flagging. The order is the point: withdrawing is
+        // what stops new generations using it, and if the flagging fails halfway the recipe is
+        // still gone. The reverse would leave it generable while its victims were being listed.
+        live.refresh();
 
         List<UUID> affected = recipes.generationsUsing(recipe.recipeId());
         recipes.flag(affected, recipe.recipeId(), reason, now);

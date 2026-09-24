@@ -36,29 +36,58 @@ import java.util.Objects;
  */
 public final class GenerationPipeline {
 
-    private final Catalog catalog;
-    private final RecipeContent content;
+    private final java.util.function.Supplier<Catalog> catalogSource;
+    private final java.util.function.Supplier<RecipeContent> contentSource;
     private final RenderStage renderStage;
     private final Caps caps;
 
-    public GenerationPipeline(Catalog catalog, RecipeContent content, RenderStage renderStage, Caps caps) {
-        this.catalog = Objects.requireNonNull(catalog, "catalog");
-        this.content = Objects.requireNonNull(content, "content");
+    /**
+     * A pipeline over a catalog that can change under it (kitbash-48).
+     *
+     * <p>Suppliers rather than values, and only because approving a contributed recipe has to take
+     * effect without a restart. The alternative was to make every consumer of this class ask a
+     * holder for a fresh pipeline, which is the same indirection spread over nine call sites
+     * instead of one — and nine places to forget it.
+     *
+     * <p>Nothing else changes. A {@link Catalog} is still immutable, and any method that asks it
+     * more than one question holds it in a local first — so a swap between two requests can never
+     * be seen halfway through one.
+     */
+    public GenerationPipeline(
+            java.util.function.Supplier<Catalog> catalogSource,
+            java.util.function.Supplier<RecipeContent> contentSource,
+            RenderStage renderStage,
+            Caps caps) {
+        this.catalogSource = Objects.requireNonNull(catalogSource, "catalogSource");
+        this.contentSource = Objects.requireNonNull(contentSource, "contentSource");
         this.renderStage = Objects.requireNonNull(renderStage, "renderStage");
         this.caps = Objects.requireNonNull(caps, "caps");
+    }
+
+    /** A pipeline over a catalog that will not change, which is every caller but the API's. */
+    public GenerationPipeline(Catalog catalog, RecipeContent content, RenderStage renderStage, Caps caps) {
+        this(() -> catalog, () -> content, renderStage, caps);
     }
 
     public static GenerationPipeline over(Catalog catalog, RecipeContent content, RenderStage renderStage) {
         return new GenerationPipeline(catalog, content, renderStage, Caps.standard());
     }
 
+    /** The same, over sources that may answer differently after a contributed recipe is approved. */
+    public static GenerationPipeline over(
+            java.util.function.Supplier<Catalog> catalog,
+            java.util.function.Supplier<RecipeContent> content,
+            RenderStage renderStage) {
+        return new GenerationPipeline(catalog, content, renderStage, Caps.standard());
+    }
+
     public Catalog catalog() {
-        return catalog;
+        return catalogSource.get();
     }
 
     /** Stage 1. Unknown recipe ids are rejected here, before anything has been resolved. */
     public Selection parse(SelectionEnvelope envelope) {
-        return SelectionParser.parse(catalog, envelope);
+        return SelectionParser.parse(catalog(), envelope);
     }
 
     /**
@@ -70,8 +99,11 @@ public final class GenerationPipeline {
      * response instead of an inline field message.
      */
     public Resolution validate(SelectionEnvelope envelope) {
+        // One read for both questions, for the reason generate() gives: parse and resolve must
+        // see the same catalog or the diagnostics can describe two different ones.
+        Catalog catalog = catalogSource.get();
         try {
-            return Resolver.resolve(catalog, parse(envelope));
+            return Resolver.resolve(catalog, SelectionParser.parse(catalog, envelope));
         } catch (GenerationException e) {
             return new Resolution(
                     java.util.List.of(),
@@ -85,7 +117,7 @@ public final class GenerationPipeline {
 
     /** Stage 3 on its own, for callers that already have a resolution. */
     public FilePlan plan(Resolution resolution) {
-        return Planner.plan(resolution, content, caps);
+        return Planner.plan(resolution, contentSource.get(), caps);
     }
 
     /**
@@ -94,7 +126,8 @@ public final class GenerationPipeline {
      */
     public Workspace preview(SelectionEnvelope envelope) {
         Caps.Deadline deadline = caps.deadline();
-        Selection selection = parse(envelope);
+        Catalog catalog = catalogSource.get();
+        Selection selection = SelectionParser.parse(catalog, envelope);
         Resolution resolution = requireResolvable(Resolver.resolve(catalog, selection));
         return renderAndPatch(resolution, selection, deadline);
     }
@@ -103,6 +136,12 @@ public final class GenerationPipeline {
     public GeneratedProject generate(SelectionEnvelope envelope) {
         Caps.Deadline deadline = caps.deadline();
         Selection selection = parse(envelope);
+        // Read once and held. Since kitbash-48 the catalog can be replaced between requests, and
+        // this method asks it two questions — what resolves, and what digest to record. Asking
+        // twice would let an approval landing in between put a digest in the lock that does not
+        // describe the catalog the resolution came from, which is an unreproducible generation
+        // and the hardest kind of bug to ever see again.
+        Catalog catalog = catalogSource.get();
         Resolution resolution = requireResolvable(Resolver.resolve(catalog, selection));
 
         Workspace workspace = renderAndPatch(resolution, selection, deadline);
