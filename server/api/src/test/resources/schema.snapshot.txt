@@ -1,4 +1,20 @@
 columns
+  contributed_recipe.id : uuid not null
+  contributed_recipe.recipe_id : text not null
+  contributed_recipe.namespace : text not null
+  contributed_recipe.version : text not null
+  contributed_recipe.manifest : text not null
+  contributed_recipe.content : jsonb not null
+  contributed_recipe.content_hash : text not null
+  contributed_recipe.status : text not null
+  contributed_recipe.submitted_by : uuid not null
+  contributed_recipe.submitted_at : timestamp with time zone not null
+  contributed_recipe.reviewed_by : uuid
+  contributed_recipe.reviewed_at : timestamp with time zone
+  contributed_recipe.verified_by_run : uuid
+  contributed_recipe.revoked_by : uuid
+  contributed_recipe.revoked_at : timestamp with time zone
+  contributed_recipe.revoked_reason : text
   generation.id : uuid not null
   generation.owner_id : uuid
   generation.preset_id : uuid
@@ -15,6 +31,10 @@ columns
   generation.expires_at : timestamp with time zone
   generation.kept : boolean not null default false
   generation.pushed_project_url : text
+  generation_flag.generation_id : uuid not null
+  generation_flag.recipe_id : text not null
+  generation_flag.reason : text not null
+  generation_flag.flagged_at : timestamp with time zone not null
   preset.id : uuid not null
   preset.owner_id : uuid not null
   preset.name : text not null
@@ -43,6 +63,12 @@ columns
   verification_run.expires_at : timestamp with time zone
 
 indexes and constraints
+  CREATE UNIQUE INDEX contributed_recipe_pkey ON public.contributed_recipe USING btree (id)
+  CREATE INDEX contributed_recipe_queue_idx ON public.contributed_recipe USING btree (submitted_at) WHERE (status = ANY (ARRAY['submitted'::text, 'verified'::text]))
+  CREATE UNIQUE INDEX contributed_recipe_recipe_id_version_key ON public.contributed_recipe USING btree (recipe_id, version)
+  CREATE INDEX contributed_recipe_visible_idx ON public.contributed_recipe USING btree (recipe_id) WHERE (status = 'approved'::text)
+  CREATE INDEX generation_flag_generation_idx ON public.generation_flag USING btree (generation_id)
+  CREATE UNIQUE INDEX generation_flag_pkey ON public.generation_flag USING btree (generation_id, recipe_id)
   CREATE INDEX generation_owner_created_at_idx ON public.generation USING btree (owner_id, created_at DESC)
   CREATE UNIQUE INDEX generation_pkey ON public.generation USING btree (id)
   CREATE INDEX generation_selection_hash_idx ON public.generation USING btree (selection_hash)
@@ -54,3 +80,4 @@ indexes and constraints
 
 foreign keys
   generation -> preset on delete set null
+  generation_flag -> generation on delete cascade

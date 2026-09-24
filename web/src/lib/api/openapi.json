@@ -446,6 +446,117 @@
         }
       }
     },
+    "/api/v1/contributed-recipes" : {
+      "get" : {
+        "tags" : [ "contributed-recipe-controller" ],
+        "operationId" : "queue",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SubmissionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "contributed-recipe-controller" ],
+        "operationId" : "submit",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmissionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubmissionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributed-recipes/{id}/revoke" : {
+      "post" : {
+        "tags" : [ "contributed-recipe-controller" ],
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RevocationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RevocationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributed-recipes/{id}/approve" : {
+      "post" : {
+        "tags" : [ "contributed-recipe-controller" ],
+        "operationId" : "approve",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubmissionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/verify/{id}" : {
       "get" : {
         "tags" : [ "verification-controller" ],
@@ -1118,6 +1229,80 @@
           },
           "pushedProjectUrl" : {
             "type" : "string"
+          }
+        }
+      },
+      "SubmissionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "manifest" : {
+            "type" : "string"
+          },
+          "files" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "SubmissionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recipeId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "submittedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revokedReason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RevocationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RevocationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "recipeId" : {
+            "type" : "string"
+          },
+          "generationsFlagged" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
