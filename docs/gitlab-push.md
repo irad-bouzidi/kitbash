@@ -27,8 +27,9 @@ creating, so a token that could only push would still need the project to exist 
 statement is therefore: **this asks for more privilege than it uses**, because GitLab's scope
 vocabulary has no smaller unit. Two consequences worth acting on:
 
-- Use a **project access token or a short-lived personal access token with an expiry**, not a
-  long-lived one. The expiry is the control GitLab does give you.
+- Use a **group access token, or a personal access token with a short expiry** — not a long-lived
+  personal one. The expiry is the control GitLab does give you. (Not a *project* access token:
+  those are scoped to a project that already exists, and this creates one that does not.)
 - Give it the narrowest **role** the operation needs: `Developer` in the target group. `api` is
   bounded by the role, so a Developer's `api` token cannot delete the group.
 
