@@ -25,7 +25,7 @@ hook: true
 # bump replaces every occurrence of it inside this directory at once, which is what
 # makes a Spring Boot bump land as one coherent change rather than four.
 tracks:
-  - version: "7.0.4"
+  - version: "7.2.1"
     artifact: com.diffplug.spotless:spotless-plugin-gradle
     label: Spotless
 
