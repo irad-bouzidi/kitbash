@@ -16,7 +16,7 @@ requires: [jvm-project]
 # bump replaces every occurrence of it inside this directory at once, which is what
 # makes a Spring Boot bump land as one coherent change rather than four.
 tracks:
-  - version: "11.10.5"
+  - version: "11.20.3"
     artifact: org.flywaydb:flyway-core
     label: Flyway
 
@@ -44,12 +44,12 @@ patches:
   - op: addDependency
     target: .
     configuration: implementation
-    coordinate: org.flywaydb:flyway-core:11.10.5
+    coordinate: org.flywaydb:flyway-core:11.20.3
     versionRef: flyway-core
   - op: addDependency
     target: .
     configuration: runtimeOnly
-    coordinate: org.flywaydb:flyway-database-postgresql:11.10.5
+    coordinate: org.flywaydb:flyway-database-postgresql:11.20.3
     versionRef: flyway-postgresql
   - op: addDependency
     target: .
