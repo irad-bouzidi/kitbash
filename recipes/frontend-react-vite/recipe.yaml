@@ -40,7 +40,7 @@ options:
 # bump replaces every occurrence of it inside this directory at once, which is what
 # makes a Spring Boot bump land as one coherent change rather than four.
 tracks:
-  - version: "7.14.0"
+  - version: "7.25.0"
     artifact: org.openapitools:openapi-generator-maven-plugin
     label: openapi-generator
 
@@ -348,7 +348,7 @@ patches:
     when: "typedClient && capability('gradle-build')"
     marker: "# kitbash:versions"
     lines:
-      - 'openapi-generator = "7.14.0"'
+      - 'openapi-generator = "7.25.0"'
 
   - op: insertAtMarker
     target: gradle/libs.versions.toml
@@ -415,7 +415,7 @@ patches:
     when: "typedClient && capability('maven-build')"
     marker: "<!-- kitbash:versions -->"
     lines:
-      - "    <openapi-generator.version>7.14.0</openapi-generator.version>"
+      - "    <openapi-generator.version>7.25.0</openapi-generator.version>"
 
   # Maven's equivalent, in a profile: `./mvnw -Pclient verify` runs the document-writing test in
   # the `test` phase and the generator in `prepare-package`, which is one lifecycle rather than
