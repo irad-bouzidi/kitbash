@@ -12,6 +12,10 @@ COPY server/buildSrc ./server/buildSrc
 COPY server/core ./server/core
 COPY server/catalog ./server/catalog
 COPY server/render ./server/render
+# kitbash-47's confined renderer. Missing this line is not a missing feature — `api` depends on
+# `:sandbox`, so settings.gradle.kts includes a project whose directory is not in the context and
+# the build dies with "No matching variant of project :sandbox ... No variants exist."
+COPY server/sandbox ./server/sandbox
 COPY server/api ./server/api
 COPY server/verify ./server/verify
 COPY server/cli ./server/cli
