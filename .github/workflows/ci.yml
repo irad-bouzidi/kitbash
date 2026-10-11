@@ -83,14 +83,20 @@ jobs:
           # kitbash-4 until 2026-09-24 permanently unhealthy — its probe asked for `localhost`,
           # which resolves to ::1 first, while nginx listens on IPv4 only — and nothing noticed
           # because nothing ever asserted this.
+          #
+          # Asserted positively: every container must be running, and healthy if it has a probe.
+          # Grepping for `unhealthy` alone would pass a service still `starting` at the timeout,
+          # and `ps` without `-a` drops a container that exited, so a crash would read as a pass.
           for attempt in $(seq 1 40); do
-            state=$(docker compose ps --format '{{.Service}}\t{{.Health}}')
+            state=$(docker compose ps -a --format '{{.Service}}\t{{.State}}\t{{.Health}}')
             echo "$state"
             echo "$state" | grep -q 'starting' || break
             sleep 6
           done
-          if docker compose ps --format '{{.Service}}\t{{.Health}}' | grep -q 'unhealthy'; then
-            echo "::error::a service never became healthy"
+          bad=$(docker compose ps -a --format '{{.Service}}\t{{.State}}\t{{.Health}}' \
+            | awk -F'\t' '$2 != "running" || ($3 != "" && $3 != "healthy")')
+          if [ -n "$bad" ]; then
+            echo "::error::a service is not running and healthy: $bad"
             docker compose ps
             docker compose logs --tail 40
             exit 1
