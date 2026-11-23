@@ -5,7 +5,7 @@
 # marker is this project's own and is safe to edit.
 
 [versions]
-spotless = "7.0.4"
+spotless = "7.2.1"
 # kitbash:versions
 
 [libraries]
